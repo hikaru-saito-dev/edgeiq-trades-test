@@ -441,21 +441,24 @@ export async function notifyFollowers(trade: ITrade, creatorUser: IUser): Promis
     // Get unique follower Whop user IDs
     const followerWhopUserIds = [...new Set(activeFollows.map(f => f.followerWhopUserId))];
 
-    // Find all follower users who have a following webhook configured
+    // Find all follower users who have at least one following webhook configured
     const followers = await User.find({
       whopUserId: { $in: followerWhopUserIds },
-      followingWebhook: { $exists: true, $ne: null },
+      $or: [
+        { followingDiscordWebhook: { $exists: true, $ne: null, $regex: /^(?!\s*$).+/ } },
+        { followingWhopWebhook: { $exists: true, $ne: null, $regex: /^(?!\s*$).+/ } },
+      ],
     }).lean();
 
     if (followers.length === 0) {
       return;
     }
 
-    // Deduplicate by whopUserId to ensure each follower only gets one notification
+    // Deduplicate by whopUserId to ensure each follower only gets one notification per webhook type
     // (A user might have multiple User documents across different companies)
     const uniqueFollowers = new Map<string, typeof followers[0]>();
     for (const follower of followers) {
-      if (follower.whopUserId && follower.followingWebhook) {
+      if (follower.whopUserId) {
         // Use the first one found for each whopUserId
         if (!uniqueFollowers.has(follower.whopUserId)) {
           uniqueFollowers.set(follower.whopUserId, follower);
@@ -482,12 +485,16 @@ export async function notifyFollowers(trade: ITrade, creatorUser: IUser): Promis
 
     const message = messageLines.join('\n');
 
-    // Send notification to each follower's following webhook (one per unique whopUserId)
-    const webhookPromises = Array.from(uniqueFollowers.values()).map(async (follower) => {
-      if (follower.followingWebhook) {
-        await sendWebhookMessage(message, follower.followingWebhook.url);
+    // Send notification to each follower's configured webhooks (Discord and/or Whop)
+    const webhookPromises: Promise<void>[] = [];
+    for (const follower of uniqueFollowers.values()) {
+      if (follower.followingDiscordWebhook && follower.followingDiscordWebhook.trim()) {
+        webhookPromises.push(sendWebhookMessage(message, follower.followingDiscordWebhook));
       }
-    });
+      if (follower.followingWhopWebhook && follower.followingWhopWebhook.trim()) {
+        webhookPromises.push(sendWebhookMessage(message, follower.followingWhopWebhook));
+      }
+    }
 
     // Use Promise.allSettled so if one fails, the others still work
     await Promise.allSettled(webhookPromises);

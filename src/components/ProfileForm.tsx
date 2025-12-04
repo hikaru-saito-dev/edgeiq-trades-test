@@ -95,7 +95,8 @@ interface UserData {
   webhooks?: Array<{ id: string; name: string; url: string; type: 'whop' | 'discord' }>;
   notifyOnSettlement?: boolean;
   onlyNotifyWinningSettlements?: boolean;
-  followingWebhook?: { id: string; name: string; url: string; type: 'whop' | 'discord' } | null;
+  followingDiscordWebhook?: string | null;
+  followingWhopWebhook?: string | null;
   membershipPlans?: Array<{
     id: string;
     name: string;
@@ -115,7 +116,8 @@ export default function ProfileForm() {
   const [webhooks, setWebhooks] = useState<Array<{ id: string; name: string; url: string; type: 'whop' | 'discord' }>>([]);
   const [notifyOnSettlement, setNotifyOnSettlement] = useState(false);
   const [onlyNotifyWinningSettlements, setOnlyNotifyWinningSettlements] = useState(false);
-  const [followingWebhook, setFollowingWebhook] = useState<{ id: string; name: string; url: string; type: 'whop' | 'discord' } | null>(null);
+  const [followingDiscordWebhook, setFollowingDiscordWebhook] = useState<string>('');
+  const [followingWhopWebhook, setFollowingWhopWebhook] = useState<string>('');
   const [membershipPlans, setMembershipPlans] = useState<Array<{
     id: string;
     name: string;
@@ -204,7 +206,8 @@ const [followOfferPriceDollars, setFollowOfferPriceDollars] = useState<number>(0
       setWebhooks(profileData.user.webhooks || []);
       setNotifyOnSettlement(profileData.user.notifyOnSettlement ?? false);
       setOnlyNotifyWinningSettlements(profileData.user.onlyNotifyWinningSettlements ?? false);
-      setFollowingWebhook(profileData.user.followingWebhook || null);
+      setFollowingDiscordWebhook(profileData.user.followingDiscordWebhook || '');
+      setFollowingWhopWebhook(profileData.user.followingWhopWebhook || '');
       setMembershipPlans(profileData.user.membershipPlans || []);
       // Follow offer fields (if available from API)
       setFollowOfferEnabled(profileData.user.followOfferEnabled ?? false);
@@ -328,14 +331,16 @@ const [followOfferPriceDollars, setFollowOfferPriceDollars] = useState<number>(0
         webhooks?: typeof webhooks;
         notifyOnSettlement?: boolean;
         onlyNotifyWinningSettlements?: boolean;
-        followingWebhook?: typeof followingWebhook;
+        followingDiscordWebhook?: string | null;
+        followingWhopWebhook?: string | null;
         membershipPlans?: typeof membershipPlans;
       } = {
         alias,
         webhooks: webhooks.filter(w => w.name.trim() && w.url.trim()),
         notifyOnSettlement,
         onlyNotifyWinningSettlements,
-        followingWebhook: followingWebhook && followingWebhook.name.trim() && followingWebhook.url.trim() ? followingWebhook : null,
+        followingDiscordWebhook: followingDiscordWebhook.trim() || null,
+        followingWhopWebhook: followingWhopWebhook.trim() || null,
       };
 
       // Only owners and companyOwners can set opt-in and membership plans
@@ -772,93 +777,37 @@ const [followOfferPriceDollars, setFollowOfferPriceDollars] = useState<number>(0
           </>
         )}
 
-        {/* Following Webhook - Available to all users */}
+        {/* Following Webhooks - Available to all users */}
         <Divider sx={{ my: 4, borderColor: 'var(--surface-border)' }} />
         <Typography variant="h6" sx={{ color: 'var(--app-text)', mt: 3, mb: 2, fontWeight: 600 }}>
-          Following Page Webhook
+          Following Page Webhooks
         </Typography>
         <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 2 }}>
-          Receive notifications when creators you follow create new trades. This webhook will be used for all following page notifications.
+          Receive notifications when creators you follow create new trades. You can configure both Discord and Whop webhooks.
         </Typography>
         
         <Box sx={{ mb: 2 }}>
           <TextField
             fullWidth
-            label="Webhook Name"
-            value={followingWebhook?.name || ''}
-            onChange={(e) => {
-              setFollowingWebhook({
-                id: followingWebhook?.id || `following_webhook_${Date.now()}`,
-                name: e.target.value,
-                url: followingWebhook?.url || '',
-                type: followingWebhook?.type || 'discord',
-              });
-            }}
-            placeholder="e.g., Following Channel"
-            margin="normal"
-            size="small"
-            sx={fieldStyles}
-          />
-          
-          <TextField
-            fullWidth
-            label="Webhook URL"
-            value={followingWebhook?.url || ''}
-            onChange={(e) => {
-              setFollowingWebhook({
-                id: followingWebhook?.id || `following_webhook_${Date.now()}`,
-                name: followingWebhook?.name || '',
-                url: e.target.value,
-                type: followingWebhook?.type || 'discord',
-              });
-            }}
+            label="Discord Webhook URL"
+            value={followingDiscordWebhook}
+            onChange={(e) => setFollowingDiscordWebhook(e.target.value)}
             placeholder="https://discord.com/api/webhooks/..."
             margin="normal"
             size="small"
             sx={fieldStyles}
           />
           
-          <FormControl fullWidth margin="normal" size="small" sx={fieldStyles}>
-            <InputLabel sx={{ color: 'var(--app-text)' }}>Webhook Type</InputLabel>
-            <Select
-              value={followingWebhook?.type || 'discord'}
-              onChange={(e) => {
-                setFollowingWebhook({
-                  id: followingWebhook?.id || `following_webhook_${Date.now()}`,
-                  name: followingWebhook?.name || '',
-                  url: followingWebhook?.url || '',
-                  type: e.target.value as 'whop' | 'discord',
-                });
-              }}
-              label="Webhook Type"
-              sx={{ color: 'var(--app-text)' }}
-            >
-              <MenuItem value="discord">Discord</MenuItem>
-              <MenuItem value="whop">Whop</MenuItem>
-            </Select>
-          </FormControl>
-          
-          {followingWebhook && (followingWebhook.name || followingWebhook.url) && (
-            <Box sx={{ mt: 1 }}>
-              <Button
-                variant="outlined"
-                color="error"
-                size="small"
-                startIcon={<DeleteIcon />}
-                onClick={() => setFollowingWebhook(null)}
-                sx={{
-                  borderColor: theme.palette.error.main,
-                  color: theme.palette.error.main,
-                  '&:hover': {
-                    borderColor: theme.palette.error.dark,
-                    backgroundColor: alpha(theme.palette.error.main, 0.1),
-                  },
-                }}
-              >
-                Remove Following Webhook
-              </Button>
-            </Box>
-          )}
+          <TextField
+            fullWidth
+            label="Whop Webhook URL"
+            value={followingWhopWebhook}
+            onChange={(e) => setFollowingWhopWebhook(e.target.value)}
+            placeholder="https://whop.com/api/webhooks/..."
+            margin="normal"
+            size="small"
+            sx={fieldStyles}
+          />
         </Box>
 
         <Box display="flex" gap={2} flexWrap="wrap" mt={3}>

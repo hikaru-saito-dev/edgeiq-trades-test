@@ -208,7 +208,8 @@ const updateUserSchema = z.object({
   webhooks: z.array(webhookSchema).optional(), // Array of webhooks with names
   notifyOnSettlement: z.boolean().optional(),
   onlyNotifyWinningSettlements: z.boolean().optional(), // Only send settlement webhooks for winning trades
-  followingWebhook: webhookSchema.optional().nullable(), // Single webhook for following page notifications
+  followingDiscordWebhook: z.string().url().optional().nullable(), // Discord webhook URL for following page notifications
+  followingWhopWebhook: z.string().url().optional().nullable(), // Whop webhook URL for following page notifications
   membershipPlans: z.array(z.object({
     id: z.string(),
     name: z.string().min(1).max(100),
@@ -313,7 +314,8 @@ export async function GET() {
         webhooks: user.webhooks || [],
         notifyOnSettlement: user.notifyOnSettlement ?? false,
         onlyNotifyWinningSettlements: user.onlyNotifyWinningSettlements ?? false,
-        followingWebhook: user.followingWebhook || null,
+        followingDiscordWebhook: user.followingDiscordWebhook || null,
+        followingWhopWebhook: user.followingWhopWebhook || null,
         membershipPlans: user.membershipPlans || [],
         hideLeaderboardFromMembers: user.hideLeaderboardFromMembers ?? false,
         followOfferEnabled: user.followOfferEnabled ?? false,
@@ -424,9 +426,13 @@ export async function PATCH(request: NextRequest) {
       user.onlyNotifyWinningSettlements = validated.onlyNotifyWinningSettlements;
     }
     
-    // Update following webhook (all roles can update - anyone with a Following page)
-    if (validated.followingWebhook !== undefined) {
-      user.followingWebhook = validated.followingWebhook || undefined;
+    // Update following webhooks (all roles can update - anyone with a Following page)
+    // Allow null to clear the webhook, undefined means no update
+    if (validated.followingDiscordWebhook !== undefined) {
+      user.followingDiscordWebhook = validated.followingDiscordWebhook || undefined;
+    }
+    if (validated.followingWhopWebhook !== undefined) {
+      user.followingWhopWebhook = validated.followingWhopWebhook || undefined;
     }
 
     await user.save();
