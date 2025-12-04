@@ -375,8 +375,17 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Send notification
+    // Send notification to creator's webhooks
     await notifyTradeCreated(trade, user, companyId || undefined, normalizedSelectedWebhookIds);
+
+    // Notify all followers of this creator
+    try {
+      const { notifyFollowers } = await import('@/lib/tradeNotifications');
+      await notifyFollowers(trade, user);
+    } catch (followError) {
+      // Don't fail trade creation if follower notification fails
+      console.error('Error notifying followers:', followError);
+    }
 
     invalidateLeaderboardCache();
     if (companyId) {

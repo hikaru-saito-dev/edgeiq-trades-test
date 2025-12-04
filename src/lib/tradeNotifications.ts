@@ -414,3 +414,86 @@ export async function notifyTradeSettled(trade: ITrade, fillContracts: number, f
   await sendMessageToUser(messageLines.join('\n'), userForNotification, undefined, webhookIdsToUse);
 }
 
+/**
+ * Notify all followers when a creator creates a new trade
+ * This sends notifications to followers' followingWebhook if configured
+ */
+export async function notifyFollowers(trade: ITrade, creatorUser: IUser): Promise<void> {
+  if (!creatorUser || !creatorUser.whopUserId) {
+    return;
+  }
+
+  try {
+    await connectDB();
+    
+    // Find all active follow purchases for this creator
+    const { FollowPurchase } = await import('@/models/FollowPurchase');
+    const activeFollows = await FollowPurchase.find({
+      capperWhopUserId: creatorUser.whopUserId,
+      status: 'active',
+      $expr: { $lt: ['$numPlaysConsumed', '$numPlaysPurchased'] },
+    }).lean();
+
+    if (activeFollows.length === 0) {
+      return;
+    }
+
+    // Get unique follower Whop user IDs
+    const followerWhopUserIds = [...new Set(activeFollows.map(f => f.followerWhopUserId))];
+
+    // Find all follower users who have a following webhook configured
+    const followers = await User.find({
+      whopUserId: { $in: followerWhopUserIds },
+      followingWebhook: { $exists: true, $ne: null },
+    }).lean();
+
+    if (followers.length === 0) {
+      return;
+    }
+
+    // Deduplicate by whopUserId to ensure each follower only gets one notification
+    // (A user might have multiple User documents across different companies)
+    const uniqueFollowers = new Map<string, typeof followers[0]>();
+    for (const follower of followers) {
+      if (follower.whopUserId && follower.followingWebhook) {
+        // Use the first one found for each whopUserId
+        if (!uniqueFollowers.has(follower.whopUserId)) {
+          uniqueFollowers.set(follower.whopUserId, follower);
+        }
+      }
+    }
+
+    if (uniqueFollowers.size === 0) {
+      return;
+    }
+
+    // Format the notification message
+    const creatorName = formatUser(creatorUser);
+    const tradeLabel = formatTradeLabel(trade);
+    const messageLines = [
+      '🆕 **New Trade from Creator**',
+      `Creator: ${creatorName}`,
+      `Trade: ${tradeLabel}`,
+      `Contracts: ${trade.contracts}`,
+      `Fill Price: $${trade.fillPrice.toFixed(2)}`,
+      `Notional: ${formatNotional(trade.contracts * trade.fillPrice * 100)}`,
+      `Created: ${formatDate(new Date(trade.createdAt))}`,
+    ];
+
+    const message = messageLines.join('\n');
+
+    // Send notification to each follower's following webhook (one per unique whopUserId)
+    const webhookPromises = Array.from(uniqueFollowers.values()).map(async (follower) => {
+      if (follower.followingWebhook) {
+        await sendWebhookMessage(message, follower.followingWebhook.url);
+      }
+    });
+
+    // Use Promise.allSettled so if one fails, the others still work
+    await Promise.allSettled(webhookPromises);
+  } catch (error) {
+    // Silently fail to prevent breaking trade creation
+    console.error('Error notifying followers:', error);
+  }
+}
+

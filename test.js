@@ -86,10 +86,10 @@ try {
   
   async function main() {
     // TODO: put the contract you want to test here
-    const ticker = 'TSLA';           // e.g. TSLA
-    const strike = 400;              // number
+    const ticker = 'ODD';           // e.g. TSLA
+    const strike = 320;              // number
     const expiry = '2025-12-05';     // YYYY-MM-DD
-    const contractType = 'put';      // 'call' or 'put'
+    const contractType = 'call';      // 'call' or 'put'
   
     console.log('Testing Massive snapshot for:', { ticker, strike, expiry, contractType });
   
