@@ -330,23 +330,6 @@ export default function LeaderboardTable() {
               },
             }}
           />
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => { setPage(1); fetchLeaderboard(); }}
-            sx={{
-              color: 'var(--app-text)',
-              borderColor: controlBorder,
-              backgroundColor: controlBg,
-              whiteSpace: 'nowrap',
-              '&:hover': {
-                borderColor: theme.palette.primary.main,
-                backgroundColor: controlHoverBg,
-              },
-            }}
-          >
-            Search
-          </Button>
           <TextField
             select
             size="small"
