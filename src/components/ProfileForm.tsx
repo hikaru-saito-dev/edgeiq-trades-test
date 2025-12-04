@@ -1092,13 +1092,7 @@ const [followOfferPriceDollars, setFollowOfferPriceDollars] = useState<number>(0
               sx={fieldStyles}
             />
 
-            {followOfferCheckoutUrl && (
-              <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
-                <Typography variant="body2" sx={{ color: 'var(--app-text)' }}>
-                  Follow offer is active. Checkout URL: <a href={followOfferCheckoutUrl} target="_blank" rel="noopener noreferrer" style={{ color: theme.palette.primary.main }}>{followOfferCheckoutUrl}</a>
-                </Typography>
-              </Alert>
-            )}
+         
 
           </Box>
         )}
