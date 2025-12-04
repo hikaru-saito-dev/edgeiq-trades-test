@@ -7,10 +7,6 @@ import { FollowPurchase } from '@/models/FollowPurchase';
 
 const WEBHOOK_SECRET = process.env.WHOP_WEBHOOK_SECRET;
 
-if (!WEBHOOK_SECRET) {
-  throw new Error('WHOP_WEBHOOK_SECRET environment variable is required');
-}
-
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
@@ -79,6 +75,11 @@ function verifyWhopSignature(
  */
 export async function POST(request: NextRequest): Promise<Response> {
   try {
+    if (!WEBHOOK_SECRET) {
+      console.error('WHOP_WEBHOOK_SECRET environment variable is required for webhook verification');
+      return new Response('Server misconfigured', { status: 500 });
+    }
+
     // Get raw request body as text (required for signature verification)
     const requestBodyText = await request.text();
 

@@ -314,6 +314,10 @@ export async function GET() {
         onlyNotifyWinningSettlements: user.onlyNotifyWinningSettlements ?? false,
         membershipPlans: user.membershipPlans || [],
         hideLeaderboardFromMembers: user.hideLeaderboardFromMembers ?? false,
+        followOfferEnabled: user.followOfferEnabled ?? false,
+        followOfferPriceCents: user.followOfferPriceCents ?? 0,
+        followOfferNumPlays: user.followOfferNumPlays ?? 0,
+        followOfferCheckoutUrl: user.followOfferCheckoutUrl ?? null,
       },
       personalStats,
       companyStats, // Only for owners with companyId
@@ -430,6 +434,10 @@ export async function PATCH(request: NextRequest) {
         companyDescription: user.companyDescription,
         optIn: user.optIn,
         membershipPlans: user.membershipPlans,
+        followOfferEnabled: user.followOfferEnabled ?? false,
+        followOfferPriceCents: user.followOfferPriceCents ?? 0,
+        followOfferNumPlays: user.followOfferNumPlays ?? 0,
+        followOfferCheckoutUrl: user.followOfferCheckoutUrl ?? null,
       }
     });
   } catch (error) {

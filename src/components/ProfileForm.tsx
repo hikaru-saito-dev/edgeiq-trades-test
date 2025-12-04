@@ -122,8 +122,8 @@ export default function ProfileForm() {
     url: string;
     isPremium?: boolean;
   }>>([]);
-  const [followOfferEnabled, setFollowOfferEnabled] = useState(false);
-  const [followOfferPriceCents, setFollowOfferPriceCents] = useState<number>(0);
+const [followOfferEnabled, setFollowOfferEnabled] = useState(false);
+const [followOfferPriceDollars, setFollowOfferPriceDollars] = useState<number>(0);
   const [followOfferNumPlays, setFollowOfferNumPlays] = useState<number>(0);
   const [followOfferCheckoutUrl, setFollowOfferCheckoutUrl] = useState<string | null>(null);
   const [savingFollowOffer, setSavingFollowOffer] = useState(false);
@@ -205,7 +205,7 @@ export default function ProfileForm() {
       setMembershipPlans(profileData.user.membershipPlans || []);
       // Follow offer fields (if available from API)
       setFollowOfferEnabled(profileData.user.followOfferEnabled ?? false);
-      setFollowOfferPriceCents(profileData.user.followOfferPriceCents ?? 0);
+      setFollowOfferPriceDollars((profileData.user.followOfferPriceCents ?? 0));
       setFollowOfferNumPlays(profileData.user.followOfferNumPlays ?? 0);
       setFollowOfferCheckoutUrl(profileData.user.followOfferCheckoutUrl ?? null);
       setPersonalStats(profileData.personalStats || null);
@@ -247,6 +247,38 @@ export default function ProfileForm() {
     ));
   };
 
+  const createOrUpdateFollowOffer = async () => {
+    if (!followOfferPriceDollars || !followOfferNumPlays) {
+      throw new Error('Please enter price and number of plays');
+    }
+
+    setSavingFollowOffer(true);
+    try {
+      const username = userData?.whopUsername || userData?.whopDisplayName || 'user';
+      const priceCents = Math.round(followOfferPriceDollars);
+      const response = await apiRequest('/api/follow/checkout', {
+        method: 'POST',
+        body: JSON.stringify({
+          priceCents,
+          numPlays: followOfferNumPlays,
+          capperUsername: username,
+        }),
+        userId,
+        companyId,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create follow offer');
+      }
+
+      const data = await response.json();
+      setFollowOfferCheckoutUrl(data.checkoutUrl);
+    } finally {
+      setSavingFollowOffer(false);
+    }
+  };
+
   const handleAddWebhook = () => {
     setWebhooks([
       ...webhooks,
@@ -273,6 +305,14 @@ export default function ProfileForm() {
     if (!isAuthorized) return;
     setSaving(true);
     try {
+      if (role === 'companyOwner' && followOfferEnabled) {
+        if (!followOfferPriceDollars || !followOfferNumPlays) {
+          toast.showError('Follow offer price and number of plays are required');
+          setSaving(false);
+          return;
+        }
+      }
+
       // Validate membership plans
       const validPlans = membershipPlans.filter(plan =>
         plan.name.trim() && plan.url.trim() && plan.price.trim()
@@ -307,6 +347,20 @@ export default function ProfileForm() {
         const error = await response.json() as { error: string };
         toast.showError(error.error || 'Failed to update profile');
         return;
+      }
+
+      if (role === 'companyOwner' && followOfferEnabled) {
+        try {
+          await createOrUpdateFollowOffer();
+        } catch (followError) {
+          if (followError instanceof Error) {
+            toast.showError(followError.message);
+          } else {
+            toast.showError('Failed to create follow offer');
+          }
+          setSaving(false);
+          return;
+        }
       }
 
       // Refresh stats
@@ -1011,10 +1065,10 @@ export default function ProfileForm() {
               fullWidth
               label="Price (in dollars)"
               type="number"
-              value={followOfferPriceCents}
+              value={followOfferPriceDollars}
               onChange={(e) => {
-                const dollars = parseFloat(e.target.value) || 0;
-                setFollowOfferPriceCents(Math.round(dollars));
+                const value = parseFloat(e.target.value);
+                setFollowOfferPriceDollars(Number.isNaN(value) ? 0 : value);
               }}
               placeholder="10.00"
               margin="normal"
@@ -1046,60 +1100,6 @@ export default function ProfileForm() {
               </Alert>
             )}
 
-            <Button
-              variant="contained"
-              onClick={async () => {
-                if (!followOfferPriceCents || !followOfferNumPlays) {
-                  toast.showError('Please enter price and number of plays');
-                  return;
-                }
-
-                setSavingFollowOffer(true);
-                try {
-                  const username = userData?.whopUsername || userData?.whopDisplayName || 'user';
-                  const response = await apiRequest('/api/follow/checkout', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                      priceCents: followOfferPriceCents,
-                      numPlays: followOfferNumPlays,
-                      capperUsername: username,
-                    }),
-                    userId,
-                    companyId,
-                  });
-
-                  if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to create follow offer');
-                  }
-
-                  const data = await response.json();
-                  setFollowOfferCheckoutUrl(data.checkoutUrl);
-                  toast.showSuccess('Follow offer created successfully!');
-                  
-                  await fetchProfile(userId, companyId);
-                } catch (error) {
-                  if (error instanceof Error) {
-                    toast.showError(error.message);
-                  } else {
-                    toast.showError('Failed to create follow offer');
-                  }
-                } finally {
-                  setSavingFollowOffer(false);
-                }
-              }}
-              disabled={savingFollowOffer || !followOfferPriceCents || !followOfferNumPlays}
-              sx={{
-                mt: 2,
-                background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                color: 'white',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                },
-              }}
-            >
-              {savingFollowOffer ? 'Creating...' : followOfferCheckoutUrl ? 'Update Follow Offer' : 'Create Follow Offer'}
-            </Button>
           </Box>
         )}
 
@@ -1115,7 +1115,7 @@ export default function ProfileForm() {
               py: 1.5,
               fontWeight: 600,
               '&:hover': {
-                background: 'linear-gradient(135deg, #5855eb, #db2777)',
+                background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
                 transform: 'translateY(-2px)',
                 boxShadow: '0 4px 12px rgba(34, 197, 94, 0.4)',
               },
