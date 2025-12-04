@@ -227,17 +227,48 @@ export async function POST(request: NextRequest) {
     const contractType = validated.optionType === 'C' ? 'call' : 'put';
 
     // Always use market orders - fetch market price
-    const snapshot = await getOptionContractSnapshot(
+    const { snapshot, error: snapshotError } = await getOptionContractSnapshot(
       validated.ticker,
       validated.strike,
       expiryDateAPI,
       contractType
     );
 
-    if (!snapshot) {
-      metricMeta = { status: 'market_data_unavailable' };
+    if (snapshotError || !snapshot) {
+      // Determine error message based on error type
+      let errorMessage = 'Unable to fetch market data to place order. Please try again.';
+      let metricStatus = 'market_data_unavailable';
+
+      if (snapshotError) {
+        switch (snapshotError.type) {
+          case 'not_found':
+            errorMessage = snapshotError.message;
+            metricStatus = 'contract_not_found';
+            break;
+          case 'invalid_input':
+            errorMessage = snapshotError.message;
+            metricStatus = 'invalid_input';
+            break;
+          case 'auth_error':
+            errorMessage = 'Market data service authentication failed. Please contact support.';
+            metricStatus = 'auth_error';
+            break;
+          case 'network_error':
+            errorMessage = 'Unable to connect to market data service. Please try again.';
+            metricStatus = 'network_error';
+            break;
+          case 'api_error':
+            errorMessage = 'Market data service error. Please try again.';
+            metricStatus = 'api_error';
+            break;
+          default:
+            errorMessage = snapshotError.message || errorMessage;
+        }
+      }
+
+      metricMeta = { status: metricStatus };
       return NextResponse.json({
-        error: 'Unable to fetch market data to place order. Please try again.',
+        error: errorMessage,
       }, { status: 400 });
     }
 
