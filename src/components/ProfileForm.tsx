@@ -1011,10 +1011,10 @@ export default function ProfileForm() {
               fullWidth
               label="Price (in dollars)"
               type="number"
-              value={followOfferPriceCents / 100}
+              value={followOfferPriceCents}
               onChange={(e) => {
                 const dollars = parseFloat(e.target.value) || 0;
-                setFollowOfferPriceCents(Math.round(dollars * 100));
+                setFollowOfferPriceCents(Math.round(dollars));
               }}
               placeholder="10.00"
               margin="normal"
