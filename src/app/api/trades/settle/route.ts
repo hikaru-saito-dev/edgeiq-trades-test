@@ -8,6 +8,7 @@ import { settleTradeSchema } from '@/utils/tradeValidation';
 import { isMarketOpen } from '@/utils/marketHours';
 import { formatExpiryDateForAPI, getContractByTicker, getOptionContractSnapshot, getMarketFillPrice } from '@/lib/polygon';
 import { notifyTradeSettled } from '@/lib/tradeNotifications';
+import { syncSettlementToWebull } from '@/lib/webull';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
@@ -103,9 +104,9 @@ export async function POST(request: NextRequest) {
 
     if (!snapshot) {
       const { snapshot: fetchedSnapshot, error: snapshotError } = await getOptionContractSnapshot(
-        trade.ticker,
-        trade.strike,
-        expiryDateAPI,
+      trade.ticker,
+      trade.strike,
+      expiryDateAPI,
         contractType
       );
       
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        return NextResponse.json({
+      return NextResponse.json({
           error: errorMessage,
         }, { status: 400 });
       }
@@ -161,6 +162,18 @@ export async function POST(request: NextRequest) {
 
     // Calculate notional for this SELL fill
     const sellNotional = validated.contracts * finalFillPrice * 100;
+
+    // Sync settlement to Webull BEFORE updating database
+    // If Webull sync fails, the settlement will not be saved
+    try {
+      await syncSettlementToWebull(trade, user, validated.contracts, finalFillPrice);
+    } catch (webullError) {
+      const errorMessage = webullError instanceof Error ? webullError.message : 'Webull sync failed';
+      console.error('Error syncing settlement to Webull:', webullError);
+      return NextResponse.json({
+        error: errorMessage,
+      }, { status: 400 });
+    }
 
     // Create SELL fill
     const fill = await TradeFill.create({

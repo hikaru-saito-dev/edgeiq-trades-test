@@ -640,13 +640,13 @@ export default function UsersPage() {
           <Typography variant="body2">
             <strong>Role Permissions:</strong>
             <br />
-            • <strong>Company Owner:</strong> Can manage all users, access trades, profile, and leaderboard
+            • <strong>Company Owner:</strong> Can manage all users and company settings (leaderboard, member visibility, plans) and access trades, profile, and leaderboard.
             <br />
-            • <strong>Owner:</strong> Can manage users in their company and users without company, access trades, profile, and leaderboard
+            • <strong>Owner:</strong> Can manage users in their company (assign Owner/Admin/Member), create trades, and access profile, company stats, and leaderboard.
             <br />
-            • <strong>Admin:</strong> Can access trades, profile, and leaderboard (cannot manage roles)
+            • <strong>Admin:</strong> Can create trades and access profile, company stats, and leaderboard (cannot manage roles or company settings).
             <br />
-            • <strong>Member:</strong> Can only view leaderboard
+            • <strong>Member:</strong> Can create and track their own trades and view their profile and personal stats; leaderboard visibility for members is controlled in company settings.
           </Typography>
         </Alert>
 

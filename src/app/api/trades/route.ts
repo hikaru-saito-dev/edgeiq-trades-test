@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { PipelineStage } from 'mongoose';
 import { SlidingWindowRateLimiter } from '@/lib/rateLimit';
 import { recordApiMetric } from '@/lib/metrics';
+import { syncTradeToWebull } from '@/lib/webull';
 import { performance } from 'node:perf_hooks';
 import {
   invalidateCompanyStatsCache,
@@ -303,6 +304,28 @@ export async function POST(request: NextRequest) {
         // Empty array means explicitly no webhooks selected
         normalizedSelectedWebhookIds = [];
       }
+    }
+
+    // Sync to Webull BEFORE creating trade in database
+    // If Webull sync fails, the trade will not be created
+    try {
+      // Create a temporary trade object for Webull sync
+      const tempTrade = {
+        ticker: validated.ticker,
+        strike: validated.strike,
+        optionType: validated.optionType,
+        expiryDate: expiryDate,
+        contracts: validated.contracts,
+        fillPrice: finalFillPrice,
+      } as ITrade;
+
+      await syncTradeToWebull(tempTrade, user);
+    } catch (webullError) {
+      const errorMessage = webullError instanceof Error ? webullError.message : 'Webull sync failed';
+      console.error('Error syncing trade to Webull:', webullError);
+      return NextResponse.json({
+        error: errorMessage,
+      }, { status: 400 });
     }
 
     // Create trade
