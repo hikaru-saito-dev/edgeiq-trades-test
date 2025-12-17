@@ -48,6 +48,9 @@ import {
 } from 'recharts';
 import { useAccess } from './AccessProvider';
 import DownloadIcon from '@mui/icons-material/Download';
+import Link from 'next/link';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import { downloadBlob, generateStatsSnapshot, type StatsSnapshotData } from '@/utils/snapshotGenerator';
 
 interface UserStats {
@@ -144,6 +147,14 @@ export default function ProfileForm() {
   const [activeTab, setActiveTab] = useState<'personal' | 'company'>('personal');
   const [downloadingPersonalSnapshot, setDownloadingPersonalSnapshot] = useState(false);
   const [downloadingCompanySnapshot, setDownloadingCompanySnapshot] = useState(false);
+  const [connectedBrokerAccounts, setConnectedBrokerAccounts] = useState<Array<{
+    id: string;
+    brokerName: string;
+    accountName: string;
+    accountNumber: string;
+    buyingPower?: number;
+  }>>([]);
+  const [loadingBrokers, setLoadingBrokers] = useState(false);
   const { isAuthorized, loading: accessLoading, userId, companyId, hideCompanyStatsFromMembers: hideCompanyStats } = useAccess();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -191,9 +202,30 @@ export default function ProfileForm() {
   useEffect(() => {
     if (isAuthorized && userId) {
       loadStatsForRange(statsRange);
+      loadConnectedBrokers();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statsRange, isAuthorized, userId, companyId]);
+
+  const loadConnectedBrokers = async () => {
+    if (!userId || !companyId) return;
+    setLoadingBrokers(true);
+    try {
+      const res = await apiRequest('/api/snaptrade/accounts', {
+        method: 'GET',
+        userId,
+        companyId,
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setConnectedBrokerAccounts(data.accounts || []);
+      }
+    } catch (error) {
+      console.error('Failed to load broker accounts:', error);
+    } finally {
+      setLoadingBrokers(false);
+    }
+  };
 
   const fetchProfile = async (userId: string | null, companyId: string | null) => {
     if (!isAuthorized) return;
@@ -840,7 +872,134 @@ export default function ProfileForm() {
               </>
             )}
 
-            {/* Broker Connections - Users connect via SnapTrade modal on /alpaca-test page */}
+            {/* Broker Connections */}
+            <Divider sx={{ my: 4, borderColor: 'var(--surface-border)' }} />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 600 }}>
+                Broker Connections
+              </Typography>
+              <Button
+                component={Link}
+                href="/alpaca-test"
+                variant="contained"
+                size="small"
+                startIcon={<AddIcon />}
+                sx={{
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: 'white',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                  },
+                }}
+              >
+                Connect Broker
+              </Button>
+            </Box>
+            <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 2 }}>
+              Connect your trading account via SnapTrade to place option trades. Your credentials are securely managed through SnapTrade&apos;s login portal.
+            </Typography>
+
+            {loadingBrokers ? (
+              <Box display="flex" justifyContent="center" py={2}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : connectedBrokerAccounts.length === 0 ? (
+              <Card
+                sx={{
+                  background: 'var(--surface-bg)',
+                  border: '2px dashed var(--surface-border)',
+                  borderRadius: 2,
+                  p: 3,
+                  textAlign: 'center',
+                }}
+              >
+                <AccountBalanceIcon sx={{ fontSize: 48, color: 'var(--text-muted)', mb: 1 }} />
+                <Typography variant="body1" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                  No broker accounts connected
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 2 }}>
+                  Connect a broker account to start placing option trades
+                </Typography>
+                <Button
+                  component={Link}
+                  href="/alpaca-test"
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  sx={{
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: 'white',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                    },
+                  }}
+                >
+                  Connect Your First Broker
+                </Button>
+              </Card>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {connectedBrokerAccounts.map((account) => (
+                  <Card
+                    key={account.id}
+                    sx={{
+                      background: 'var(--surface-bg)',
+                      border: '1px solid var(--surface-border)',
+                      borderRadius: 2,
+                      p: 2,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <CheckCircleIcon sx={{ fontSize: 20, color: 'success.main' }} />
+                        <Box>
+                          <Typography variant="body1" sx={{ color: 'var(--app-text)', fontWeight: 600 }}>
+                            {account.brokerName} - {account.accountName}
+                          </Typography>
+                          {account.accountNumber && (
+                            <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                              Account: {account.accountNumber}
+                            </Typography>
+                          )}
+                          {account.buyingPower !== undefined && (
+                            <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500, mt: 0.5 }}>
+                              Buying Power: ${account.buyingPower.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                      <Chip
+                        label="Connected"
+                        size="small"
+                        color="success"
+                        icon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
+                      />
+                    </Box>
+                  </Card>
+                ))}
+                <Button
+                  component={Link}
+                  href="/alpaca-test"
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<AddIcon />}
+                  sx={{
+                    borderColor: 'var(--surface-border)',
+                    color: 'var(--app-text)',
+                    textTransform: 'none',
+                    '&:hover': {
+                      borderColor: 'var(--primary)',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                    },
+                  }}
+                >
+                  Connect Another Broker
+                </Button>
+              </Box>
+            )}
 
             {/* Following Webhooks - Available to all users */}
             <Divider sx={{ my: 4, borderColor: 'var(--surface-border)' }} />
