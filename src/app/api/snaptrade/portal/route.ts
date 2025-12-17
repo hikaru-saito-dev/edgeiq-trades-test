@@ -73,15 +73,58 @@ export async function POST(request: NextRequest) {
         const registerResp = await snaptrade.authentication.registerSnapTradeUser({
           userId: snaptradeUserId,
         });
+
+        // Extract userSecret from response - matching SDK test pattern
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        userSecret = (registerResp.data as any).userSecret as string;
-      } catch (error) {
+        const responseData = registerResp.data as { userSecret: string } | any;
+        userSecret = responseData?.userSecret || (responseData as any)?.userSecret;
+
+        if (!userSecret || typeof userSecret !== 'string') {
+          console.error('SnapTrade registration response missing or invalid userSecret:', {
+            responseData,
+            responseType: typeof registerResp.data,
+            fullResponse: registerResp,
+          });
+          return NextResponse.json(
+            {
+              error: 'Failed to register SnapTrade user: missing or invalid userSecret in response',
+              debug: {
+                hasData: !!registerResp.data,
+                dataType: typeof registerResp.data,
+                dataKeys: registerResp.data ? Object.keys(registerResp.data) : [],
+              },
+            },
+            { status: 500 },
+          );
+        }
+      } catch (error: any) {
         console.error('SnapTrade registration error:', error);
+        const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+        const errorStatus = error?.response?.status || error?.status || 500;
+        const errorDetails = error?.response?.data || error;
+        console.error('SnapTrade registration error details:', JSON.stringify({
+          message: errorMessage,
+          status: errorStatus,
+          details: errorDetails,
+          stack: error?.stack,
+        }, null, 2));
         return NextResponse.json(
-          { error: 'Failed to register SnapTrade user' },
-          { status: 500 },
+          {
+            error: 'Failed to register SnapTrade user',
+            details: errorMessage,
+            status: errorStatus,
+          },
+          { status: errorStatus },
         );
       }
+    }
+
+    // Ensure we have userSecret before proceeding
+    if (!userSecret) {
+      return NextResponse.json(
+        { error: 'Failed to obtain SnapTrade userSecret' },
+        { status: 500 },
+      );
     }
 
     // Create Connection Portal session

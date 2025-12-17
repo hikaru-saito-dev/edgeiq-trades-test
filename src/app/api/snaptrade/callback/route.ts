@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Redirect to brokers page with success message
-    return NextResponse.redirect(new URL('/alpaca-test?connected=true', request.url));
+    return NextResponse.redirect(new URL('/brokers?connected=true', request.url));
   } catch (error) {
     console.error('SnapTrade callback error:', error);
     return NextResponse.redirect(new URL('/?error=connection_failed', request.url));
