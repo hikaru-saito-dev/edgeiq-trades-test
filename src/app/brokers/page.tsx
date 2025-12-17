@@ -81,14 +81,16 @@ export default function BrokerTestPage() {
       const data = await res.json();
       if (res.ok && data.success && data.brokerages) {
         // Map SnapTrade brokerages to our Broker interface
-        const brokers: Broker[] = data.brokerages.map((b: any) => ({
-          id: b.slug.toLowerCase().replace(/_/g, '-'),
-          name: b.name,
-          slug: b.slug, // Use the official SnapTrade slug
-          description: b.brokerageType || undefined,
-          logoUrl: b.logoUrl,
-          brokerageType: b.brokerageType,
-        }));
+        const brokers: Broker[] = data.brokerages
+          .filter((b: { slug: string; name: string }) => b?.slug && b?.name) // Only include brokers with required fields
+          .map((b: { slug: string; name: string; brokerageType: string; logoUrl: string }) => ({
+            id: String(b.slug || '').toLowerCase().replace(/_/g, '-'),
+            name: String(b.name || ''),
+            slug: String(b.slug || ''), // Use the official SnapTrade slug
+            description: b.brokerageType ? String(b.brokerageType) : undefined,
+            logoUrl: b.logoUrl || null,
+            brokerageType: b.brokerageType || null,
+          }));
         setAvailableBrokers(brokers);
       }
     } catch (error) {

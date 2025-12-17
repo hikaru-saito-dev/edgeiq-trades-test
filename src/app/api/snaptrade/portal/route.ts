@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
         // Extract userSecret from response - matching SDK test pattern
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const responseData = registerResp.data as { userSecret: string } | any;
-        userSecret = responseData?.userSecret || (responseData as any)?.userSecret;
+        userSecret = responseData?.userSecret || (responseData as { userSecret: string })?.userSecret;
 
         if (!userSecret || typeof userSecret !== 'string') {
           console.error('SnapTrade registration response missing userSecret');
@@ -95,10 +95,10 @@ export async function POST(request: NextRequest) {
             { status: 500 },
           );
         }
-      } catch (error: any) {
-        const errorResponse = error?.response;
+      } catch (error: unknown) {
+        const errorResponse = (error as { response?: { status: number; data?: { message?: string; error?: string } } }).response;
         const errorStatus = errorResponse?.status || 500;
-        const errorMessage = errorResponse?.data?.message || errorResponse?.data?.error || error?.message || 'Failed to register SnapTrade user';
+        const errorMessage = errorResponse?.data?.message || errorResponse?.data?.error || (error as Error)?.message || 'Failed to register SnapTrade user';
 
         console.error('SnapTrade registration error:', errorMessage);
 
@@ -131,8 +131,7 @@ export async function POST(request: NextRequest) {
       connectionPortalVersion: 'v4',
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const redirectURI = (loginResp.data as any).redirectURI as string;
+    const redirectURI = (loginResp.data as { redirectURI: string }).redirectURI;
 
     return NextResponse.json({
       success: true,
