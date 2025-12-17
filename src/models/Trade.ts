@@ -27,6 +27,16 @@ export interface ITrade extends Document {
   totalSellNotional?: number; // Total sell notional (sum of all SELL fills)
   isMarketOrder?: boolean; // Whether this was a market order (always true now)
   selectedWebhookIds?: string[]; // IDs of all selected webhooks for notifications
+  brokerType?: 'alpaca' | 'webull'; // Broker used for this trade
+  brokerOrderId?: string; // Broker-specific order ID (e.g., Alpaca order ID)
+  brokerConnectionId?: Types.ObjectId; // Reference to BrokerConnection
+  brokerOrderDetails?: Record<string, unknown>; // Full order response from broker (for audit/debugging)
+  brokerCostInfo?: {
+    grossCost: number;
+    commission: number;
+    estimatedFees: Record<string, number>;
+    totalCost: number;
+  }; // Cost breakdown from broker
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,9 +51,9 @@ const TradeSchema = new Schema<ITrade>({
   optionType: { type: String, enum: ['C', 'P'], required: true },
   expiryDate: { type: Date, required: true, index: true },
   fillPrice: { type: Number, required: true, min: 0 },
-  status: { 
-    type: String, 
-    enum: ['OPEN', 'CLOSED', 'REJECTED'], 
+  status: {
+    type: String,
+    enum: ['OPEN', 'CLOSED', 'REJECTED'],
     default: 'OPEN',
     index: true
   },
@@ -60,6 +70,24 @@ const TradeSchema = new Schema<ITrade>({
   selectedWebhookIds: {
     type: [String],
     default: undefined,
+  },
+  brokerType: {
+    type: String,
+    enum: ['alpaca', 'webull'],
+    index: true,
+  },
+  brokerOrderId: {
+    type: String,
+  },
+  brokerConnectionId: {
+    type: Schema.Types.ObjectId,
+    ref: 'BrokerConnection',
+  },
+  brokerOrderDetails: {
+    type: Schema.Types.Mixed,
+  },
+  brokerCostInfo: {
+    type: Schema.Types.Mixed,
   },
 }, {
   timestamps: true,

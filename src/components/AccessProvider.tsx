@@ -11,6 +11,7 @@ type AccessContextValue = {
   userId: string | null;
   companyId: string | null;
   hideLeaderboardFromMembers?: boolean;
+  hideCompanyStatsFromMembers?: boolean;
   refresh: () => Promise<void>;
 };
 
@@ -21,6 +22,7 @@ const AccessContext = createContext<AccessContextValue>({
   userId: null,
   companyId: null,
   hideLeaderboardFromMembers: false,
+  hideCompanyStatsFromMembers: false,
   refresh: async () => {},
 });
 
@@ -52,6 +54,7 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
   userId: string | null;
   companyId: string | null;
   hideLeaderboardFromMembers?: boolean;
+  hideCompanyStatsFromMembers?: boolean;
 }> {
   try {
     // Include experienceId in the URL if present (from query parameter ?experience=exp_...)
@@ -59,7 +62,7 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     if (experienceId) {
       url += `?experience=${encodeURIComponent(experienceId)}`;
     } else {
-      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hideLeaderboardFromMembers: false };
+      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
     }
 
     const response = await fetch(url, {
@@ -68,7 +71,7 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     });
 
     if (!response.ok) {
-      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hideLeaderboardFromMembers: false };
+      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
     }
 
     const data = await response.json();
@@ -77,15 +80,16 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     const userId = data.userId || null;
     const companyId = data.companyId || null;
     const hideLeaderboardFromMembers = data.hideLeaderboardFromMembers ?? false;
+    const hideCompanyStatsFromMembers = data.hideCompanyStatsFromMembers ?? false;
     
     if (role === 'companyOwner' || role === 'owner' || role === 'admin' || role === 'member' || role === 'none') {
-      return { role, isAuthorized, userId, companyId, hideLeaderboardFromMembers };
+      return { role, isAuthorized, userId, companyId, hideLeaderboardFromMembers, hideCompanyStatsFromMembers };
     }
 
-    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hideLeaderboardFromMembers: false };
+    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
   } catch (error) {
     console.error('Failed to load access role', error);
-    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hideLeaderboardFromMembers: false };
+    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
   }
 }
 
@@ -96,6 +100,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [hideLeaderboardFromMembers, setHideLeaderboardFromMembers] = useState(false);
+  const [hideCompanyStatsFromMembers, setHideCompanyStatsFromMembers] = useState(false);
   const [experienceId, setExperienceIdState] = useState<string | null>(null);
 
   // Listen for experienceId changes from page.tsx
@@ -122,6 +127,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     setUserId(result.userId);
     setCompanyId(result.companyId);
     setHideLeaderboardFromMembers(result.hideLeaderboardFromMembers ?? false);
+    setHideCompanyStatsFromMembers(result.hideCompanyStatsFromMembers ?? false);
     setLoading(false);
   }, [experienceId]);
 
@@ -137,9 +143,10 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       userId,
       companyId,
       hideLeaderboardFromMembers,
+      hideCompanyStatsFromMembers,
       refresh,
     }),
-    [role, isAuthorized, loading, userId, companyId, hideLeaderboardFromMembers, refresh],
+    [role, isAuthorized, loading, userId, companyId, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, refresh],
   );
 
   return (

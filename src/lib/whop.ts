@@ -158,15 +158,13 @@ type WhopSdkShape = {
 
 let cachedSdk: WhopSdkShape | null = null;
 
-export function getWhopSdk(_companyId?: string): WhopSdkShape {
+export function getWhopSdk(): WhopSdkShape {
   const apiKey = process.env.WHOP_API_KEY;
   const appId = process.env.NEXT_PUBLIC_WHOP_APP_ID;
   
   if (!apiKey || !appId) {
     throw new Error('Missing WHOP credentials');
   }
-
-  // Use provided companyId or fall back to default from env
 
   // Build base options (without companyId)
   const baseOptions: {
@@ -181,8 +179,6 @@ export function getWhopSdk(_companyId?: string): WhopSdkShape {
 
   // Initialize base SDK
   const baseSdk = WhopServerSdk(baseOptions) as unknown as WhopSdkShape;
-
-  // If companyId is provided, use withCompany() method for proper company context
 
   // Cache base SDK if no companyId
   if (cachedSdk) return cachedSdk;

@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { PipelineStage } from 'mongoose';
 import { SlidingWindowRateLimiter } from '@/lib/rateLimit';
 import { recordApiMetric } from '@/lib/metrics';
-import { syncTradeToWebull } from '@/lib/webull';
+import { Types } from 'mongoose';
 import { performance } from 'node:perf_hooks';
 import {
   invalidateCompanyStatsCache,
@@ -35,11 +35,11 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB();
     const headers = await import('next/headers').then(m => m.headers());
-    
+
     // Read userId and companyId from headers
     const userId = headers.get('x-user-id');
     const companyId = headers.get('x-company-id');
-    
+
     if (!userId) {
       metricMeta.status = 'unauthorized';
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
       const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       matchQuery.ticker = regex;
     }
-    
+
 
     const skip = (page - 1) * pageSize;
     const tradeFillCollection = TradeFill.collection.name;
@@ -159,11 +159,11 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB();
     const headers = await import('next/headers').then(m => m.headers());
-    
+
     // Read userId and companyId from headers
     const userId = headers.get('x-user-id');
     const companyId = headers.get('x-company-id');
-    
+
     if (!userId) {
       metricMeta = { status: 'unauthorized' };
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    
+
     // Validate request data
     let validated;
     try {
@@ -306,23 +306,64 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Sync to Webull BEFORE creating trade in database
-    // If Webull sync fails, the trade will not be created
-    try {
-      // Create a temporary trade object for Webull sync
-      const tempTrade = {
-        ticker: validated.ticker,
-        strike: validated.strike,
-        optionType: validated.optionType,
-        expiryDate: expiryDate,
-        contracts: validated.contracts,
-        fillPrice: finalFillPrice,
-      } as ITrade;
+    // Sync to broker BEFORE creating trade in database
+    // If broker sync fails, the trade will not be created
+    let brokerType: 'alpaca' | 'webull' | undefined;
+    let brokerOrderId: string | undefined;
+    let brokerConnectionId: Types.ObjectId | undefined;
+    let brokerOrderDetails: Record<string, unknown> | undefined;
+    let brokerCostInfo: {
+      grossCost: number;
+      commission: number;
+      estimatedFees: Record<string, number>;
+      totalCost: number;
+    } | undefined;
 
-      await syncTradeToWebull(tempTrade, user);
-    } catch (webullError) {
-      const errorMessage = webullError instanceof Error ? webullError.message : 'Webull sync failed';
-      console.error('Error syncing trade to Webull:', webullError);
+    try {
+      // Find active broker connection (prioritize Alpaca for now)
+      const { BrokerConnection } = await import('@/models/BrokerConnection');
+      const brokerConnection = await BrokerConnection.findOne({
+        userId: user._id,
+        brokerType: 'alpaca', // For now, hardcode Alpaca. Later: from request body or user preference
+        isActive: true,
+      });
+
+      if (brokerConnection) {
+        // Create a temporary trade object for broker sync
+        const tempTrade = {
+          ticker: validated.ticker,
+          strike: validated.strike,
+          optionType: validated.optionType,
+          expiryDate: expiryDate,
+          contracts: validated.contracts,
+          fillPrice: finalFillPrice,
+        } as ITrade;
+
+        const { createBroker } = await import('@/lib/brokers/factory');
+        const broker = createBroker(brokerConnection.brokerType, brokerConnection);
+        const result = await broker.placeOptionOrder(
+          tempTrade,
+          'BUY',
+          validated.contracts
+        );
+
+        if (!result.success) {
+          return NextResponse.json({
+            error: result.error || 'Failed to place order with broker',
+          }, { status: 400 });
+        }
+
+        brokerType = brokerConnection.brokerType;
+        brokerOrderId = result.orderId;
+        brokerConnectionId = brokerConnection._id;
+
+        // Store detailed order information and cost breakdown
+        brokerOrderDetails = result.orderDetails;
+        brokerCostInfo = result.costInfo;
+      }
+    } catch (brokerError) {
+      const errorMessage = brokerError instanceof Error ? brokerError.message : 'Broker sync failed';
+      console.error('Error syncing trade to broker:', brokerError);
       return NextResponse.json({
         error: errorMessage,
       }, { status: 400 });
@@ -348,6 +389,11 @@ export async function POST(request: NextRequest) {
       totalBuyNotional: notional,
       isMarketOrder: true, // Always market orders
       ...(normalizedSelectedWebhookIds !== undefined && { selectedWebhookIds: normalizedSelectedWebhookIds }),
+      ...(brokerType && { brokerType }),
+      ...(brokerOrderId && { brokerOrderId }),
+      ...(brokerConnectionId && { brokerConnectionId }),
+      ...(brokerOrderDetails && { brokerOrderDetails }),
+      ...(brokerCostInfo && { brokerCostInfo }),
     });
 
     // Track consumed plays for follow purchases
@@ -416,7 +462,7 @@ export async function POST(request: NextRequest) {
     }
     invalidatePersonalStatsCache(user._id.toString());
 
-    const responsePayload = { 
+    const responsePayload = {
       trade,
       message: `Buy Order: ${validated.contracts}x ${validated.ticker} ${validated.strike}${validated.optionType} ${validated.expiryDate} @ $${finalFillPrice.toFixed(2)}`,
     };
@@ -455,11 +501,11 @@ export async function DELETE(request: NextRequest) {
   try {
     await connectDB();
     const headers = await import('next/headers').then(m => m.headers());
-    
+
     // Read userId and companyId from headers
     const userId = headers.get('x-user-id');
     const companyId = headers.get('x-company-id');
-    
+
     if (!userId) {
       metricMeta = { status: 'unauthorized' };
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -516,10 +562,10 @@ export async function DELETE(request: NextRequest) {
     // Save trade data before deletion for notification
     const tradeData = trade.toObject();
     const selectedWebhookIds = trade.selectedWebhookIds;
-    
+
     // Delete trade
     await trade.deleteOne();
-    
+
     await Log.create({
       userId: user._id,
       action: 'trade_deleted',

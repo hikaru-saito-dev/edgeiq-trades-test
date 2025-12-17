@@ -131,15 +131,27 @@ export async function GET(request: NextRequest) {
     // Users are authorized if they're companyOwner/owner/admin/member (members can create trades and view profile)
     const isAuthorized = role === 'companyOwner' || role === 'owner' || role === 'admin' || role === 'member';
 
-    // Get hideLeaderboardFromMembers setting from company owner
+    // Get hideLeaderboardFromMembers and hideCompanyStatsFromMembers settings from company owner
     let hideLeaderboardFromMembers = false;
-    if (user?.companyId && role === 'member') {
-      const companyOwner = await User.findOne({ 
+    let hideCompanyStatsFromMembers = false;
+    if (user?.companyId && (role === 'member' || role === 'admin')) {
+      // First try to find companyOwner, then fall back to owner
+      let companyOwner = await User.findOne({ 
         companyId: user.companyId, 
         role: 'companyOwner' 
-      }).lean();
+      }).select('hideLeaderboardFromMembers hideCompanyStatsFromMembers').lean();
+      
+      // If no companyOwner found, try owner role
+      if (!companyOwner) {
+        companyOwner = await User.findOne({ 
+          companyId: user.companyId, 
+          role: 'owner' 
+        }).select('hideLeaderboardFromMembers hideCompanyStatsFromMembers').lean();
+      }
+      
       if (companyOwner) {
         hideLeaderboardFromMembers = (companyOwner as unknown as IUser).hideLeaderboardFromMembers ?? false;
+        hideCompanyStatsFromMembers = (companyOwner as unknown as IUser).hideCompanyStatsFromMembers ?? false;
       }
     }
 
@@ -148,7 +160,8 @@ export async function GET(request: NextRequest) {
       userId,
       companyId: user?.companyId || companyId || null,
       isAuthorized,
-      hideLeaderboardFromMembers: role === 'member' ? hideLeaderboardFromMembers : undefined
+      hideLeaderboardFromMembers: role === 'member' ? hideLeaderboardFromMembers : undefined,
+      hideCompanyStatsFromMembers: (role === 'member' || role === 'admin') ? hideCompanyStatsFromMembers : undefined
     });
   } catch {
     return NextResponse.json({ role: 'none', isAuthorized: false }, { status: 500 });

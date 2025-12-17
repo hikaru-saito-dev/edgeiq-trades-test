@@ -144,7 +144,7 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
             alias = userData.user.alias?.trim() || undefined;
           }
         }
-      } catch (error) {
+      } catch {
         // Continue without profile picture/alias if fetch fails
       }
 
