@@ -47,7 +47,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const brokerSlug = (body.brokerSlug as string) || undefined; // e.g., 'webull', 'alpaca', etc.
+    // IMPORTANT: SnapTrade expects the official brokerage slug (usually uppercase, e.g. "ALPACA", "WEBULL_US").
+    // We normalize to uppercase for common cases, but best practice is to use the slug returned by `/api/snaptrade/brokerages`.
+    const rawBrokerSlug = (body.brokerSlug as string) || undefined;
+    const brokerSlug =
+      rawBrokerSlug && typeof rawBrokerSlug === 'string' ? rawBrokerSlug.trim().toUpperCase() : undefined;
 
     // Use user's MongoDB _id as the SnapTrade userId (persistent per user)
     // MongoDB ObjectId is a 24-character hex string, which should be valid for SnapTrade
@@ -84,9 +88,11 @@ export async function POST(request: NextRequest) {
         });
 
         // Extract userSecret from response - matching SDK test pattern
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const responseData = registerResp.data as { userSecret: string } | any;
-        userSecret = responseData?.userSecret || (responseData as any)?.userSecret;
+        const responseData = registerResp.data as unknown;
+        if (responseData && typeof responseData === 'object') {
+          const rec = responseData as Record<string, unknown>;
+          if (typeof rec.userSecret === 'string') userSecret = rec.userSecret;
+        }
 
         if (!userSecret || typeof userSecret !== 'string') {
           console.error('SnapTrade registration response missing userSecret');
@@ -95,18 +101,24 @@ export async function POST(request: NextRequest) {
             { status: 500 },
           );
         }
-      } catch (error: any) {
-        const errorResponse = error?.response;
-        const errorStatus = errorResponse?.status || 500;
-        const errorMessage = errorResponse?.data?.message || errorResponse?.data?.error || error?.message || 'Failed to register SnapTrade user';
+      } catch (error: unknown) {
+        const maybeErr = error as { response?: { status?: number; data?: unknown }; message?: string } | null;
+        const errorStatus = maybeErr?.response?.status ?? 500;
+
+        let errorMessage = 'Failed to register SnapTrade user';
+        const data = maybeErr?.response?.data;
+        if (data && typeof data === 'object') {
+          const rec = data as Record<string, unknown>;
+          if (typeof rec.message === 'string') errorMessage = rec.message;
+          else if (typeof rec.error === 'string') errorMessage = rec.error;
+        } else if (typeof maybeErr?.message === 'string') {
+          errorMessage = maybeErr.message;
+        }
 
         console.error('SnapTrade registration error:', errorMessage);
 
         return NextResponse.json(
-          {
-            error: 'Failed to register SnapTrade user',
-            details: errorMessage,
-          },
+          { error: 'Failed to register SnapTrade user', details: errorMessage },
           { status: errorStatus },
         );
       }
@@ -121,13 +133,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Connection Portal session
-    // If brokerSlug is provided, use it to filter to specific broker
-    // If not provided or invalid, SnapTrade will show all available brokers
-    // The broker slug must match SnapTrade's exact slug format (see their integrations page)
     const loginResp = await snaptrade.authentication.loginSnapTradeUser({
       userId: snaptradeUserId,
       userSecret,
-      ...(brokerSlug ? { broker: brokerSlug } : {}), // Only include broker if slug is provided
+      broker: brokerSlug, // Specific broker slug or undefined for all brokers
       immediateRedirect: false,
       customRedirect: `${request.nextUrl.origin}/api/snaptrade/callback`,
       connectionType: 'trade', // allow trading + data
