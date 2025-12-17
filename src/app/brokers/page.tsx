@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -9,23 +9,59 @@ import {
   Typography,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogContent,
-  IconButton,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import CloseIcon from '@mui/icons-material/Close';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { apiRequest } from '@/lib/apiClient';
 import { useAccess } from '@/components/AccessProvider';
 import { useToast } from '@/components/ToastProvider';
 
 interface Broker {
+  id: string;
   name: string;
-  slug: string; // official SnapTrade slug, e.g. "ALPACA", "WEBULL_US"
-  logoUrl?: string | null;
+  slug: string;
+  description: string;
+  logo?: string;
 }
+
+const AVAILABLE_BROKERS: Broker[] = [
+  {
+    id: 'alpaca',
+    name: 'Alpaca',
+    slug: 'alpaca',
+    description: 'Alpaca is a commission-free API-first brokerage platform designed for developers and traders.',
+  },
+  {
+    id: 'webull',
+    name: 'Webull',
+    slug: 'webull',
+    description: 'Webull Financial LLC offers an electronic trading platform for stocks, options, and ETFs.',
+  },
+  {
+    id: 'charles-schwab',
+    name: 'Charles Schwab',
+    slug: 'schwab',
+    description: 'Schwab is an American multinational financial services company offering brokerage and banking services.',
+  },
+  {
+    id: 'etrade',
+    name: 'E*TRADE',
+    slug: 'etrade',
+    description: 'E-Trade Financial Corporation (stylized as E*TRADE) is an American financial services company.',
+  },
+  {
+    id: 'tastytrade',
+    name: 'TastyTrade',
+    slug: 'tastytrade',
+    description: 'tastytrade',
+  },
+  {
+    id: 'wealthsimple',
+    name: 'Wealthsimple',
+    slug: 'wealthsimple',
+    description: 'Wealthsimple is a Canadian brokerage and robo-advisor platform.',
+  },
+];
 
 interface ConnectedBroker {
   id: string;
@@ -43,42 +79,16 @@ export default function BrokerTestPage() {
   const { userId, companyId } = useAccess();
 
   const [connectedBrokers, setConnectedBrokers] = useState<ConnectedBroker[]>([]);
-  const [availableBrokers, setAvailableBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedBroker, setSelectedBroker] = useState<Broker | null>(null);
   const [connecting, setConnecting] = useState(false);
-  const [preConnectOpen, setPreConnectOpen] = useState(false);
 
-  type BrokeragesResponse = {
-    success?: boolean;
-    brokerages?: Array<{ slug?: unknown; name?: unknown; logoUrl?: unknown }>;
-  };
+  useEffect(() => {
+    // Load connected accounts on mount
+    loadConnectedAccounts();
+  }, []);
 
-  const loadBrokerages = useCallback(async () => {
-    try {
-      const res = await apiRequest('/api/snaptrade/brokerages', {
-        method: 'GET',
-        userId,
-        companyId,
-      });
-      const data = (await res.json()) as BrokeragesResponse;
-      if (res.ok && data.success && Array.isArray(data.brokerages)) {
-        setAvailableBrokers(
-          data.brokerages
-            .filter((b) => typeof b?.slug === 'string' && typeof b?.name === 'string')
-            .map((b) => ({
-              name: b.name as string,
-              slug: b.slug as string,
-              logoUrl: typeof b.logoUrl === 'string' ? b.logoUrl : null,
-            })),
-        );
-      }
-    } catch (error) {
-      console.error('Failed to load brokerages:', error);
-    }
-  }, [companyId, userId]);
-
-  const loadConnectedAccounts = useCallback(async () => {
+  const loadConnectedAccounts = async () => {
     setLoading(true);
     try {
       const res = await apiRequest('/api/snaptrade/accounts', {
@@ -95,31 +105,18 @@ export default function BrokerTestPage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, userId]);
-
-  useEffect(() => {
-    // Load connected accounts + broker list on mount (and when access headers change)
-    loadConnectedAccounts();
-    loadBrokerages();
-  }, [loadConnectedAccounts, loadBrokerages]);
-
-  const brokerDisplayName = useMemo(() => selectedBroker?.name ?? 'your broker', [selectedBroker]);
+  };
 
   const handleConnectClick = async (broker: Broker) => {
     setSelectedBroker(broker);
-    // Alertsify-style pre-portal modal
-    setPreConnectOpen(true);
-  };
-
-  const handleContinueConnect = async () => {
-    if (!selectedBroker) return;
     setConnecting(true);
+
     try {
-      // Create SnapTrade portal session for this specific broker (using OFFICIAL slug)
+      // Create SnapTrade portal session for this specific broker
       const res = await apiRequest('/api/snaptrade/portal', {
         method: 'POST',
         body: JSON.stringify({
-          brokerSlug: selectedBroker.slug,
+          brokerSlug: broker.slug, // Pass broker slug to show specific broker in portal
         }),
         userId,
         companyId,
@@ -131,7 +128,7 @@ export default function BrokerTestPage() {
         return;
       }
 
-      // Open SnapTrade Connection Portal
+      // Open SnapTrade's portal directly - it will show their own modal with the 3 steps
       const width = 960;
       const height = 720;
       const left = window.screenX + (window.outerWidth - width) / 2;
@@ -144,8 +141,7 @@ export default function BrokerTestPage() {
       );
 
       if (popup) {
-        toast.showSuccess(`Opening ${selectedBroker.name} connection portal...`);
-        setPreConnectOpen(false);
+        toast.showSuccess(`Opening ${broker.name} connection portal...`);
 
         // Listen for popup close to refresh connections
         const checkClosed = setInterval(() => {
@@ -180,7 +176,7 @@ export default function BrokerTestPage() {
       } else {
         toast.showError('Failed to disconnect broker');
       }
-    } catch {
+    } catch (error) {
       toast.showError('Failed to disconnect broker');
     }
   };
@@ -194,81 +190,6 @@ export default function BrokerTestPage() {
       <Typography variant="h4" fontWeight={700} sx={{ mb: 4, color: 'var(--app-text)' }}>
         Brokers
       </Typography>
-
-      {/* Alertsify-style pre-portal modal */}
-      <Dialog
-        open={preConnectOpen}
-        onClose={() => setPreConnectOpen(false)}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            background: '#0B0F14',
-            border: '1px solid rgba(255,255,255,0.08)',
-          },
-        }}
-      >
-        <DialogContent sx={{ position: 'relative', p: 3 }}>
-          <IconButton
-            onClick={() => setPreConnectOpen(false)}
-            sx={{ position: 'absolute', right: 10, top: 10, color: 'rgba(255,255,255,0.7)' }}
-          >
-            <CloseIcon />
-          </IconButton>
-
-          <Typography sx={{ color: 'white', fontWeight: 700, fontSize: 18, mb: 2 }}>
-            Complete the authentication process with {brokerDisplayName}
-          </Typography>
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
-            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-              <Box sx={{ width: 28, height: 28, borderRadius: 2, background: 'rgba(255,255,255,0.08)' }} />
-              <Typography sx={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, lineHeight: 1.4 }}>
-                Once you select Continue, you will be directed to {brokerDisplayName}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-              <Box sx={{ width: 28, height: 28, borderRadius: 2, background: 'rgba(255,255,255,0.08)' }} />
-              <Typography sx={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, lineHeight: 1.4 }}>
-                Login to confirm your identity with {brokerDisplayName}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-              <Box sx={{ width: 28, height: 28, borderRadius: 2, background: 'rgba(255,255,255,0.08)' }} />
-              <Typography sx={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, lineHeight: 1.4 }}>
-                Confirm to share data with our app
-              </Typography>
-            </Box>
-          </Box>
-
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={handleContinueConnect}
-            disabled={connecting}
-            endIcon={connecting ? undefined : <ArrowForwardIcon />}
-            sx={{
-              background: '#111827',
-              color: 'white',
-              py: 1.4,
-              borderRadius: 2,
-              textTransform: 'none',
-              fontWeight: 700,
-              '&:hover': { background: '#0F172A' },
-            }}
-          >
-            {connecting ? (
-              <>
-                <CircularProgress size={16} sx={{ mr: 1, color: 'white' }} />
-                Continuing...
-              </>
-            ) : (
-              'Continue'
-            )}
-          </Button>
-        </DialogContent>
-      </Dialog>
 
       {/* Connected Brokers Section */}
       <Card sx={{ mb: 4, background: 'var(--surface-bg)', border: '1px solid var(--surface-border)' }}>
@@ -385,9 +306,9 @@ export default function BrokerTestPage() {
             gap: 2,
           }}
         >
-          {(availableBrokers.length > 0 ? availableBrokers : []).map((broker) => (
+          {AVAILABLE_BROKERS.map((broker) => (
             <Card
-              key={broker.slug}
+              key={broker.id}
               sx={{
                 background: 'var(--surface-bg)',
                 border: '1px solid var(--surface-border)',
@@ -405,10 +326,22 @@ export default function BrokerTestPage() {
                     {broker.name}
                   </Typography>
                 </Box>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'var(--text-muted)',
+                    mb: 2,
+                    minHeight: 40,
+                    fontSize: '0.875rem',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {broker.description}
+                </Typography>
                 <Button
                   variant="contained"
                   fullWidth
-                  disabled={connecting && selectedBroker?.slug === broker.slug}
+                  disabled={connecting && selectedBroker?.id === broker.id}
                   sx={{
                     background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                     color: 'white',
@@ -421,7 +354,7 @@ export default function BrokerTestPage() {
                   }}
                   onClick={() => handleConnectClick(broker)}
                 >
-                  {connecting && selectedBroker?.slug === broker.slug ? (
+                  {connecting && selectedBroker?.id === broker.id ? (
                     <>
                       <CircularProgress size={16} sx={{ mr: 1, color: 'white' }} />
                       Connecting...
