@@ -96,16 +96,40 @@ export async function POST(request: NextRequest) {
           );
         }
       } catch (error: unknown) {
-        const errorResponse = (error as { response?: { status: number; data?: { message?: string; error?: string } } }).response;
+        // Extract detailed error information from Axios error
+        const axiosError = error as { response?: { status: number; data?: any; statusText?: string }; message?: string };
+        const errorResponse = axiosError?.response;
         const errorStatus = errorResponse?.status || 500;
-        const errorMessage = errorResponse?.data?.message || errorResponse?.data?.error || (error as Error)?.message || 'Failed to register SnapTrade user';
 
-        console.error('SnapTrade registration error:', errorMessage);
+        // Try to get the actual error message from SnapTrade's response
+        let errorMessage = 'Failed to register SnapTrade user';
+        if (errorResponse?.data) {
+          // Log the full response data for debugging
+          console.error('SnapTrade API error response:', JSON.stringify(errorResponse.data, null, 2));
+
+          // Try various possible error message fields
+          errorMessage = errorResponse.data.message
+            || errorResponse.data.error
+            || errorResponse.data.detail
+            || errorResponse.data.description
+            || JSON.stringify(errorResponse.data);
+        } else if (axiosError?.message) {
+          errorMessage = axiosError.message;
+        }
+
+        console.error('SnapTrade registration error:', {
+          status: errorStatus,
+          statusText: errorResponse?.statusText,
+          message: errorMessage,
+          userId: snaptradeUserId,
+          userIdLength: snaptradeUserId.length,
+        });
 
         return NextResponse.json(
           {
             error: 'Failed to register SnapTrade user',
             details: errorMessage,
+            status: errorStatus,
           },
           { status: errorStatus },
         );
