@@ -27,7 +27,7 @@ export interface ITrade extends Document {
   totalSellNotional?: number; // Total sell notional (sum of all SELL fills)
   isMarketOrder?: boolean; // Whether this was a market order (always true now)
   selectedWebhookIds?: string[]; // IDs of all selected webhooks for notifications
-  brokerType?: 'alpaca' | 'webull'; // Broker used for this trade
+  brokerType?: 'snaptrade'; // All brokers are connected via SnapTrade
   brokerOrderId?: string; // Broker-specific order ID (e.g., Alpaca order ID)
   brokerConnectionId?: Types.ObjectId; // Reference to BrokerConnection
   brokerOrderDetails?: Record<string, unknown>; // Full order response from broker (for audit/debugging)
@@ -73,7 +73,8 @@ const TradeSchema = new Schema<ITrade>({
   },
   brokerType: {
     type: String,
-    enum: ['alpaca', 'webull'],
+    enum: ['snaptrade'],
+    default: 'snaptrade',
     index: true,
   },
   brokerOrderId: {

@@ -3,8 +3,10 @@ import { IBrokerConnection } from '@/models/BrokerConnection';
 import { ITrade } from '@/models/Trade';
 import { convertToAlpacaSymbol } from '@/utils/optionSymbol';
 
+const ALPACA_AUTH_URL = 'https://authx.alpaca.markets';
 const ALPACA_PAPER_BASE_URL = 'https://paper-api.alpaca.markets';
 const ALPACA_LIVE_BASE_URL = 'https://api.alpaca.markets';
+const ALPACA_BROKER_API_BASE_URL = 'https://broker-api.alpaca.markets';
 
 interface AlpacaAccountResponse {
   id: string;
@@ -51,21 +53,109 @@ export class AlpacaBroker extends BaseBroker {
     return conn.getDecryptedApiSecret();
   }
 
-  private async alpacaRequest<T>(
-    path: string,
-    options: { method?: string; body?: Record<string, unknown> } = {}
-  ): Promise<T> {
-    const baseUrl = this.getBaseUrl();
+  private getAccessToken(): string | undefined {
+    const conn = this.connection as IBrokerConnection & { getDecryptedAccessToken(): string | undefined };
+    return conn.getDecryptedAccessToken();
+  }
+
+  /**
+   * Obtain OAuth2 access token using client credentials flow
+   */
+  private async obtainAccessToken(): Promise<string> {
     const apiKey = this.getApiKey();
     const apiSecret = this.getApiSecret();
 
-    const url = `${baseUrl}${path}`;
+    const formData = new URLSearchParams();
+    formData.append('grant_type', 'client_credentials');
+    formData.append('client_id', apiKey);
+    formData.append('client_secret', apiSecret);
+
+    const response = await fetch(`${ALPACA_AUTH_URL}/v1/oauth2/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData.toString(),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to obtain access token: HTTP ${response.status}: ${text}`);
+    }
+
+    const data = (await response.json()) as {
+      access_token: string;
+      expires_in: number;
+      token_type: string;
+    };
+
+    // Store token and expiration in connection
+    // Note: This will be saved to DB when connection.save() is called
+    this.connection.accessToken = data.access_token;
+    // expires_in is in seconds, convert to Date
+    const expiresAt = new Date();
+    expiresAt.setSeconds(expiresAt.getSeconds() + data.expires_in);
+    this.connection.accessTokenExpiresAt = expiresAt;
+
+    // Save token to database if connection is persisted
+    if (this.connection.isNew === false) {
+      await this.connection.save();
+    }
+
+    return data.access_token;
+  }
+
+  /**
+   * Get a valid access token, refreshing if necessary
+   */
+  private async getValidAccessToken(): Promise<string> {
+    const existingToken = this.getAccessToken();
+    const expiresAt = this.connection.accessTokenExpiresAt;
+
+    // Check if token exists and is still valid (with 60 second buffer)
+    if (existingToken && expiresAt) {
+      const now = new Date();
+      const bufferTime = 60 * 1000; // 60 seconds in milliseconds
+      if (expiresAt.getTime() > now.getTime() + bufferTime) {
+        return existingToken;
+      }
+    }
+
+    // Token doesn't exist or is expired, obtain a new one
+    return await this.obtainAccessToken();
+  }
+
+  private async alpacaRequest<T>(
+    path: string,
+    options: { method?: string; body?: Record<string, unknown>; useBrokerAPI?: boolean } = {}
+  ): Promise<T> {
+    // Use Broker API for OAuth2, or regular API for direct key auth
+    const useBrokerAPI = options.useBrokerAPI === true;
+    const baseUrl = useBrokerAPI
+      ? ALPACA_BROKER_API_BASE_URL
+      : this.getBaseUrl();
+
+    // For Broker API, use OAuth2 Bearer token
+    // For regular API, use direct API key authentication
+    const useOAuth = useBrokerAPI;
+
     const headers: Record<string, string> = {
-      'APCA-API-KEY-ID': apiKey,
-      'APCA-API-SECRET-KEY': apiSecret,
       'Content-Type': 'application/json',
     };
 
+    if (useOAuth) {
+      // Use OAuth2 Bearer token for Broker API
+      const accessToken = await this.getValidAccessToken();
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    } else {
+      // Use direct API key authentication for regular API
+      const apiKey = this.getApiKey();
+      const apiSecret = this.getApiSecret();
+      headers['APCA-API-KEY-ID'] = apiKey;
+      headers['APCA-API-SECRET-KEY'] = apiSecret;
+    }
+
+    const url = `${baseUrl}${path}`;
     const response = await fetch(url, {
       method: options.method || 'GET',
       headers,
@@ -94,13 +184,29 @@ export class AlpacaBroker extends BaseBroker {
   }
 
   async getAccountInfo(): Promise<AccountInfo> {
-    const account = await this.alpacaRequest<AlpacaAccountResponse>('/v2/account');
+    // Try Broker API first (OAuth2), fallback to regular API
+    try {
+      const account = await this.alpacaRequest<AlpacaAccountResponse>('/v1/accounts', {
+        useBrokerAPI: true,
+      });
 
-    return {
-      accountId: account.id || account.account_number || '',
-      optionApprovedLevel: account.option_approved_level,
-      optionTradingLevel: account.option_trading_level,
-    };
+      return {
+        accountId: account.id || account.account_number || '',
+        optionApprovedLevel: account.option_approved_level,
+        optionTradingLevel: account.option_trading_level,
+      };
+    } catch {
+      // Fallback to regular API with direct key auth
+      const account = await this.alpacaRequest<AlpacaAccountResponse>('/v2/account', {
+        useBrokerAPI: false,
+      });
+
+      return {
+        accountId: account.id || account.account_number || '',
+        optionApprovedLevel: account.option_approved_level,
+        optionTradingLevel: account.option_trading_level,
+      };
+    }
   }
 
   async validateConnection(): Promise<boolean> {
@@ -144,10 +250,11 @@ export class AlpacaBroker extends BaseBroker {
         time_in_force: 'day',
       };
 
-      // Place order
-      const order = await this.alpacaRequest<AlpacaOrderResponse>('/v2/orders', {
+      // Place order - use Broker API with OAuth2
+      const order = await this.alpacaRequest<AlpacaOrderResponse>('/v1/orders', {
         method: 'POST',
         body: orderBody,
+        useBrokerAPI: true,
       });
 
       // Calculate cost information

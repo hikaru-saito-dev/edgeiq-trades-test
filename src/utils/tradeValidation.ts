@@ -35,6 +35,7 @@ export const createTradeSchema = z.object({
   expiryDate: dateStringSchema,
   marketOrder: z.boolean().default(true), // Always true - market orders only
   selectedWebhookIds: z.array(z.string()).optional(), // IDs of selected webhooks for notifications
+  brokerConnectionId: z.string().optional(), // Optional: specific broker connection to use
 });
 
 export type CreateTradeInput = z.infer<typeof createTradeSchema>;

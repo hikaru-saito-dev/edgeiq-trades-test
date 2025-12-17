@@ -106,6 +106,16 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
   const [userWebhooks, setUserWebhooks] = useState<Array<{ id: string; name: string; url: string; type: 'whop' | 'discord' }>>([]);
   const [selectedWebhookIds, setSelectedWebhookIds] = useState<string[]>([]);
 
+  // Broker account selection
+  const [connectedAccounts, setConnectedAccounts] = useState<Array<{
+    id: string;
+    brokerName: string;
+    accountName: string;
+    accountNumber: string;
+    buyingPower?: number;
+  }>>([]);
+  const [selectedBrokerConnectionId, setSelectedBrokerConnectionId] = useState<string>('');
+
   // Check market hours
   useEffect(() => {
     const checkMarket = () => {
@@ -118,7 +128,7 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch user webhooks when form opens
+  // Fetch user webhooks and connected broker accounts when form opens
   useEffect(() => {
     if (open && userId && companyId) {
       const fetchWebhooks = async () => {
@@ -132,7 +142,31 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
           console.error('Error fetching webhooks:', error);
         }
       };
+
+      const fetchBrokerAccounts = async () => {
+        try {
+          const response = await apiRequest('/api/snaptrade/accounts', {
+            method: 'GET',
+            userId,
+            companyId,
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.accounts) {
+              setConnectedAccounts(data.accounts);
+              // Auto-select first account if available and none selected
+              if (data.accounts.length > 0) {
+                setSelectedBrokerConnectionId((prev) => prev || data.accounts[0].id);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching broker accounts:', error);
+        }
+      };
+
       fetchWebhooks();
+      fetchBrokerAccounts();
     }
   }, [open, userId, companyId]);
 
@@ -189,6 +223,12 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
       return;
     }
 
+    // Validate broker connection selection
+    if (!selectedBrokerConnectionId) {
+      toast.showError('Please select a broker account to use for this trade');
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
@@ -199,6 +239,7 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
         expiryDate,
         marketOrder: true, // Always use market orders
         selectedWebhookIds, // Always include, even if empty array (empty = no webhooks selected)
+        brokerConnectionId: selectedBrokerConnectionId, // Selected SnapTrade account
       };
 
       const res = await apiRequest('/api/trades', {
@@ -218,6 +259,7 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
         setOptionType('C');
         setExpiryDate('');
         setSelectedWebhookIds([]);
+        setSelectedBrokerConnectionId(connectedAccounts.length > 0 ? connectedAccounts[0].id : '');
         if (onSuccess) onSuccess();
         onClose();
       } else {
@@ -244,10 +286,10 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
   // Notional will be calculated on the backend using market price
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={handleClose} 
-      maxWidth="sm" 
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="sm"
       fullWidth
       PaperProps={{
         sx: {
@@ -363,6 +405,48 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
               sx={controlStyles}
             />
 
+            {/* Broker Account Selection */}
+            <FormControl fullWidth required>
+              <InputLabel sx={{ color: 'var(--text-muted)' }}>Broker Account</InputLabel>
+              <Select
+                value={selectedBrokerConnectionId}
+                onChange={(e) => setSelectedBrokerConnectionId(e.target.value)}
+                label="Broker Account"
+                sx={controlStyles}
+              >
+                {connectedAccounts.length === 0 ? (
+                  <MenuItem value="" disabled>
+                    No broker accounts connected. Please connect a broker first.
+                  </MenuItem>
+                ) : (
+                  connectedAccounts.map((account) => (
+                    <MenuItem key={account.id} value={account.id}>
+                      <Box>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          {account.brokerName} - {account.accountName}
+                        </Typography>
+                        {account.accountNumber && (
+                          <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                            {account.accountNumber}
+                          </Typography>
+                        )}
+                        {account.buyingPower !== undefined && (
+                          <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block' }}>
+                            Buying Power: ${account.buyingPower.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </Typography>
+                        )}
+                      </Box>
+                    </MenuItem>
+                  ))
+                )}
+              </Select>
+              {connectedAccounts.length === 0 && (
+                <Typography variant="caption" sx={{ color: 'var(--text-muted)', mt: 0.5, ml: 1.75 }}>
+                  Go to the Brokers page to connect your trading account
+                </Typography>
+              )}
+            </FormControl>
+
             {/* Webhook Selection - Only show if user has webhooks configured */}
             {userWebhooks && userWebhooks.length > 0 && (
               <Box
@@ -407,8 +491,8 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1 }}>
-          <Button 
-            onClick={handleClose} 
+          <Button
+            onClick={handleClose}
             disabled={loading}
             sx={{
               color: 'var(--text-muted)',
@@ -419,9 +503,9 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
           >
             Cancel
           </Button>
-          <Button 
-            type="submit" 
-            variant="contained" 
+          <Button
+            type="submit"
+            variant="contained"
             disabled={loading || !marketOpen}
             startIcon={loading ? <CircularProgress size={16} /> : <AddIcon />}
             sx={{

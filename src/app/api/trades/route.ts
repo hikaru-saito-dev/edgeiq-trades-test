@@ -308,7 +308,7 @@ export async function POST(request: NextRequest) {
 
     // Sync to broker BEFORE creating trade in database
     // If broker sync fails, the trade will not be created
-    let brokerType: 'alpaca' | 'webull' | undefined;
+    let brokerType: 'snaptrade' | undefined = 'snaptrade'; // All trades use SnapTrade
     let brokerOrderId: string | undefined;
     let brokerConnectionId: Types.ObjectId | undefined;
     let brokerOrderDetails: Record<string, unknown> | undefined;
@@ -320,13 +320,33 @@ export async function POST(request: NextRequest) {
     } | undefined;
 
     try {
-      // Find active broker connection (prioritize Alpaca for now)
+      // Find active SnapTrade broker connection
+      // brokerConnectionId is required from the frontend
       const { BrokerConnection } = await import('@/models/BrokerConnection');
-      const brokerConnection = await BrokerConnection.findOne({
-        userId: user._id,
-        brokerType: 'alpaca', // For now, hardcode Alpaca. Later: from request body or user preference
-        isActive: true,
-      });
+      let brokerConnection;
+
+      if (validated.brokerConnectionId) {
+        // Use specific broker connection from request
+        brokerConnection = await BrokerConnection.findOne({
+          _id: validated.brokerConnectionId,
+          userId: user._id,
+          brokerType: 'snaptrade', // Only SnapTrade connections
+          isActive: true,
+        });
+      } else {
+        // Fallback: find first active SnapTrade connection
+        brokerConnection = await BrokerConnection.findOne({
+          userId: user._id,
+          brokerType: 'snaptrade',
+          isActive: true,
+        });
+      }
+
+      if (!brokerConnection) {
+        return NextResponse.json({
+          error: 'No active broker connection found. Please connect a broker account first.',
+        }, { status: 400 });
+      }
 
       if (brokerConnection) {
         // Create a temporary trade object for broker sync

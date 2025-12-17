@@ -49,7 +49,6 @@ import {
 import { useAccess } from './AccessProvider';
 import DownloadIcon from '@mui/icons-material/Download';
 import { downloadBlob, generateStatsSnapshot, type StatsSnapshotData } from '@/utils/snapshotGenerator';
-import BrokerConnectionForm from './BrokerConnectionForm';
 
 interface UserStats {
   totalTrades: number;
@@ -841,9 +840,7 @@ export default function ProfileForm() {
               </>
             )}
 
-            {/* Broker Connections */}
-            <Divider sx={{ my: 4, borderColor: 'var(--surface-border)' }} />
-            <BrokerConnectionForm />
+            {/* Broker Connections - Users connect via SnapTrade modal on /alpaca-test page */}
 
             {/* Following Webhooks - Available to all users */}
             <Divider sx={{ my: 4, borderColor: 'var(--surface-border)' }} />

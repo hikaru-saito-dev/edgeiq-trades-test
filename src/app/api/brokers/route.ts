@@ -9,10 +9,10 @@ import { Types } from 'mongoose';
 export const runtime = 'nodejs';
 
 const brokerConnectionSchema = z.object({
-  brokerType: z.enum(['alpaca', 'webull']),
-  apiKey: z.string().min(1),
-  apiSecret: z.string().min(1),
-  paperTrading: z.boolean().optional().default(true), // Default to paper trading for testing
+  brokerType: z.enum(['snaptrade']), // Only SnapTrade is supported
+  apiKey: z.string().optional(), // Not used for SnapTrade
+  apiSecret: z.string().optional(), // Not used for SnapTrade
+  paperTrading: z.boolean().optional().default(false), // SnapTrade accounts are typically live
   accountId: z.string().optional(),
   metadata: z.record(z.unknown()).optional(),
 });
@@ -88,66 +88,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validated = brokerConnectionSchema.parse(body);
 
-    // Check if connection already exists for this broker type
-    const existing = await BrokerConnection.findOne({
-      userId: user._id,
-      brokerType: validated.brokerType,
-    });
-
-    if (existing) {
+    // Only SnapTrade connections are allowed - users connect via the login modal
+    // Direct API broker connections (Alpaca, Webull) are not supported
+    if (validated.brokerType !== 'snaptrade') {
       return NextResponse.json(
-        { error: `You already have a ${validated.brokerType} connection. Please update or delete the existing one.` },
+        { error: 'Only SnapTrade connections are supported. Please use the SnapTrade login modal to connect your broker account.' },
         { status: 400 }
       );
     }
 
-    // Validate connection before saving
-    const tempConnection = {
-      userId: user._id,
-      brokerType: validated.brokerType,
-      apiKey: validated.apiKey,
-      apiSecret: validated.apiSecret,
-      isActive: true,
-      paperTrading: validated.paperTrading,
-      getDecryptedApiKey: () => validated.apiKey,
-      getDecryptedApiSecret: () => validated.apiSecret,
-      getDecryptedAccessToken: () => undefined,
-    } as unknown as IBrokerConnection;
-
-    try {
-      const broker = createBroker(validated.brokerType, tempConnection);
-      const accountInfo = await broker.getAccountInfo();
-
-      // Create and save the connection (encryption happens in pre-save hook)
-      const connection = await BrokerConnection.create({
-        userId: user._id,
-        brokerType: validated.brokerType,
-        apiKey: validated.apiKey, // Will be encrypted by pre-save hook
-        apiSecret: validated.apiSecret, // Will be encrypted by pre-save hook
-        isActive: true,
-        paperTrading: validated.paperTrading,
-        accountId: accountInfo.accountId || validated.accountId,
-        metadata: validated.metadata || {},
-      });
-
-      return NextResponse.json({
-        success: true,
-        connection: {
-          id: connection._id.toString(),
-          brokerType: connection.brokerType,
-          isActive: connection.isActive,
-          paperTrading: connection.paperTrading,
-          accountId: connection.accountId,
-        },
-        accountInfo,
-      }, { status: 201 });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Invalid credentials';
-      return NextResponse.json(
-        { error: `Failed to validate connection: ${errorMessage}` },
-        { status: 400 }
-      );
-    }
+    // SnapTrade connections are created via the callback route, not here
+    return NextResponse.json(
+      { error: 'SnapTrade connections must be created through the connection portal. Use /api/snaptrade/portal to start the connection flow.' },
+      { status: 400 }
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -202,8 +156,6 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json();
     const updateSchema = z.object({
-      apiKey: z.string().min(1).optional(),
-      apiSecret: z.string().min(1).optional(),
       paperTrading: z.boolean().optional(),
       isActive: z.boolean().optional(),
       metadata: z.record(z.unknown()).optional(),
@@ -211,41 +163,19 @@ export async function PATCH(request: NextRequest) {
 
     const validated = updateSchema.parse(body);
 
-    // If updating credentials, validate them first
-    if (validated.apiKey || validated.apiSecret) {
-      const testApiKey = validated.apiKey || connection.getDecryptedApiKey();
-      const testApiSecret = validated.apiSecret || connection.getDecryptedApiSecret();
-
-      const tempConnection = {
-        userId: user._id,
-        brokerType: connection.brokerType,
-        apiKey: testApiKey,
-        apiSecret: testApiSecret,
-        isActive: true,
-        paperTrading: validated.paperTrading ?? connection.paperTrading,
-        getDecryptedApiKey: () => testApiKey,
-        getDecryptedApiSecret: () => testApiSecret,
-        getDecryptedAccessToken: () => connection.getDecryptedAccessToken(),
-      } as unknown as IBrokerConnection;
-
-      try {
-        const broker = createBroker(connection.brokerType, tempConnection);
-        await broker.validateConnection();
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Invalid credentials';
-        return NextResponse.json(
-          { error: `Failed to validate updated credentials: ${errorMessage}` },
-          { status: 400 }
-        );
-      }
+    // SnapTrade connections cannot be updated via API - credentials are managed through SnapTrade portal
+    if (connection.brokerType === 'snaptrade') {
+      // Only allow updating paperTrading, isActive, and metadata
+      if (validated.paperTrading !== undefined) connection.paperTrading = validated.paperTrading;
+      if (validated.isActive !== undefined) connection.isActive = validated.isActive;
+      if (validated.metadata) connection.metadata = validated.metadata;
+    } else {
+      // Legacy direct API connections - allow updates but warn they're deprecated
+      return NextResponse.json(
+        { error: 'Direct API broker connections are deprecated. Please reconnect via SnapTrade login modal.' },
+        { status: 400 }
+      );
     }
-
-    // Update fields
-    if (validated.apiKey) connection.apiKey = validated.apiKey;
-    if (validated.apiSecret) connection.apiSecret = validated.apiSecret;
-    if (validated.paperTrading !== undefined) connection.paperTrading = validated.paperTrading;
-    if (validated.isActive !== undefined) connection.isActive = validated.isActive;
-    if (validated.metadata) connection.metadata = validated.metadata;
 
     await connection.save();
 

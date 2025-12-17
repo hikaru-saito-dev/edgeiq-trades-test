@@ -26,6 +26,7 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "recharts": "^3.4.1",
+    "snaptrade-typescript-sdk": "^9.0.158",
     "zod": "^3.23.8"
   },
   "devDependencies": {

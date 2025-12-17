@@ -167,11 +167,23 @@ export async function POST(request: NextRequest) {
     // If broker sync fails, the settlement will not be saved
     try {
       const { BrokerConnection } = await import('@/models/BrokerConnection');
-      const brokerConnection = await BrokerConnection.findOne({
-        userId: user._id,
-        brokerType: trade.brokerType || 'alpaca', // Use same broker as original trade, or default to Alpaca
-        isActive: true,
-      });
+      let brokerConnection;
+
+      // If trade has a brokerConnectionId, use that specific connection
+      if (trade.brokerConnectionId) {
+        brokerConnection = await BrokerConnection.findOne({
+          _id: trade.brokerConnectionId,
+          userId: user._id,
+          isActive: true,
+        });
+      } else {
+        // Fallback: find connection by brokerType
+        brokerConnection = await BrokerConnection.findOne({
+          userId: user._id,
+          brokerType: 'snaptrade', // All trades use SnapTrade
+          isActive: true,
+        });
+      }
 
       if (brokerConnection) {
         const { createBroker } = await import('@/lib/brokers/factory');
