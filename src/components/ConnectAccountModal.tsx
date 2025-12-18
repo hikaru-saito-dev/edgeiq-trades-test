@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -33,10 +33,37 @@ export default function ConnectAccountModal({
     const [error, setError] = useState<string | null>(null);
     const [redirectUri, setRedirectUri] = useState<string | null>(null);
 
+    // Use refs to track popup and intervals for cleanup
+    const popupRef = useRef<Window | null>(null);
+    const intervalsRef = useRef<{ popup: NodeJS.Timeout | null; success: NodeJS.Timeout | null }>({ popup: null, success: null });
+    const isCompletedRef = useRef(false);
+
+    // Cleanup on modal close
     useEffect(() => {
         if (!open) {
             setError(null);
             setRedirectUri(null);
+            isCompletedRef.current = false;
+
+            // Clean up intervals
+            if (intervalsRef.current.popup) {
+                clearInterval(intervalsRef.current.popup);
+                intervalsRef.current.popup = null;
+            }
+            if (intervalsRef.current.success) {
+                clearInterval(intervalsRef.current.success);
+                intervalsRef.current.success = null;
+            }
+
+            // Close popup if still open
+            if (popupRef.current && !popupRef.current.closed) {
+                try {
+                    popupRef.current.close();
+                } catch {
+                    // Ignore
+                }
+                popupRef.current = null;
+            }
         }
     }, [open]);
 
@@ -97,48 +124,70 @@ export default function ConnectAccountModal({
                 }
 
                 setRedirectUri(data.redirectURI);
+                popupRef.current = popup;
+
+                // Helper function to clean up and close everything
+                const completeConnection = async () => {
+                    if (isCompletedRef.current) return;
+                    isCompletedRef.current = true;
+
+                    // Clear all intervals
+                    if (intervalsRef.current.popup) {
+                        clearInterval(intervalsRef.current.popup);
+                        intervalsRef.current.popup = null;
+                    }
+                    if (intervalsRef.current.success) {
+                        clearInterval(intervalsRef.current.success);
+                        intervalsRef.current.success = null;
+                    }
+
+                    // Close popup if still open
+                    try {
+                        if (popup && !popup.closed) {
+                            popup.close();
+                        }
+                    } catch {
+                        // Popup might already be closed
+                    }
+
+                    // Wait a moment for callback to process, then complete
+                    setTimeout(async () => {
+                        try {
+                            const completeResponse = await apiRequest('/api/snaptrade/complete', {
+                                method: 'POST',
+                                userId,
+                                companyId,
+                            });
+
+                            if (completeResponse.ok) {
+                                const completeData = await completeResponse.json();
+                                if (completeData.success) {
+                                    if (onSuccess) onSuccess();
+                                    onClose();
+                                    toast.showSuccess('Account connected successfully!');
+                                    return;
+                                }
+                            }
+                        } catch {
+                            // Continue anyway
+                        }
+
+                        // Fallback: still reload and close
+                        if (onSuccess) onSuccess();
+                        onClose();
+                        toast.showSuccess('Connection completed!');
+                    }, 1000);
+                };
 
                 // Poll for popup to detect success and close it automatically
-                const checkPopup = setInterval(async () => {
+                intervalsRef.current.popup = setInterval(() => {
                     // Check if popup was closed manually
                     if (popup.closed) {
-                        clearInterval(checkPopup);
-                        // Wait a moment for callback to process, then try to complete manually
-                        setTimeout(async () => {
-                            try {
-                                // Try to manually complete the connection if callback didn't fire
-                                const completeResponse = await apiRequest('/api/snaptrade/complete', {
-                                    method: 'POST',
-                                    userId,
-                                    companyId,
-                                });
-
-                                if (completeResponse.ok) {
-                                    const completeData = await completeResponse.json();
-                                    if (completeData.success) {
-                                        // Success! Reload accounts
-                                        if (onSuccess) onSuccess();
-                                        onClose();
-                                        toast.showSuccess('Account connected successfully!');
-                                        return;
-                                    }
-                                }
-
-                                // If manual complete failed, still try to reload (maybe callback worked)
-                                if (onSuccess) onSuccess();
-                                onClose();
-                                toast.showSuccess('Connection completed! Please refresh if accounts don\'t appear.');
-                            } catch {
-                                // Still close modal and reload - callback might have worked
-                                if (onSuccess) onSuccess();
-                                onClose();
-                            }
-                        }, 2000); // Wait 2 seconds for callback to process
+                        completeConnection();
                         return;
                     }
 
                     // Try to detect if popup has redirected to our domain (success)
-                    // When popup is on our domain, we can access its location without CORS error
                     try {
                         const popupUrl = popup.location.href;
                         const currentOrigin = window.location.origin;
@@ -152,76 +201,22 @@ export default function ConnectAccountModal({
                                 popupUrl.includes('success=connected') ||
                                 popupUrl.includes('connection-complete')
                             ) {
-                                // Connection successful! Close popup immediately
-                                clearInterval(checkPopup);
-
-                                // Give a tiny delay to ensure redirect completes, then close
-                                setTimeout(() => {
-                                    try {
-                                        popup.close();
-                                    } catch {
-                                        // Popup might already be closed
-                                    }
-                                }, 100);
-
-                                // Wait a moment for callback to process, then complete
-                                setTimeout(async () => {
-                                    try {
-                                        const completeResponse = await apiRequest('/api/snaptrade/complete', {
-                                            method: 'POST',
-                                            userId,
-                                            companyId,
-                                        });
-
-                                        if (completeResponse.ok) {
-                                            const completeData = await completeResponse.json();
-                                            if (completeData.success) {
-                                                if (onSuccess) onSuccess();
-                                                onClose();
-                                                toast.showSuccess('Account connected successfully!');
-                                                return;
-                                            }
-                                        }
-
-                                        // Fallback: still reload
-                                        if (onSuccess) onSuccess();
-                                        onClose();
-                                        toast.showSuccess('Connection completed!');
-                                    } catch {
-                                        if (onSuccess) onSuccess();
-                                        onClose();
-                                    }
-                                }, 1500);
+                                // Connection successful! Close popup and modal
+                                completeConnection();
                             }
                         }
                     } catch {
                         // CORS error - popup is still on different domain (SnapTrade)
                         // This is expected, continue polling
-                        // We'll detect success when popup redirects to our domain (callback URL)
                     }
-                }, 300); // Check more frequently for better responsiveness
+                }, 200); // Check every 200ms for fast response
 
-                // Listen for storage event (if callback sets it)
-                const storageHandler = () => {
-                    const connected = sessionStorage.getItem('snaptrade_connected');
-                    if (connected === 'true') {
-                        sessionStorage.removeItem('snaptrade_connected');
-                        clearInterval(checkPopup);
-                        if (onSuccess) onSuccess();
-                        onClose();
-                    }
-                };
-                window.addEventListener('storage', storageHandler);
-
-                // Also check periodically if we're redirected to success page
-                const checkSuccess = setInterval(() => {
+                // Also check periodically if parent window is redirected to success page
+                intervalsRef.current.success = setInterval(() => {
                     if (window.location.search.includes('success=connected')) {
-                        clearInterval(checkSuccess);
-                        clearInterval(checkPopup);
-                        if (onSuccess) onSuccess();
-                        onClose();
+                        completeConnection();
                     }
-                }, 1000);
+                }, 500);
             } else {
                 throw new Error('No redirect URI received');
             }
@@ -234,11 +229,6 @@ export default function ConnectAccountModal({
         }
     };
 
-    const handleOpenInNewTab = () => {
-        if (redirectUri) {
-            window.open(redirectUri, '_blank');
-        }
-    };
 
     return (
         <Dialog
