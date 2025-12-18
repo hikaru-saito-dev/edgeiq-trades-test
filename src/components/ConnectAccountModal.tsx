@@ -137,55 +137,69 @@ export default function ConnectAccountModal({
                         return;
                     }
 
-                    // Try to detect if popup has redirected to our callback URL (success)
+                    // Try to detect if popup has redirected to our domain (success)
+                    // When popup is on our domain, we can access its location without CORS error
                     try {
                         const popupUrl = popup.location.href;
-                        // Check if popup is on our callback URL or profile page with success
-                        // This works because our callback redirects to /profile?success=connected
-                        if (popupUrl && (
-                            popupUrl.includes('/api/snaptrade/callback') ||
-                            popupUrl.includes('/profile?success=connected') ||
-                            popupUrl.includes('connection-complete')
-                        )) {
-                            // Connection successful! Close popup immediately
-                            clearInterval(checkPopup);
-                            popup.close();
+                        const currentOrigin = window.location.origin;
 
-                            // Wait a moment for callback to process, then complete
-                            setTimeout(async () => {
-                                try {
-                                    const completeResponse = await apiRequest('/api/snaptrade/complete', {
-                                        method: 'POST',
-                                        userId,
-                                        companyId,
-                                    });
+                        // Check if popup is on our domain
+                        if (popupUrl && popupUrl.startsWith(currentOrigin)) {
+                            // Popup is on our domain - check if it's a success page
+                            if (
+                                popupUrl.includes('/api/snaptrade/callback') ||
+                                popupUrl.includes('/profile') ||
+                                popupUrl.includes('success=connected') ||
+                                popupUrl.includes('connection-complete')
+                            ) {
+                                // Connection successful! Close popup immediately
+                                clearInterval(checkPopup);
 
-                                    if (completeResponse.ok) {
-                                        const completeData = await completeResponse.json();
-                                        if (completeData.success) {
-                                            if (onSuccess) onSuccess();
-                                            onClose();
-                                            toast.showSuccess('Account connected successfully!');
-                                            return;
-                                        }
+                                // Give a tiny delay to ensure redirect completes, then close
+                                setTimeout(() => {
+                                    try {
+                                        popup.close();
+                                    } catch {
+                                        // Popup might already be closed
                                     }
+                                }, 100);
 
-                                    // Fallback: still reload
-                                    if (onSuccess) onSuccess();
-                                    onClose();
-                                    toast.showSuccess('Connection completed!');
-                                } catch {
-                                    if (onSuccess) onSuccess();
-                                    onClose();
-                                }
-                            }, 1500);
+                                // Wait a moment for callback to process, then complete
+                                setTimeout(async () => {
+                                    try {
+                                        const completeResponse = await apiRequest('/api/snaptrade/complete', {
+                                            method: 'POST',
+                                            userId,
+                                            companyId,
+                                        });
+
+                                        if (completeResponse.ok) {
+                                            const completeData = await completeResponse.json();
+                                            if (completeData.success) {
+                                                if (onSuccess) onSuccess();
+                                                onClose();
+                                                toast.showSuccess('Account connected successfully!');
+                                                return;
+                                            }
+                                        }
+
+                                        // Fallback: still reload
+                                        if (onSuccess) onSuccess();
+                                        onClose();
+                                        toast.showSuccess('Connection completed!');
+                                    } catch {
+                                        if (onSuccess) onSuccess();
+                                        onClose();
+                                    }
+                                }, 1500);
+                            }
                         }
                     } catch {
-                        // CORS error - popup is on different domain (SnapTrade)
+                        // CORS error - popup is still on different domain (SnapTrade)
                         // This is expected, continue polling
                         // We'll detect success when popup redirects to our domain (callback URL)
                     }
-                }, 500);
+                }, 300); // Check more frequently for better responsiveness
 
                 // Listen for storage event (if callback sets it)
                 const storageHandler = () => {
