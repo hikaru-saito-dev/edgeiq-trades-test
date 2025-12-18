@@ -47,13 +47,16 @@ export class SnapTradeBroker implements IBroker {
     const userSecret = await this.getUserSecret();
 
     // Refresh account to sync latest permissions and data
+    // When closing positions, wait longer to ensure position data is synced
     if (this.connection.authorizationId) {
       await this.client.connections.refreshBrokerageAuthorization({
         authorizationId: this.connection.authorizationId,
         userId: this.connection.snaptradeUserId,
         userSecret,
       });
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait longer when closing to ensure position exists and is synced
+      const waitTime = side === 'SELL' ? 2000 : 1000;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
     }
 
     // Format option symbol in OCC format (21 characters)
@@ -107,18 +110,16 @@ export class SnapTradeBroker implements IBroker {
     };
 
     // Determine correct action: BUY opens position, SELL closes position
-    const action = side === 'BUY' ? 'BUY_TO_OPEN' : 'SELL_TO_CLOSE';
+    const action: 'BUY_TO_OPEN' | 'SELL_TO_CLOSE' = side === 'BUY' ? 'BUY_TO_OPEN' : 'SELL_TO_CLOSE';
 
     // Use placeMlegOrder for options (required structure even for single-leg)
-    // For MARKET orders, explicitly set limit_price and stop_price to null
+    // For MARKET orders, omit limit_price and stop_price entirely (don't include in request)
     const orderResponse = await this.client.trading.placeMlegOrder({
       userId: this.connection.snaptradeUserId,
       userSecret,
       accountId: this.connection.accountId,
       order_type: 'MARKET',
       time_in_force: 'Day',
-      limit_price: null,
-      stop_price: null,
       legs: [
         {
           instrument: {

@@ -164,48 +164,39 @@ export async function POST(request: NextRequest) {
     const sellNotional = validated.contracts * finalFillPrice * 100;
 
     // Sync settlement to broker BEFORE updating database
+    // Only sync if the trade was actually placed with the broker (has brokerOrderId)
     // If broker sync fails, the settlement will not be saved
-    try {
-      const { BrokerConnection } = await import('@/models/BrokerConnection');
-      let brokerConnection;
-
-      // If trade has a brokerConnectionId, use that specific connection
-      if (trade.brokerConnectionId) {
-        brokerConnection = await BrokerConnection.findOne({
+    if (trade.brokerOrderId && trade.brokerConnectionId) {
+      try {
+        const { BrokerConnection } = await import('@/models/BrokerConnection');
+        const brokerConnection = await BrokerConnection.findOne({
           _id: trade.brokerConnectionId,
           userId: user._id,
           isActive: true,
         });
-      } else {
-        // Fallback: find connection by brokerType
-        brokerConnection = await BrokerConnection.findOne({
-          userId: user._id,
-          brokerType: 'snaptrade', // All trades use SnapTrade
-          isActive: true,
-        });
-      }
 
-      if (brokerConnection) {
-        const { createBroker } = await import('@/lib/brokers/factory');
-        const broker = createBroker(brokerConnection.brokerType, brokerConnection);
-        const result = await broker.placeOptionOrder(
-          trade,
-          'SELL',
-          validated.contracts
-        );
+        if (brokerConnection) {
+          const { createBroker } = await import('@/lib/brokers/factory');
+          const broker = createBroker(brokerConnection.brokerType, brokerConnection);
+          const result = await broker.placeOptionOrder(
+            trade,
+            'SELL',
+            validated.contracts
+          );
 
-        if (!result.success) {
-          return NextResponse.json({
-            error: result.error || 'Failed to place sell order with broker',
-          }, { status: 400 });
+          if (!result.success) {
+            return NextResponse.json({
+              error: result.error || 'Failed to place sell order with broker',
+            }, { status: 400 });
+          }
         }
+      } catch (brokerError) {
+        const errorMessage = brokerError instanceof Error ? brokerError.message : 'Broker sync failed';
+        console.error('Error syncing settlement to broker:', brokerError);
+        return NextResponse.json({
+          error: errorMessage,
+        }, { status: 400 });
       }
-    } catch (brokerError) {
-      const errorMessage = brokerError instanceof Error ? brokerError.message : 'Broker sync failed';
-      console.error('Error syncing settlement to broker:', brokerError);
-      return NextResponse.json({
-        error: errorMessage,
-      }, { status: 400 });
     }
 
     // Create SELL fill
