@@ -47,58 +47,41 @@ export async function POST(request: NextRequest) {
     // Use MongoDB _id as persistent SnapTrade userId
     const snaptradeUserId = user._id.toString();
 
-    // Get or retrieve userSecret from database
-    let userSecret: string | undefined;
-    const existingConnection = await BrokerConnection.findOne({
+    // Register SnapTrade user (idempotent - safe to call multiple times)
+    const registerResp = await snaptrade.authentication.registerSnapTradeUser({
+      userId: snaptradeUserId,
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userSecret = (registerResp.data as any).userSecret as string;
+
+    if (!userSecret) {
+      return NextResponse.json(
+        { error: 'Failed to register SnapTrade user' },
+        { status: 500 },
+      );
+    }
+
+    // Store userSecret in database for future use (encryption handled by pre-save hook)
+    let connection = await BrokerConnection.findOne({
       userId: user._id,
       brokerType: 'snaptrade',
       snaptradeUserId: snaptradeUserId,
     });
 
-    if (existingConnection?.snaptradeUserSecret) {
-      const conn = await BrokerConnection.findById(existingConnection._id);
-      userSecret = conn?.getDecryptedSnaptradeUserSecret() || undefined;
-    }
-
-    // Register user if no secret found (idempotent - safe to call multiple times)
-    if (!userSecret) {
-      const registerResp = await snaptrade.authentication.registerSnapTradeUser({
-        userId: snaptradeUserId,
+    if (connection) {
+      connection.snaptradeUserSecret = userSecret;
+      connection.isActive = true;
+      await connection.save();
+    } else {
+      connection = new BrokerConnection({
+        userId: user._id,
+        brokerType: 'snaptrade',
+        snaptradeUserId: snaptradeUserId,
+        snaptradeUserSecret: userSecret,
+        isActive: true,
       });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      userSecret = (registerResp.data as any).userSecret as string;
-
-      // Store userSecret in database for future use (encryption handled by pre-save hook)
-      if (userSecret) {
-        let connection = await BrokerConnection.findOne({
-          userId: user._id,
-          brokerType: 'snaptrade',
-          snaptradeUserId: snaptradeUserId,
-        });
-
-        if (connection) {
-          connection.snaptradeUserSecret = userSecret;
-          connection.isActive = true;
-          await connection.save();
-        } else {
-          connection = new BrokerConnection({
-            userId: user._id,
-            brokerType: 'snaptrade',
-            snaptradeUserId: snaptradeUserId,
-            snaptradeUserSecret: userSecret,
-            isActive: true,
-          });
-          await connection.save();
-        }
-      }
-    }
-
-    if (!userSecret) {
-      return NextResponse.json(
-        { error: 'Failed to obtain SnapTrade userSecret' },
-        { status: 500 },
-      );
+      await connection.save();
     }
 
     // Create Connection Portal session
