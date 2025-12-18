@@ -57,11 +57,15 @@ export async function POST(request: NextRequest) {
     const userSecret = (registerResp.data as any).userSecret as string;
 
     // 2) Create Connection Portal session
+    // Include userId in customRedirect so SnapTrade passes it back in callback
+    const callbackUrl = new URL('/api/snaptrade/callback', request.nextUrl.origin);
+    callbackUrl.searchParams.set('userId', snaptradeUserId);
+
     const loginResp = await snaptrade.authentication.loginSnapTradeUser({
       userId: snaptradeUserId,
       userSecret,
       immediateRedirect: false,
-      customRedirect: `${request.nextUrl.origin}/api/snaptrade/callback`,
+      customRedirect: callbackUrl.toString(),
       connectionType: 'trade',
       connectionPortalVersion: 'v4',
     });
