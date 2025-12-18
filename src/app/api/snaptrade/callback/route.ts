@@ -139,14 +139,18 @@ export async function GET(request: NextRequest) {
                 accounts: ${JSON.stringify(accounts.length)}
               }, '*');
             }
-            // Also handle case where this is opened in popup - close it
+            // Handle case where OAuth opened in new tab (from iframe breakout)
+            // Send message to opener (the Whop window that opened the modal)
             if (window.opener) {
               window.opener.postMessage({
                 status: 'SUCCESS',
                 authorizationId: '${connectionId || 'connected'}',
                 accounts: ${JSON.stringify(accounts.length)}
               }, '*');
-              window.close();
+              // Close this tab after a short delay
+              setTimeout(() => {
+                window.close();
+              }, 500);
             }
             // Fallback: redirect if no parent/opener
             setTimeout(() => {
