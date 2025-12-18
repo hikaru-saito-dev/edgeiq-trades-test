@@ -28,6 +28,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
+import CloseIcon from '@mui/icons-material/Close';
 import { useToast } from './ToastProvider';
 import { motion } from 'framer-motion';
 import { apiRequest } from '@/lib/apiClient';
@@ -241,6 +242,33 @@ export default function ProfileForm() {
       console.error('Failed to load broker accounts:', error);
     } finally {
       setLoadingBrokers(false);
+    }
+  };
+
+  const handleDisconnect = async (connectionId: string) => {
+    if (!userId || !companyId) return;
+
+    if (!confirm('Are you sure you want to disconnect this broker account? You will need to reconnect it to place trades.')) {
+      return;
+    }
+
+    try {
+      const res = await apiRequest(`/api/snaptrade/disconnect?connectionId=${connectionId}`, {
+        method: 'DELETE',
+        userId,
+        companyId,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.showSuccess('Broker account disconnected successfully');
+        loadConnectedBrokers();
+      } else {
+        toast.showError(data.error || 'Failed to disconnect broker account');
+      }
+    } catch (error) {
+      console.error('Failed to disconnect broker:', error);
+      toast.showError('Failed to disconnect broker account');
     }
   };
 
@@ -1031,20 +1059,37 @@ export default function ProfileForm() {
                           )}
                         </Box>
                       </Box>
-                      <Chip
-                        label="Connected"
-                        size="small"
-                        sx={{
-                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                          color: 'white',
-                          fontWeight: 600,
-                          height: 28,
-                          '& .MuiChip-icon': {
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip
+                          label="Connected"
+                          size="small"
+                          sx={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                             color: 'white',
-                          },
-                        }}
-                        icon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
-                      />
+                            fontWeight: 600,
+                            height: 28,
+                            '& .MuiChip-icon': {
+                              color: 'white',
+                            },
+                          }}
+                          icon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
+                        />
+                        <IconButton
+                          onClick={() => handleDisconnect(account.id)}
+                          size="small"
+                          sx={{
+                            color: 'var(--text-muted)',
+                            '&:hover': {
+                              color: '#ef4444',
+                              background: 'rgba(239, 68, 68, 0.1)',
+                            },
+                            transition: 'all 0.2s ease',
+                          }}
+                          title="Disconnect broker account"
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
                     </Box>
                   </Card>
                 ))}
