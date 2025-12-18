@@ -263,15 +263,36 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
         if (onSuccess) onSuccess();
         onClose();
       } else {
-        const error = await res.json();
-        toast.showError(error.error || 'Failed to create trade');
+        // Try to parse error response
+        let errorMessage = 'Failed to create trade';
+        try {
+          const errorData = await res.json();
+          if (errorData.error) {
+            errorMessage = errorData.error;
+            // If there are validation details, append them
+            if (errorData.details && Array.isArray(errorData.details)) {
+              const validationErrors = errorData.details
+                .map((detail: { path: string[]; message: string }) =>
+                  `${detail.path.join('.')}: ${detail.message}`
+                )
+                .join(', ');
+              if (validationErrors) {
+                errorMessage += ` (${validationErrors})`;
+              }
+            }
+          }
+        } catch {
+          // If response is not JSON, use status text
+          errorMessage = res.statusText || `Request failed with status ${res.status}`;
+        }
+        toast.showError(errorMessage);
       }
     } catch (err) {
+      let errorMessage = 'Failed to create trade';
       if (err instanceof Error) {
-        toast.showError(err.message);
-      } else {
-        toast.showError('Failed to create trade');
+        errorMessage = err.message;
       }
+      toast.showError(errorMessage);
     } finally {
       setLoading(false);
     }
