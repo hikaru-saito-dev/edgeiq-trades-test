@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Snaptrade } from 'snaptrade-typescript-sdk';
 import connectDB from '@/lib/db';
 import { User } from '@/models/User';
-import { BrokerConnection } from '@/models/BrokerConnection';
 
 export const runtime = 'nodejs';
 
@@ -59,7 +58,6 @@ export async function POST(request: NextRequest) {
     // 2) Create Connection Portal session
     // Include userId in customRedirect so SnapTrade passes it back in callback
     // For Whop apps, use NEXT_PUBLIC_APP_URL if set (for production), otherwise use request origin
-    // This ensures SnapTrade can redirect to the correct URL
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
     const callbackUrl = new URL('/api/snaptrade/callback', baseUrl);
     callbackUrl.searchParams.set('userId', snaptradeUserId);
