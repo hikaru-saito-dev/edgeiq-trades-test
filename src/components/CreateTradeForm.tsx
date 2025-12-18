@@ -268,29 +268,50 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
         try {
           const errorData = await res.json();
           if (errorData.error) {
-            errorMessage = errorData.error;
-            // If there are validation details, append them
-            if (errorData.details && Array.isArray(errorData.details)) {
-              const validationErrors = errorData.details
-                .map((detail: { path: string[]; message: string }) =>
-                  `${detail.path.join('.')}: ${detail.message}`
-                )
-                .join(', ');
-              if (validationErrors) {
-                errorMessage += ` (${validationErrors})`;
+            // Simplify error message - remove technical details
+            const rawError = errorData.error;
+            // Remove response headers and technical details
+            errorMessage = rawError
+              .split('\n')[0]
+              .replace(/RESPONSE HEADERS:.*/i, '')
+              .replace(/Request failed with status code \d+/i, '')
+              .trim();
+
+            // If still too long or technical, use simple message
+            if (errorMessage.length > 100 || errorMessage.includes('RESPONSE')) {
+              if (res.status === 403) {
+                errorMessage = 'Options trading not enabled or account restricted';
+              } else if (res.status === 400) {
+                errorMessage = 'Invalid order request';
+              } else {
+                errorMessage = 'Failed to create trade';
               }
             }
           }
         } catch {
-          // If response is not JSON, use status text
-          errorMessage = res.statusText || `Request failed with status ${res.status}`;
+          // If response is not JSON, use simple status-based message
+          if (res.status === 403) {
+            errorMessage = 'Options trading not enabled or account restricted';
+          } else if (res.status === 400) {
+            errorMessage = 'Invalid order request';
+          } else {
+            errorMessage = 'Failed to create trade';
+          }
         }
         toast.showError(errorMessage);
       }
     } catch (err) {
       let errorMessage = 'Failed to create trade';
       if (err instanceof Error) {
-        errorMessage = err.message;
+        const msg = err.message;
+        // Simplify error messages
+        if (msg.includes('403') || msg.includes('Forbidden')) {
+          errorMessage = 'Options trading not enabled or account restricted';
+        } else if (msg.includes('400') || msg.includes('Bad Request')) {
+          errorMessage = 'Invalid order request';
+        } else {
+          errorMessage = msg.split('\n')[0].trim();
+        }
       }
       toast.showError(errorMessage);
     } finally {

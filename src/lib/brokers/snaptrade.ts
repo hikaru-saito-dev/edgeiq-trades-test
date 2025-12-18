@@ -113,37 +113,39 @@ export class SnapTradeBroker implements IBroker {
         },
       };
     } catch (error: unknown) {
-      // Extract detailed error message from SnapTrade API response
-      let errorMessage = 'Unknown error placing order';
+      // Extract error message and simplify for user display
+      let errorMessage = 'Failed to place order';
 
       if (error && typeof error === 'object') {
-        // Check if it's a SnapTrade SDK error with responseBody
         const snaptradeError = error as {
           message?: string;
           responseBody?: { error?: string; message?: string; detail?: string };
           status?: number;
-          statusText?: string;
         };
 
-        // Try to get the actual error message from response body
-        if (snaptradeError.responseBody) {
-          errorMessage =
-            snaptradeError.responseBody.error ||
-            snaptradeError.responseBody.message ||
-            snaptradeError.responseBody.detail ||
-            errorMessage;
-        } else if (snaptradeError.message) {
-          errorMessage = snaptradeError.message;
-        }
-
-        // Add status code context for 403 errors
+        // For 403 errors, provide simple guidance
         if (snaptradeError.status === 403) {
-          if (!errorMessage.includes('403') && !errorMessage.includes('Forbidden')) {
-            errorMessage = `Forbidden (403): ${errorMessage}. This usually means: 1) Options trading may not be enabled on your account, 2) The account may need to be refreshed, or 3) Your brokerage may have restrictions on options trading.`;
+          errorMessage = 'Options trading not enabled or account restricted. Please check your account settings.';
+        } else if (snaptradeError.status === 400) {
+          errorMessage = 'Invalid order request. Please verify the option details.';
+        } else if (snaptradeError.responseBody?.error) {
+          // Extract simple message from response
+          const apiError = snaptradeError.responseBody.error;
+          // Remove technical details and keep only the main message
+          errorMessage = apiError.split('\n')[0].replace(/RESPONSE HEADERS:.*/i, '').trim() || errorMessage;
+        } else if (snaptradeError.message) {
+          // Simplify SDK error messages
+          const msg = snaptradeError.message;
+          if (msg.includes('403')) {
+            errorMessage = 'Options trading not enabled or account restricted.';
+          } else if (msg.includes('400')) {
+            errorMessage = 'Invalid order request.';
+          } else {
+            errorMessage = msg.split('\n')[0].trim();
           }
         }
       } else if (error instanceof Error) {
-        errorMessage = error.message;
+        errorMessage = error.message.split('\n')[0].trim();
       }
 
       return {
