@@ -232,53 +232,56 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/?error=save_failed', request.url));
     }
 
-    // Return HTML page that sends postMessage to parent window (for iframe modal)
-    // This allows the connection to complete within Whop context
+    // Return HTML page that sends postMessage to opener window
+    // When OAuth opens in new tab, this callback runs in that tab
+    // We send message to window.opener (the main window with modal)
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
           <title>Connection Complete</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
-        <body>
-          <script>
-            // Send success message to parent window (Whop)
-            if (window.parent && window.parent !== window) {
-              window.parent.postMessage({
-                status: 'SUCCESS',
-                authorizationId: '${connectionId || 'connected'}',
-                accounts: ${JSON.stringify(accounts.length)}
-              }, '*');
-            }
-            // Handle case where OAuth opened in new tab (from iframe breakout)
-            // Send message to opener (the Whop window that opened the modal)
-            if (window.opener) {
-              window.opener.postMessage({
-                status: 'SUCCESS',
-                authorizationId: '${connectionId || 'connected'}',
-                accounts: ${JSON.stringify(accounts.length)}
-              }, '*');
-              // Close this tab after a short delay
-              setTimeout(() => {
-                window.close();
-              }, 500);
-            }
-            // Fallback: redirect if no parent/opener
-            // For Whop apps, use relative URL which will work in iframe context
-            setTimeout(() => {
-              if (window.parent && window.parent !== window) {
-                // In iframe, try to communicate with parent
-                window.parent.postMessage({ status: 'SUCCESS', accounts: ${JSON.stringify(accounts.length)} }, '*');
-              } else {
-                // Not in iframe, redirect
-                window.location.href = '/brokers?connected=true';
-              }
-            }, 1000);
-          </script>
-          <div style="text-align: center; padding: 40px; font-family: Arial, sans-serif;">
-            <h2>Connection Successful!</h2>
-            <p>You can close this window.</p>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; min-height: 100vh;">
+          <div style="background: white; padding: 40px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); text-align: center; max-width: 400px;">
+            <div style="width: 64px; height: 64px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <h2 style="margin: 0 0 10px; color: #1a1a1a; font-size: 24px; font-weight: 700;">Connection Successful!</h2>
+            <p style="margin: 0 0 20px; color: #666; font-size: 14px;">Your brokerage account has been connected.</p>
+            <p style="margin: 0; color: #999; font-size: 12px;">This window will close automatically...</p>
           </div>
+          <script>
+            (function() {
+              // Send success message to opener (main window with modal)
+              if (window.opener && !window.opener.closed) {
+                window.opener.postMessage({
+                  status: 'SUCCESS',
+                  authorizationId: '${connectionId || 'connected'}',
+                  accounts: ${JSON.stringify(accounts.length)}
+                }, '*');
+                
+                // Close this tab after a short delay
+                setTimeout(function() {
+                  window.close();
+                }, 1500);
+              } else if (window.parent && window.parent !== window) {
+                // Fallback: if in iframe, send to parent
+                window.parent.postMessage({
+                  status: 'SUCCESS',
+                  authorizationId: '${connectionId || 'connected'}',
+                  accounts: ${JSON.stringify(accounts.length)}
+                }, '*');
+              } else {
+                // Last resort: redirect
+                setTimeout(function() {
+                  window.location.href = '/brokers?connected=true';
+                }, 2000);
+              }
+            })();
+          </script>
         </body>
       </html>
     `;

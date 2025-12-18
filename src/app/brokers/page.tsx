@@ -28,12 +28,69 @@ interface ConnectedBroker {
   lastSync?: string;
 }
 
-// Component to handle iframe - SnapTrade handles OAuth redirects automatically
-// According to SnapTrade docs: OAuth will open in new tab when in iframe, which is expected
-// We just need to listen for postMessage events (SUCCESS, ERROR, CLOSED)
-function SnapTradeIframe({ src }: { src: string }) {
+// Component to handle iframe - monitor for OAuth redirects
+function SnapTradeIframe({ src, onOAuthDetected }: { src: string; onOAuthDetected: () => void }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const hasDetectedOAuth = useRef(false);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || hasDetectedOAuth.current) return;
+
+    // Monitor iframe for navigation away from SnapTrade (OAuth redirect)
+    const checkInterval = setInterval(() => {
+      if (hasDetectedOAuth.current) {
+        clearInterval(checkInterval);
+        return;
+      }
+
+      try {
+        const iframeUrl = iframe.contentWindow?.location.href;
+        // If iframe navigated to a non-SnapTrade domain, OAuth has started
+        if (iframeUrl && !iframeUrl.includes('snaptrade.com') && !iframeUrl.includes(window.location.origin)) {
+          hasDetectedOAuth.current = true;
+          onOAuthDetected();
+          clearInterval(checkInterval);
+        }
+      } catch (e) {
+        // Cross-origin error means iframe navigated to different domain (OAuth)
+        if (!hasDetectedOAuth.current) {
+          hasDetectedOAuth.current = true;
+          onOAuthDetected();
+          clearInterval(checkInterval);
+        }
+      }
+    }, 300);
+
+    // Also listen for load events
+    const handleLoad = () => {
+      if (hasDetectedOAuth.current) return;
+      try {
+        const iframeUrl = iframe.contentWindow?.location.href;
+        if (iframeUrl && !iframeUrl.includes('snaptrade.com') && !iframeUrl.includes(window.location.origin)) {
+          hasDetectedOAuth.current = true;
+          onOAuthDetected();
+        }
+      } catch (e) {
+        // Cross-origin - OAuth detected
+        if (!hasDetectedOAuth.current) {
+          hasDetectedOAuth.current = true;
+          onOAuthDetected();
+        }
+      }
+    };
+
+    iframe.addEventListener('load', handleLoad);
+
+    return () => {
+      clearInterval(checkInterval);
+      iframe.removeEventListener('load', handleLoad);
+    };
+  }, [src, onOAuthDetected]);
+
   return (
     <iframe
+      ref={iframeRef}
       id="snaptrade-iframe"
       src={src}
       title="SnapTrade Connection Portal"
@@ -56,6 +113,7 @@ export default function BrokerTestPage() {
   const [connecting, setConnecting] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [portalUrl, setPortalUrl] = useState<string | null>(null);
+  const [oauthInProgress, setOauthInProgress] = useState(false);
 
   useEffect(() => {
     // Load connected accounts on mount
@@ -84,37 +142,45 @@ export default function BrokerTestPage() {
   // Listen for postMessage from SnapTrade portal and callback route
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Verify origin is from SnapTrade (security check)
-      const allowedOrigins = ['https://app.snaptrade.com', 'https://connect.snaptrade.com'];
-      if (event.origin && !allowedOrigins.includes(event.origin) && !event.origin.includes(window.location.origin)) {
-        return; // Ignore messages from unknown origins
+      // Accept messages from SnapTrade or our callback route
+      const allowedOrigins = ['https://app.snaptrade.com', 'https://connect.snaptrade.com', window.location.origin];
+      if (event.origin && !allowedOrigins.some(origin => event.origin.includes(origin))) {
+        return;
       }
 
       if (event.data) {
         const data = event.data;
 
-        // Handle SUCCESS message from SnapTrade portal
+        // Handle SUCCESS message - only from callback route (after OAuth completes)
         if (typeof data === 'object' && data.status === 'SUCCESS') {
+          // Close modal and refresh accounts
+          setOauthInProgress(false);
           setModalOpen(false);
           setPortalUrl(null);
-          loadConnectedAccounts();
-          toast.showSuccess('Broker connected successfully!');
+          // Small delay to ensure accounts are saved
+          setTimeout(() => {
+            loadConnectedAccounts();
+            toast.showSuccess('Broker connected successfully!');
+          }, 500);
         }
-        // Handle ERROR message from SnapTrade portal
+        // Handle ERROR message
         else if (typeof data === 'object' && data.status === 'ERROR') {
           setModalOpen(false);
           setPortalUrl(null);
+          setOauthInProgress(false);
           toast.showError(data.detail || 'Connection failed');
         }
-        // Handle CLOSED message (when OAuth tab is closed)
+        // Handle CLOSED message (when OAuth tab is closed without completing)
         else if (data === 'CLOSED') {
-          // OAuth tab was closed - check if connection was successful
+          setOauthInProgress(false);
+          // Check if connection was successful
           loadConnectedAccounts();
         }
-        // Handle CLOSE_MODAL message
+        // Handle CLOSE_MODAL message (user clicked done/close in portal)
         else if (data === 'CLOSE_MODAL') {
           setModalOpen(false);
           setPortalUrl(null);
+          setOauthInProgress(false);
         }
       }
     };
@@ -397,9 +463,40 @@ export default function BrokerTestPage() {
               </Button>
             </Box>
 
-            {/* Iframe */}
-            <Box sx={{ flex: 1, overflow: 'hidden', borderRadius: '0 0 8px 8px' }}>
-              <SnapTradeIframe src={portalUrl} />
+            {/* Iframe or OAuth Progress */}
+            <Box sx={{ flex: 1, overflow: 'hidden', borderRadius: '0 0 8px 8px', position: 'relative' }}>
+              {oauthInProgress ? (
+                <Box sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'white',
+                  zIndex: 10
+                }}>
+                  <CircularProgress size={48} sx={{ mb: 3, color: '#10b981' }} />
+                  <Typography variant="h6" sx={{ mb: 1, color: '#1a1a1a', fontWeight: 600 }}>
+                    Completing Authentication...
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#666', textAlign: 'center', maxWidth: '400px', px: 2 }}>
+                    Please complete the authentication in the new window.
+                    <br />
+                    This modal will update automatically when the connection is complete.
+                  </Typography>
+                </Box>
+              ) : (
+                <SnapTradeIframe
+                  src={portalUrl}
+                  onOAuthDetected={() => {
+                    setOauthInProgress(true);
+                  }}
+                />
+              )}
             </Box>
           </Box>
         </Box>
