@@ -123,25 +123,49 @@ export class SnapTradeBroker implements IBroker {
 
     // Use placeMlegOrder for options (required structure even for single-leg)
     // For MARKET orders, omit limit_price and stop_price entirely (don't include in request)
-    const orderResponse = await this.client.trading.placeMlegOrder({
-      userId: this.connection.snaptradeUserId,
-      userSecret,
-      accountId: this.connection.accountId,
-      order_type: 'MARKET',
-      time_in_force: 'Day',
-      legs: [
-        {
-          instrument: {
-            symbol: occSymbol,
-            instrument_type: 'OPTION',
+    try {
+      const orderResponse = await this.client.trading.placeMlegOrder({
+        userId: this.connection.snaptradeUserId,
+        userSecret,
+        accountId: this.connection.accountId,
+        order_type: 'MARKET',
+        time_in_force: 'Day',
+        legs: [
+          {
+            instrument: {
+              symbol: occSymbol,
+              instrument_type: 'OPTION',
+            },
+            action,
+            units: contracts,
           },
-          action,
-          units: contracts,
-        },
-      ],
-    });
+        ],
+      });
 
-    return processOrderResponse(orderResponse.data);
+      return processOrderResponse(orderResponse.data);
+    } catch (error: unknown) {
+      // Extract actual error message from SnapTrade response
+      let errorMessage = 'Failed to place order with broker';
+
+      if (error && typeof error === 'object' && 'responseBody' in error) {
+        // Try to extract error message from response body
+        const responseBody = typeof error.responseBody === 'string'
+          ? JSON.parse(error.responseBody)
+          : error.responseBody;
+
+        if (responseBody && typeof responseBody === 'object') {
+          errorMessage = (responseBody as { error?: string; message?: string; detail?: string }).error ||
+            (responseBody as { error?: string; message?: string; detail?: string }).message ||
+            (responseBody as { error?: string; message?: string; detail?: string }).detail ||
+            JSON.stringify(responseBody) ||
+            errorMessage;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      throw new Error(errorMessage);
+    }
   }
 
   async getAccountInfo(): Promise<{
