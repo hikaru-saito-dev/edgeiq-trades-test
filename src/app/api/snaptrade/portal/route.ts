@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const brokerSlug = (body.brokerSlug as string) || undefined;
 
     // Format: edgeiq-{whopCompanyId}-{whopUserId} to ensure it's a valid string format
-    const snaptradeUserId = `edgeiq-${companyId}-${whopUserId}`;
+    const snaptradeUserId = `edgeiq-test-${companyId}-${whopUserId}-${Date.now()}`;
 
     // 1) Register SnapTrade user (returns userSecret in .data)
     // Idempotent - safe to call multiple times, returns same userSecret if user already exists
