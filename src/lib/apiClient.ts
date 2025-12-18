@@ -22,6 +22,11 @@ export async function apiRequest(
     ...(headers as Record<string, string>),
   };
 
+  // Set Content-Type for requests with body (POST, PUT, PATCH)
+  if (restOptions.body && !requestHeaders['Content-Type'] && !requestHeaders['content-type']) {
+    requestHeaders['Content-Type'] = 'application/json';
+  }
+
   if (userId) {
     requestHeaders['x-user-id'] = userId;
   }

@@ -274,22 +274,6 @@ export default function ConnectAccountModal({
                             {error}
                         </Alert>
                     )}
-
-                    {redirectUri && (
-                        <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
-                            <Typography variant="body2" sx={{ mb: 1 }}>
-                                If the popup was blocked, you can open the connection page manually:
-                            </Typography>
-                            <Button
-                                variant="outlined"
-                                size="small"
-                                onClick={handleOpenInNewTab}
-                                sx={{ mt: 1 }}
-                            >
-                                Open Connection Page
-                            </Button>
-                        </Alert>
-                    )}
                 </Box>
             </DialogContent>
             <DialogActions sx={{ p: 2, gap: 1 }}>
