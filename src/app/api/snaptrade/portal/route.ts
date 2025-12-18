@@ -17,11 +17,6 @@ const snaptrade = clientId && consumerKey
   ? new Snaptrade({ clientId, consumerKey })
   : null;
 
-/**
- * POST /api/snaptrade/portal
- * Create a SnapTrade Connection Portal session for linking a broker account
- * Following the official SnapTrade SDK pattern from their documentation
- */
 export async function POST(request: NextRequest) {
   try {
     if (!snaptrade || !clientId || !consumerKey) {
@@ -41,7 +36,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Find user
     const user = await User.findOne({ whopUserId, companyId });
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -50,14 +44,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const brokerSlug = (body.brokerSlug as string) || undefined;
 
-    // Use user's MongoDB _id as the SnapTrade userId (persistent per user)
+    // Use MongoDB _id as persistent SnapTrade userId
     const snaptradeUserId = user._id.toString();
 
-    // Step 1: Register or get existing userSecret
-    // Following SDK pattern: registerSnapTradeUser is idempotent
+    // Get or retrieve userSecret from database
     let userSecret: string | undefined;
-
-    // Check if we already have userSecret stored
     const existingConnection = await BrokerConnection.findOne({
       userId: user._id,
       brokerType: 'snaptrade',
@@ -66,31 +57,43 @@ export async function POST(request: NextRequest) {
 
     if (existingConnection?.snaptradeUserSecret) {
       const conn = await BrokerConnection.findById(existingConnection._id);
-      const decrypted = conn?.getDecryptedSnaptradeUserSecret();
-      if (decrypted) {
-        userSecret = decrypted;
-      }
+      userSecret = conn?.getDecryptedSnaptradeUserSecret() || undefined;
     }
 
-    // If no stored secret, register with SnapTrade
+    // Register user if no secret found (idempotent - safe to call multiple times)
     if (!userSecret) {
-      // Following SDK example pattern exactly
       const registerResp = await snaptrade.authentication.registerSnapTradeUser({
         userId: snaptradeUserId,
       });
 
-      // Extract userSecret following SDK test pattern
-      const { userSecret: secret } = registerResp.data as { userSecret: string };
-      if (!secret) {
-        return NextResponse.json(
-          { error: 'Failed to register SnapTrade user: missing userSecret in response' },
-          { status: 500 },
-        );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      userSecret = (registerResp.data as any).userSecret as string;
+
+      // Store userSecret in database for future use (encryption handled by pre-save hook)
+      if (userSecret) {
+        let connection = await BrokerConnection.findOne({
+          userId: user._id,
+          brokerType: 'snaptrade',
+          snaptradeUserId: snaptradeUserId,
+        });
+
+        if (connection) {
+          connection.snaptradeUserSecret = userSecret;
+          connection.isActive = true;
+          await connection.save();
+        } else {
+          connection = new BrokerConnection({
+            userId: user._id,
+            brokerType: 'snaptrade',
+            snaptradeUserId: snaptradeUserId,
+            snaptradeUserSecret: userSecret,
+            isActive: true,
+          });
+          await connection.save();
+        }
       }
-      userSecret = secret;
     }
 
-    // Ensure we have userSecret
     if (!userSecret) {
       return NextResponse.json(
         { error: 'Failed to obtain SnapTrade userSecret' },
@@ -98,63 +101,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 2: Generate Connection Portal URL
-    // Following SDK example pattern exactly
+    // Create Connection Portal session
     const loginResp = await snaptrade.authentication.loginSnapTradeUser({
       userId: snaptradeUserId,
-      userSecret: userSecret,
-      broker: brokerSlug, // Optional: specific broker or undefined for all
+      userSecret,
+      broker: brokerSlug,
       immediateRedirect: false,
       customRedirect: `${request.nextUrl.origin}/api/snaptrade/callback`,
       connectionType: 'trade',
       connectionPortalVersion: 'v4',
     });
 
-    // Extract redirectURI following SDK pattern
-    const data = loginResp.data as { redirectURI?: string };
-    if (!('redirectURI' in data) || !data.redirectURI) {
-      return NextResponse.json(
-        { error: 'Failed to generate connection portal URL' },
-        { status: 500 },
-      );
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const redirectURI = (loginResp.data as any).redirectURI as string;
 
     return NextResponse.json({
       success: true,
-      redirectURI: data.redirectURI,
-      userId: snaptradeUserId,
+      redirectURI,
     });
   } catch (error) {
-    // Extract error details from Axios error
-    const axiosError = error as { response?: { status: number; data?: any }; message?: string };
-    const errorResponse = axiosError?.response;
-    const errorStatus = errorResponse?.status || 500;
-
-    // Log the actual error response from SnapTrade
-    if (errorResponse?.data) {
-      console.error('SnapTrade API error response:', JSON.stringify(errorResponse.data, null, 2));
-    }
-
-    // Extract error message
-    const errorMessage = errorResponse?.data?.message
-      || errorResponse?.data?.error
-      || errorResponse?.data?.detail
-      || axiosError?.message
-      || 'Unknown error';
-
-    console.error('SnapTrade portal error:', {
-      status: errorStatus,
-      message: errorMessage,
-      hasResponseData: !!errorResponse?.data,
-    });
-
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      {
-        success: false,
-        error: errorMessage,
-        status: errorStatus,
-      },
-      { status: errorStatus },
+      { success: false, error: message },
+      { status: 500 },
     );
   }
 }
