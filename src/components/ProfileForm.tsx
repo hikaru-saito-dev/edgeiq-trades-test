@@ -48,7 +48,6 @@ import {
 } from 'recharts';
 import { useAccess } from './AccessProvider';
 import DownloadIcon from '@mui/icons-material/Download';
-import Link from 'next/link';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import { downloadBlob, generateStatsSnapshot, type StatsSnapshotData } from '@/utils/snapshotGenerator';
@@ -914,29 +913,29 @@ export default function ProfileForm() {
                 Connect Broker
               </Button>
             </Box>
-            <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 2 }}>
+            <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
               Connect your trading account via SnapTrade to place option trades. Your credentials are securely managed through SnapTrade&apos;s login portal.
             </Typography>
 
             {loadingBrokers ? (
-              <Box display="flex" justifyContent="center" py={2}>
-                <CircularProgress size={24} />
+              <Box display="flex" justifyContent="center" py={4}>
+                <CircularProgress size={24} sx={{ color: '#10b981' }} />
               </Box>
             ) : connectedBrokerAccounts.length === 0 ? (
               <Card
                 sx={{
                   background: 'var(--surface-bg)',
                   border: '2px dashed var(--surface-border)',
-                  borderRadius: 2,
-                  p: 3,
+                  borderRadius: 3,
+                  p: 4,
                   textAlign: 'center',
                 }}
               >
-                <AccountBalanceIcon sx={{ fontSize: 48, color: 'var(--text-muted)', mb: 1 }} />
-                <Typography variant="body1" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                <AccountBalanceIcon sx={{ fontSize: 64, color: 'var(--text-muted)', mb: 2, opacity: 0.5 }} />
+                <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 1, fontWeight: 600 }}>
                   No broker accounts connected
                 </Typography>
-                <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 2 }}>
+                <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
                   Connect a broker account to start placing option trades
                 </Typography>
                 <Button
@@ -948,6 +947,8 @@ export default function ProfileForm() {
                     color: 'white',
                     fontWeight: 600,
                     textTransform: 'none',
+                    px: 3,
+                    py: 1.5,
                     '&:hover': {
                       background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
                     },
@@ -964,24 +965,67 @@ export default function ProfileForm() {
                     sx={{
                       background: 'var(--surface-bg)',
                       border: '1px solid var(--surface-border)',
-                      borderRadius: 2,
-                      p: 2,
+                      borderRadius: 3,
+                      p: 3,
+                      position: 'relative',
+                      overflow: 'hidden',
+                      '&:hover': {
+                        borderColor: 'rgba(16, 185, 129, 0.5)',
+                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.1)',
+                      },
+                      transition: 'all 0.3s ease',
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <CheckCircleIcon sx={{ fontSize: 20, color: 'success.main' }} />
-                        <Box>
-                          <Typography variant="body1" sx={{ color: 'var(--app-text)', fontWeight: 600 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flex: 1 }}>
+                        <Box
+                          sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                          }}
+                        >
+                          <CheckCircleIcon sx={{ fontSize: 24, color: 'white' }} />
+                        </Box>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography
+                            variant="h6"
+                            sx={{
+                              color: 'var(--app-text)',
+                              fontWeight: 600,
+                              mb: 0.5,
+                              wordBreak: 'break-word',
+                            }}
+                          >
                             {account.brokerName} - {account.accountName}
                           </Typography>
                           {account.accountNumber && (
-                            <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: 'var(--text-muted)',
+                                mb: 1,
+                                fontFamily: 'monospace',
+                              }}
+                            >
                               Account: {account.accountNumber}
                             </Typography>
                           )}
                           {account.buyingPower !== undefined && (
-                            <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500, mt: 0.5 }}>
+                            <Typography
+                              variant="h6"
+                              sx={{
+                                color: 'var(--app-text)',
+                                fontWeight: 700,
+                                mt: 1,
+                              }}
+                            >
                               Buying Power: ${account.buyingPower.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </Typography>
                           )}
@@ -990,7 +1034,15 @@ export default function ProfileForm() {
                       <Chip
                         label="Connected"
                         size="small"
-                        color="success"
+                        sx={{
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          color: 'white',
+                          fontWeight: 600,
+                          height: 28,
+                          '& .MuiChip-icon': {
+                            color: 'white',
+                          },
+                        }}
                         icon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
                       />
                     </Box>
@@ -1005,13 +1057,16 @@ export default function ProfileForm() {
                     borderColor: 'var(--surface-border)',
                     color: 'var(--app-text)',
                     textTransform: 'none',
+                    py: 1.5,
+                    borderRadius: 2,
+                    fontWeight: 500,
                     '&:hover': {
-                      borderColor: 'var(--primary)',
+                      borderColor: '#10b981',
                       background: 'rgba(16, 185, 129, 0.1)',
                     },
                   }}
                 >
-                  Connect Another Broker
+                  + Connect Another Broker
                 </Button>
               </Box>
             )}
