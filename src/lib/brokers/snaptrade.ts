@@ -1,175 +1,173 @@
 import { Snaptrade } from 'snaptrade-typescript-sdk';
-import { BaseBroker, OrderResult, AccountInfo } from './base';
 import { IBrokerConnection } from '@/models/BrokerConnection';
 import { ITrade } from '@/models/Trade';
+import { BrokerOrderResult, IBroker } from './factory';
+import { decrypt } from '@/lib/encryption';
 
-const clientId = process.env.SNAPTRADE_CLIENT_ID;
-const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY;
+export class SnapTradeBroker implements IBroker {
+  private connection: IBrokerConnection;
+  private client: Snaptrade;
 
-if (!clientId || !consumerKey) {
-  throw new Error('SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY must be set');
-}
-
-const snaptrade = new Snaptrade({ clientId, consumerKey });
-
-/**
- * SnapTrade broker implementation
- * Uses SnapTrade SDK to place option trades via connected broker accounts
- */
-export class SnapTradeBroker extends BaseBroker {
   constructor(connection: IBrokerConnection) {
-    super(connection);
+    this.connection = connection;
 
-    if (connection.brokerType !== 'snaptrade') {
-      throw new Error('SnapTradeBroker requires brokerType to be "snaptrade"');
+    // Initialize SnapTrade client
+    const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY;
+    const clientId = process.env.SNAPTRADE_CLIENT_ID;
+
+    if (!consumerKey || !clientId) {
+      throw new Error('SnapTrade credentials not configured');
     }
 
-    if (!connection.snaptradeUserId || !connection.snaptradeAccountId) {
-      throw new Error('SnapTrade connection missing required fields: snaptradeUserId and snaptradeAccountId');
-    }
+    this.client = new Snaptrade({
+      consumerKey,
+      clientId,
+    });
   }
 
-  /**
-   * Place an option order via SnapTrade
-   */
+  private async getUserSecret(): Promise<string> {
+    // Decrypt the stored user secret
+    const encryptedSecret = this.connection.snaptradeUserSecret;
+    return decrypt(encryptedSecret);
+  }
+
   async placeOptionOrder(
     trade: ITrade,
     side: 'BUY' | 'SELL',
-    quantity: number
-  ): Promise<OrderResult> {
-    const userSecret = this.connection.getDecryptedSnaptradeUserSecret();
-    if (!userSecret) {
-      return {
-        success: false,
-        error: 'Missing SnapTrade user secret',
-      };
-    }
-
-    if (!this.connection.snaptradeUserId || !this.connection.snaptradeAccountId) {
-      return {
-        success: false,
-        error: 'Missing SnapTrade user ID or account ID',
-      };
-    }
-
+    contracts: number
+  ): Promise<BrokerOrderResult> {
     try {
-      // Convert trade to SnapTrade option symbol format
-      // Format: "TICKER YYYY-MM-DD STRIKE C/P" (e.g., "AAPL 2024-12-20 190 C")
+      if (!this.connection.accountId) {
+        return {
+          success: false,
+          error: 'No account ID configured for this connection',
+        };
+      }
+
+      const userSecret = await this.getUserSecret();
+
+      // Format expiry date for SnapTrade (YYYY-MM-DD)
       const expiryDate = new Date(trade.expiryDate);
-      const year = expiryDate.getFullYear();
-      const month = String(expiryDate.getMonth() + 1).padStart(2, '0');
-      const day = String(expiryDate.getDate()).padStart(2, '0');
-      const optionType = trade.optionType === 'C' ? 'C' : 'P';
-      const optionSymbol = `${trade.ticker} ${year}-${month}-${day} ${trade.strike} ${optionType}`;
+      const expiryDateStr = expiryDate.toISOString().split('T')[0];
 
-      // Map side to SnapTrade action
-      // BUY -> BUY_TO_OPEN, SELL -> SELL_TO_CLOSE (for closing) or SELL_TO_OPEN (for opening)
-      const action = side === 'BUY' ? 'BUY_TO_OPEN' : 'SELL_TO_CLOSE';
+      // Get option symbol format for SnapTrade
+      // SnapTrade uses format like: AAPL_20250117_C_200.00
+      const optionSymbol = `${trade.ticker}_${expiryDateStr.replace(/-/g, '')}_${trade.optionType === 'C' ? 'C' : 'P'}_${trade.strike.toFixed(2)}`;
 
-      // Place order via SnapTrade
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const orderResp = await snaptrade.trading.placeMlegOrder({
+      // Get quote first to verify the option exists
+      const quoteResponse = await this.client.trading.getUserAccountQuotes({
         userId: this.connection.snaptradeUserId,
-        userSecret: userSecret,
-        accountId: this.connection.snaptradeAccountId,
-        options: [
-          {
-            action: action,
-            quantity: quantity,
-            optionSymbol: optionSymbol,
-          },
-        ],
-        timeInForce: 'DAY',
-        orderType: 'MARKET', // Use market orders to match existing behavior
-      } as any);
+        userSecret,
+        accountId: this.connection.accountId,
+        symbols: optionSymbol, // Comma-separated string for multiple symbols
+      });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const orderData = (orderResp.data as any);
+      if (!quoteResponse.data || quoteResponse.data.length === 0) {
+        return {
+          success: false,
+          error: `Option symbol ${optionSymbol} not found or not tradeable`,
+        };
+      }
 
-      // Calculate cost (SnapTrade may not provide detailed cost breakdown, so estimate)
-      const filledQty = parseFloat(orderData.filled_quantity || String(quantity));
-      const filledPrice = parseFloat(orderData.filled_price || String(trade.fillPrice));
-      const grossCost = filledQty * filledPrice * 100; // Options are per 100 shares
-      const commission = parseFloat(orderData.commission || '0');
+      const quote = quoteResponse.data[0];
+      const lastPrice = quote.last_trade_price || quote.bid_price || trade.fillPrice;
 
-      // Estimate fees (same as Alpaca)
-      const contracts = filledQty;
-      const orf = contracts * 0.02685; // Options Regulatory Fee
-      const occ = Math.min(contracts * 0.02, 55); // OCC fee (capped at $55)
-      const taf = side === 'SELL' ? contracts * 0.00279 : 0; // Trading Activity Fee (sells only)
-      const notional = grossCost;
-      const sec = side === 'SELL' ? Math.max(notional * 0.000008, 0.01) : 0; // SEC fee (sells only, min $0.01)
+      // Get universal symbol ID from quote
+      const universalSymbolId = quote.symbol?.id;
+      if (!universalSymbolId) {
+        return {
+          success: false,
+          error: `Could not find universal symbol ID for ${optionSymbol}`,
+        };
+      }
 
-      const estimatedFees = {
-        orf,
-        occ,
-        taf,
-        sec,
-      };
+      // Place the order using placeForceOrder for options
+      // For options: BUY -> BUY_TO_OPEN, SELL -> SELL_TO_OPEN
+      // TradingApiPlaceForceOrderRequest = { userId, userSecret } & ManualTradeFormWithOptions
+      const orderResponse = await this.client.trading.placeForceOrder({
+        userId: this.connection.snaptradeUserId,
+        userSecret,
+        account_id: this.connection.accountId,
+        action: side === 'BUY' ? 'BUY' : 'SELL',
+        universal_symbol_id: universalSymbolId,
+        order_type: 'Market',
+        time_in_force: 'Day',
+        units: contracts,
+      });
 
-      const totalCost = grossCost + commission + orf + occ + taf + sec;
+      if (!orderResponse.data) {
+        return {
+          success: false,
+          error: 'Failed to place order: No response data',
+        };
+      }
+
+      const orderData = orderResponse.data;
+      const orderId = orderData.brokerageOrderId || orderData.id || 'unknown';
+
+      // Calculate cost info
+      const grossCost = lastPrice * contracts * 100; // Options are per 100 shares
+      const commission = 0; // SnapTrade may provide this in the response
+      const totalCost = grossCost + commission;
 
       return {
         success: true,
-        orderId: orderData.id || orderData.order_id,
-        orderDetails: orderData,
+        orderId,
+        orderDetails: orderData as unknown as Record<string, unknown>,
         costInfo: {
           grossCost,
           commission,
-          estimatedFees,
+          estimatedFees: {},
           totalCost,
         },
       };
     } catch (error) {
-      console.error('SnapTrade placeOptionOrder error:', error);
-      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('SnapTrade order error:', error);
       return {
         success: false,
-        error: `SnapTrade order failed: ${message}`,
+        error: error instanceof Error ? error.message : 'Unknown error placing order',
       };
     }
   }
 
-  /**
-   * Get account information
-   */
-  async getAccountInfo(): Promise<AccountInfo> {
-    const userSecret = this.connection.getDecryptedSnaptradeUserSecret();
-    if (!userSecret || !this.connection.snaptradeUserId || !this.connection.snaptradeAccountId) {
-      throw new Error('Missing SnapTrade credentials');
-    }
-
+  async getAccountInfo(): Promise<{
+    buyingPower?: number;
+    accountName?: string;
+    accountNumber?: string;
+  }> {
     try {
-      const accountResp = await snaptrade.accountInformation.getUserAccountPositions({
+      if (!this.connection.accountId) {
+        return {};
+      }
+
+      const userSecret = await this.getUserSecret();
+
+      const balanceResponse = await this.client.accountInformation.getUserAccountBalance({
         userId: this.connection.snaptradeUserId,
-        userSecret: userSecret,
-        accountId: this.connection.snaptradeAccountId,
+        userSecret,
+        accountId: this.connection.accountId,
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const accountData = (accountResp.data as any);
+      const accountResponse = await this.client.accountInformation.getUserAccountDetails({
+        userId: this.connection.snaptradeUserId,
+        userSecret,
+        accountId: this.connection.accountId,
+      });
+
+      // balanceResponse.data is an array of Balance objects
+      const balances = balanceResponse.data || [];
+      const balance = balances.find(b => b.currency?.code === 'USD') || balances[0];
+      const account = accountResponse.data;
 
       return {
-        accountId: this.connection.snaptradeAccountId,
-        optionApprovedLevel: accountData.account?.option_level || 'UNKNOWN',
-        optionTradingLevel: accountData.account?.option_level || 'UNKNOWN',
-        ...accountData,
+        buyingPower: balance?.buying_power || balance?.cash || undefined,
+        accountName: account?.name || account?.number || undefined,
+        accountNumber: account?.number || undefined,
       };
     } catch (error) {
-      console.error('SnapTrade getAccountInfo error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Validate the connection
-   */
-  async validateConnection(): Promise<boolean> {
-    try {
-      await this.getAccountInfo();
-      return true;
-    } catch {
-      return false;
+      console.error('Error fetching account info:', error);
+      return {};
     }
   }
 }
+
