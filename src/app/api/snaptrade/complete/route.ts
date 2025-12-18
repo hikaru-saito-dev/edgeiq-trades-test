@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import { User } from '@/models/User';
 import { BrokerConnection } from '@/models/BrokerConnection';
@@ -15,7 +15,7 @@ const SNAPTRADE_CLIENT_ID = process.env.SNAPTRADE_CLIENT_ID;
  * Manually complete connection after OAuth (if callback wasn't triggered)
  * This can be called from the frontend after OAuth completes
  */
-export async function POST(request: NextRequest) {
+export async function POST() {
     try {
         await connectDB();
         const headers = await import('next/headers').then(m => m.headers());
@@ -40,20 +40,41 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        // Find most recent inactive connection (created in last 10 minutes)
-        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-        const connection = await BrokerConnection.findOne({
+        // Find connection for this user (prefer inactive, but accept active if exists)
+        let connection = await BrokerConnection.findOne({
             userId: user._id,
-            isActive: false,
             brokerType: 'snaptrade',
-            createdAt: { $gte: tenMinutesAgo },
-        }).sort({ createdAt: -1 });
+            isActive: false,
+        });
+
+        // If no inactive connection, try to find any connection (might already be active)
+        if (!connection) {
+            connection = await BrokerConnection.findOne({
+                userId: user._id,
+                brokerType: 'snaptrade',
+            });
+        }
 
         if (!connection) {
             return NextResponse.json(
-                { error: 'No pending connection found. Please try connecting again.' },
+                { error: 'No connection found. Please try connecting again.' },
                 { status: 404 }
             );
+        }
+
+        // If already active, just return success (connection already completed)
+        if (connection.isActive && connection.accountId) {
+            return NextResponse.json({
+                success: true,
+                connection: {
+                    id: connection._id.toString(),
+                    brokerName: connection.brokerName,
+                    accountName: connection.accountName,
+                    accountNumber: connection.accountNumber,
+                    buyingPower: connection.buyingPower,
+                },
+                message: 'Connection already active',
+            });
         }
 
         // Initialize SnapTrade client
@@ -121,16 +142,25 @@ export async function POST(request: NextRequest) {
             console.warn('Failed to fetch buying power:', error);
         }
 
-        await connection.save();
+        const savedConnection = await connection.save();
+
+        // Verify it was saved
+        const verifyConnection = await BrokerConnection.findById(savedConnection._id);
+        if (!verifyConnection || !verifyConnection.isActive) {
+            console.error('Complete: Connection verification failed!', {
+                found: !!verifyConnection,
+                isActive: verifyConnection?.isActive,
+            });
+        }
 
         return NextResponse.json({
             success: true,
             connection: {
-                id: connection._id.toString(),
-                brokerName: connection.brokerName,
-                accountName: connection.accountName,
-                accountNumber: connection.accountNumber,
-                buyingPower: connection.buyingPower,
+                id: savedConnection._id.toString(),
+                brokerName: savedConnection.brokerName,
+                accountName: savedConnection.accountName,
+                accountNumber: savedConnection.accountNumber,
+                buyingPower: savedConnection.buyingPower,
             },
         });
     } catch (error) {

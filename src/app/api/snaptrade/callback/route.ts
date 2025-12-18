@@ -142,13 +142,13 @@ export async function GET(request: NextRequest) {
 
     const savedConnection = await connection.save();
 
-
     // Verify it was saved by querying again
     const verifyConnection = await BrokerConnection.findById(savedConnection._id);
     if (!verifyConnection || !verifyConnection.isActive) {
       console.error('Callback: Connection verification failed!', {
         found: !!verifyConnection,
         isActive: verifyConnection?.isActive,
+        accountId: verifyConnection?.accountId,
       });
     }
 

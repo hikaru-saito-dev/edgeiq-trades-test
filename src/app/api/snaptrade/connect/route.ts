@@ -3,7 +3,7 @@ import connectDB from '@/lib/db';
 import { User } from '@/models/User';
 import { BrokerConnection } from '@/models/BrokerConnection';
 import { Snaptrade } from 'snaptrade-typescript-sdk';
-import { encrypt } from '@/lib/encryption';
+import { encrypt, decrypt } from '@/lib/encryption';
 
 export const runtime = 'nodejs';
 
@@ -57,50 +57,93 @@ export async function POST() {
             clientId: SNAPTRADE_CLIENT_ID,
         });
 
-        // Generate unique SnapTrade user ID (use UUID)
-        const snaptradeUserId = `user_${user.whopUserId}_${Date.now()}`;
-
-        // Register user with SnapTrade
-        const registerResponse = await snaptrade.authentication.registerSnapTradeUser({
-            userId: snaptradeUserId,
-        });
-
-        if (!registerResponse.data || !registerResponse.data.userSecret) {
-            return NextResponse.json(
-                { error: 'Failed to register with SnapTrade' },
-                { status: 500 }
-            );
-        }
-
-        const userSecret = registerResponse.data.userSecret;
-
-        // Encrypt and store the connection (temporary, will be finalized after OAuth)
-        const encryptedSecret = encrypt(userSecret);
-
-        // Check if connection already exists
-        let connection = await BrokerConnection.findOne({
+        // Check if connection already exists for this user and brokerType
+        // We can only have ONE connection per user per brokerType (due to unique index)
+        const existingConnection = await BrokerConnection.findOne({
             userId: user._id,
-            snaptradeUserId,
-            isActive: true,
+            brokerType: 'snaptrade',
         });
 
-        if (connection) {
-            // Update existing connection
-            connection.snaptradeUserSecret = encryptedSecret;
-            await connection.save();
+        let snaptradeUserId: string;
+        let userSecret: string;
+        let encryptedSecret: string;
+
+        if (existingConnection && existingConnection.snaptradeUserId) {
+            // Reuse existing connection and SnapTrade user
+            snaptradeUserId = existingConnection.snaptradeUserId;
+
+            // Try to decrypt existing secret, if it fails, we'll need to re-register
+            try {
+                const existingSecret = decrypt(existingConnection.snaptradeUserSecret);
+                userSecret = existingSecret;
+                encryptedSecret = existingConnection.snaptradeUserSecret; // Already encrypted
+            } catch {
+                // Secret decryption failed, need to re-register
+                // Generate new SnapTrade user ID
+                snaptradeUserId = `user_${user.whopUserId}_${Date.now()}`;
+
+                // Register new user with SnapTrade
+                const registerResponse = await snaptrade.authentication.registerSnapTradeUser({
+                    userId: snaptradeUserId,
+                });
+
+                if (!registerResponse.data || !registerResponse.data.userSecret) {
+                    return NextResponse.json(
+                        { error: 'Failed to register with SnapTrade' },
+                        { status: 500 }
+                    );
+                }
+
+                userSecret = registerResponse.data.userSecret;
+                encryptedSecret = encrypt(userSecret);
+            }
         } else {
-            // Create new connection
-            connection = await BrokerConnection.create({
-                userId: user._id,
-                whopUserId: user.whopUserId,
-                companyId: user.companyId,
-                brokerType: 'snaptrade',
-                isActive: false, // Will be activated after OAuth completes
-                snaptradeUserId,
-                snaptradeUserSecret: encryptedSecret,
-                connectedAt: new Date(),
+            // No existing connection, create new SnapTrade user
+            // Generate unique SnapTrade user ID
+            snaptradeUserId = `user_${user.whopUserId}_${Date.now()}`;
+
+            // Register user with SnapTrade
+            const registerResponse = await snaptrade.authentication.registerSnapTradeUser({
+                userId: snaptradeUserId,
             });
+
+            if (!registerResponse.data || !registerResponse.data.userSecret) {
+                return NextResponse.json(
+                    { error: 'Failed to register with SnapTrade' },
+                    { status: 500 }
+                );
+            }
+
+            userSecret = registerResponse.data.userSecret;
+            encryptedSecret = encrypt(userSecret);
         }
+
+        // Use findOneAndUpdate with upsert to avoid duplicate key errors
+        // This will update if exists, create if not
+        const connection = await BrokerConnection.findOneAndUpdate(
+            {
+                userId: user._id,
+                brokerType: 'snaptrade',
+            },
+            {
+                $set: {
+                    whopUserId: user.whopUserId,
+                    companyId: user.companyId,
+                    snaptradeUserId,
+                    snaptradeUserSecret: encryptedSecret,
+                    isActive: false, // Will be activated after OAuth completes
+                    lastSyncedAt: new Date(),
+                },
+                $setOnInsert: {
+                    connectedAt: new Date(),
+                },
+            },
+            {
+                upsert: true,
+                new: true,
+                runValidators: true,
+            }
+        );
 
         // Get login redirect URI
         const loginResponse = await snaptrade.authentication.loginSnapTradeUser({
