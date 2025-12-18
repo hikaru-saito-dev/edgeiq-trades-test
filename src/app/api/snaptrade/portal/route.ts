@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Snaptrade } from 'snaptrade-typescript-sdk';
-import connectDB from '@/lib/db';
-import { User } from '@/models/User';
-import { BrokerConnection } from '@/models/BrokerConnection';
 
 export const runtime = 'nodejs';
 
@@ -26,28 +23,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await connectDB();
-
     const headers = await import('next/headers').then((m) => m.headers());
-    const whopUserId = headers.get('x-user-id');
-    const companyId = headers.get('x-company-id');
+    const whopUserId = headers.get('x-user-id') || 'anonymous';
+    const companyId = headers.get('x-company-id') || 'no-company';
 
-    if (!whopUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // For test mode, create a unique SnapTrade user ID each time
+    const snaptradeUserId = `edgeiq-test-${companyId}-${whopUserId}-${Date.now()}`;
 
-    const user = await User.findOne({ whopUserId, companyId });
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    const body = await request.json().catch(() => ({}));
-    const brokerSlug = (body.brokerSlug as string) || undefined;
-
-    // Use MongoDB _id as persistent SnapTrade userId
-    const snaptradeUserId = user._id.toString();
-
-    // Register SnapTrade user (idempotent - safe to call multiple times)
+    // 1) Register SnapTrade user (returns userSecret in .data)
     const registerResp = await snaptrade.authentication.registerSnapTradeUser({
       userId: snaptradeUserId,
     });
@@ -55,43 +38,15 @@ export async function POST(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const userSecret = (registerResp.data as any).userSecret as string;
 
-    if (!userSecret) {
-      return NextResponse.json(
-        { error: 'Failed to register SnapTrade user' },
-        { status: 500 },
-      );
-    }
-
-    // Store userSecret in database for future use (encryption handled by pre-save hook)
-    let connection = await BrokerConnection.findOne({
-      userId: user._id,
-      brokerType: 'snaptrade',
-      snaptradeUserId: snaptradeUserId,
-    });
-
-    if (connection) {
-      connection.snaptradeUserSecret = userSecret;
-      connection.isActive = true;
-      await connection.save();
-    } else {
-      connection = new BrokerConnection({
-        userId: user._id,
-        brokerType: 'snaptrade',
-        snaptradeUserId: snaptradeUserId,
-        snaptradeUserSecret: userSecret,
-        isActive: true,
-      });
-      await connection.save();
-    }
-
-    // Create Connection Portal session
+    // 2) Create Connection Portal session (multi-broker portal)
     const loginResp = await snaptrade.authentication.loginSnapTradeUser({
       userId: snaptradeUserId,
       userSecret,
-      broker: brokerSlug,
+      // No broker => show all supported brokers in the portal
       immediateRedirect: false,
-      customRedirect: `${request.nextUrl.origin}/api/snaptrade/callback`,
-      connectionType: 'trade',
+      // For test page, redirect back to the same origin root when user finishes
+      customRedirect: request.nextUrl.origin,
+      connectionType: 'trade', // allow trading + data
       connectionPortalVersion: 'v4',
     });
 
@@ -103,6 +58,7 @@ export async function POST(request: NextRequest) {
       redirectURI,
     });
   } catch (error) {
+    console.error('SnapTrade portal-test error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { success: false, error: message },
