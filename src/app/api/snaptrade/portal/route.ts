@@ -44,23 +44,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const brokerSlug = (body.brokerSlug as string) || undefined;
 
-    // Check if user already has a SnapTrade connection - reuse snaptradeUserId
-    let snaptradeUserId: string;
-    const existingConnection = await BrokerConnection.findOne({
-      userId: user._id,
-      brokerType: 'snaptrade',
-      isActive: true,
-      snaptradeUserId: { $exists: true, $ne: null },
-    }).sort({ createdAt: -1 }); // Get most recent
-
-    if (existingConnection?.snaptradeUserId) {
-      // Reuse existing snaptradeUserId
-      snaptradeUserId = existingConnection.snaptradeUserId;
-    } else {
-      // Create new snaptradeUserId (without timestamp for consistency)
-      // Format: edgeiq-{companyId}-{whopUserId} (no timestamp to ensure consistency)
-      snaptradeUserId = `edgeiq-sdlkfjlksdjflds-${companyId}-${whopUserId}`;
-    }
+    // Format: edgeiq-{whopCompanyId}-{whopUserId} to ensure it's a valid string format
+    const snaptradeUserId = `edgeiq-test-${companyId}-${whopUserId}-${Date.now()}`;
 
     // 1) Register SnapTrade user (returns userSecret in .data)
     // Idempotent - safe to call multiple times, returns same userSecret if user already exists
@@ -73,8 +58,8 @@ export async function POST(request: NextRequest) {
 
     // 2) Create Connection Portal session
     // Include userId in customRedirect so SnapTrade passes it back in callback
-    // For Whop apps, use the request origin (works in iframe context)
-    // If NEXT_PUBLIC_APP_URL is set, use that for production
+    // For Whop apps, use NEXT_PUBLIC_APP_URL if set (for production), otherwise use request origin
+    // This ensures SnapTrade can redirect to the correct URL
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
     const callbackUrl = new URL('/api/snaptrade/callback', baseUrl);
     callbackUrl.searchParams.set('userId', snaptradeUserId);

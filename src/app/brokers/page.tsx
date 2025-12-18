@@ -28,72 +28,14 @@ interface ConnectedBroker {
   lastSync?: string;
 }
 
-// Component to handle iframe with OAuth redirect interception
+// Component to handle iframe - SnapTrade handles OAuth redirects automatically
+// According to SnapTrade docs: OAuth will open in new tab when in iframe, which is expected
+// We just need to listen for postMessage events (SUCCESS, ERROR, CLOSED)
 function SnapTradeIframe({ src }: { src: string }) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [currentSrc, setCurrentSrc] = useState(src);
-
-  useEffect(() => {
-    // Update src when prop changes
-    setCurrentSrc(src);
-  }, [src]);
-
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    // Listen for messages from SnapTrade iframe
-    const handleMessage = (event: MessageEvent) => {
-      // SnapTrade might send navigation hints via postMessage
-      if (event.data && typeof event.data === 'object') {
-        // Check if SnapTrade is trying to redirect to OAuth
-        if (event.data.type === 'OAUTH_REDIRECT' && event.data.url) {
-          const oauthUrl = event.data.url;
-          // Wrap OAuth URL in SnapTrade's passSession endpoint to keep it in iframe
-          if (oauthUrl && !oauthUrl.includes('snaptrade.com/passSession')) {
-            const passSessionUrl = `https://app.snaptrade.com/passSession?iframe=true&oauthUrl=${encodeURIComponent(oauthUrl)}`;
-            setCurrentSrc(passSessionUrl);
-          }
-        }
-      }
-    };
-
-    // Monitor iframe load events to detect navigation
-    const handleLoad = () => {
-      try {
-        const iframeUrl = iframe.contentWindow?.location.href;
-        if (iframeUrl) {
-          // If iframe navigated to a broker OAuth URL directly, wrap it in passSession
-          if (
-            (iframeUrl.includes('app.alpaca.markets/oauth') ||
-              iframeUrl.includes('passport.webull.com/oauth') ||
-              (iframeUrl.includes('/oauth/') && !iframeUrl.includes('snaptrade.com'))) &&
-            !iframeUrl.includes('snaptrade.com/passSession')
-          ) {
-            const passSessionUrl = `https://app.snaptrade.com/passSession?iframe=true&oauthUrl=${encodeURIComponent(iframeUrl)}`;
-            setCurrentSrc(passSessionUrl);
-          }
-        }
-      } catch (e) {
-        // Cross-origin error - expected when iframe navigates to different domain
-        // This is normal and means the iframe is handling navigation
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    iframe.addEventListener('load', handleLoad);
-
-    return () => {
-      window.removeEventListener('message', handleMessage);
-      iframe.removeEventListener('load', handleLoad);
-    };
-  }, []);
-
   return (
     <iframe
-      ref={iframeRef}
       id="snaptrade-iframe"
-      src={currentSrc}
+      src={src}
       title="SnapTrade Connection Portal"
       style={{
         width: '100%',
@@ -101,7 +43,6 @@ function SnapTradeIframe({ src }: { src: string }) {
         border: 'none',
       }}
       allowFullScreen
-      sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
     />
   );
 }
@@ -140,24 +81,46 @@ export default function BrokerTestPage() {
     }
   };
 
-  // Listen for postMessage from callback route
+  // Listen for postMessage from SnapTrade portal and callback route
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Accept messages from our callback route
-      if (event.data && typeof event.data === 'object' && event.data.status === 'SUCCESS') {
-        setModalOpen(false);
-        setPortalUrl(null);
-        loadConnectedAccounts();
-        toast.showSuccess('Broker connected successfully!');
-      } else if (event.data && typeof event.data === 'object' && event.data.status === 'ERROR') {
-        setModalOpen(false);
-        setPortalUrl(null);
-        toast.showError(event.data.detail || 'Connection failed');
+      // Verify origin is from SnapTrade (security check)
+      const allowedOrigins = ['https://app.snaptrade.com', 'https://connect.snaptrade.com'];
+      if (event.origin && !allowedOrigins.includes(event.origin) && !event.origin.includes(window.location.origin)) {
+        return; // Ignore messages from unknown origins
+      }
+
+      if (event.data) {
+        const data = event.data;
+
+        // Handle SUCCESS message from SnapTrade portal
+        if (typeof data === 'object' && data.status === 'SUCCESS') {
+          setModalOpen(false);
+          setPortalUrl(null);
+          loadConnectedAccounts();
+          toast.showSuccess('Broker connected successfully!');
+        }
+        // Handle ERROR message from SnapTrade portal
+        else if (typeof data === 'object' && data.status === 'ERROR') {
+          setModalOpen(false);
+          setPortalUrl(null);
+          toast.showError(data.detail || 'Connection failed');
+        }
+        // Handle CLOSED message (when OAuth tab is closed)
+        else if (data === 'CLOSED') {
+          // OAuth tab was closed - check if connection was successful
+          loadConnectedAccounts();
+        }
+        // Handle CLOSE_MODAL message
+        else if (data === 'CLOSE_MODAL') {
+          setModalOpen(false);
+          setPortalUrl(null);
+        }
       }
     };
 
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    window.addEventListener('message', handleMessage, false);
+    return () => window.removeEventListener('message', handleMessage, false);
   }, []);
 
   const handleConnectClick = async () => {
@@ -381,14 +344,15 @@ export default function BrokerTestPage() {
             sx={{
               position: 'relative',
               width: '90%',
-              maxWidth: '900px',
+              maxWidth: '960px',
               height: '90%',
-              maxHeight: '700px',
+              maxHeight: '720px',
               backgroundColor: 'white',
-              borderRadius: '8px',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+              borderRadius: '12px',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
               display: 'flex',
               flexDirection: 'column',
+              overflow: 'hidden',
             }}
           >
             {/* Header */}
@@ -397,13 +361,19 @@ export default function BrokerTestPage() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '16px 20px',
+                padding: '20px 24px',
                 borderBottom: '1px solid #e0e0e0',
+                background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
               }}
             >
-              <Typography variant="h6" fontWeight={600}>
-                Connect Your Brokerage Account
-              </Typography>
+              <Box>
+                <Typography variant="h5" fontWeight={700} sx={{ color: '#1a1a1a', mb: 0.5 }}>
+                  Connect Your Brokerage Account
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#666', fontSize: '0.875rem' }}>
+                  Securely connect your trading account to start placing trades
+                </Typography>
+              </Box>
               <Button
                 onClick={() => {
                   setModalOpen(false);
@@ -411,9 +381,16 @@ export default function BrokerTestPage() {
                 }}
                 sx={{
                   minWidth: 'auto',
-                  padding: '4px',
+                  width: '32px',
+                  height: '32px',
+                  padding: 0,
                   color: '#666',
-                  '&:hover': { backgroundColor: '#f0f0f0' },
+                  borderRadius: '50%',
+                  '&:hover': {
+                    backgroundColor: '#f0f0f0',
+                    color: '#1a1a1a',
+                  },
+                  transition: 'all 0.2s ease',
                 }}
               >
                 ×

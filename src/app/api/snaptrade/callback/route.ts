@@ -153,7 +153,6 @@ export async function GET(request: NextRequest) {
     // Find user by whopUserId and companyId
     const user = await User.findOne({ whopUserId, companyId });
     if (!user) {
-      console.error(`User not found: whopUserId=${whopUserId}, companyId=${companyId}, snaptradeUserId=${snaptradeUserId}`);
       return NextResponse.redirect(new URL('/?error=user_not_found', request.url));
     }
 
@@ -177,8 +176,6 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const accounts = (accountsResp.data as any)?.accounts || [];
 
-    console.log(`Found ${accounts.length} accounts for user ${snaptradeUserId}`);
-
     if (accounts.length === 0) {
       // No accounts found - this might be normal if connection is still pending
       return NextResponse.redirect(new URL('/?error=no_accounts_found', request.url));
@@ -193,54 +190,47 @@ export async function GET(request: NextRequest) {
       const brokerName = accountData.brokerage?.name?.toLowerCase() || 'unknown';
       const connectionId = accountData.connection?.id;
 
-      // Map broker name to our brokerType
-      let brokerType: 'alpaca' | 'webull' | 'snaptrade' = 'snaptrade';
-      if (brokerName.includes('webull')) {
-        brokerType = 'snaptrade'; // Still use 'snaptrade' type, but store broker name
-      } else if (brokerName.includes('alpaca')) {
-        brokerType = 'snaptrade';
-      }
-
       // Check if connection already exists
       const existing = await BrokerConnection.findOne({
         userId: user._id,
         snaptradeAccountId: accountId,
       });
 
-      if (existing) {
-        // Update existing connection
-        existing.snaptradeConnectionId = connectionId;
-        existing.snaptradeBrokerName = brokerName;
-        existing.snaptradeUserId = snaptradeUserId; // Ensure userId is set
-        existing.snaptradeUserSecret = userSecret; // Update secret (will be encrypted by pre-save hook)
-        existing.isActive = true;
-        await existing.save();
-        savedAccounts.push(accountId);
-      } else {
-        // Create new connection
-        const connection = new BrokerConnection({
-          userId: user._id,
-          brokerType: 'snaptrade',
-          snaptradeUserId: snaptradeUserId,
-          snaptradeUserSecret: userSecret, // Will be encrypted by pre-save hook
-          snaptradeAccountId: accountId,
-          snaptradeConnectionId: connectionId,
-          snaptradeBrokerName: brokerName,
-          isActive: true,
-          paperTrading: false, // SnapTrade accounts are typically live (user controls this in their broker)
-        });
-        await connection.save();
-        savedAccounts.push(accountId);
+      try {
+        if (existing) {
+          // Update existing connection
+          existing.snaptradeConnectionId = connectionId;
+          existing.snaptradeBrokerName = brokerName;
+          existing.snaptradeUserId = snaptradeUserId; // Ensure userId is set
+          existing.snaptradeUserSecret = userSecret; // Update secret (will be encrypted by pre-save hook)
+          existing.isActive = true;
+          await existing.save();
+          savedAccounts.push(accountId);
+        } else {
+          // Create new connection
+          const connection = new BrokerConnection({
+            userId: user._id,
+            brokerType: 'snaptrade',
+            snaptradeUserId: snaptradeUserId,
+            snaptradeUserSecret: userSecret, // Will be encrypted by pre-save hook
+            snaptradeAccountId: accountId,
+            snaptradeConnectionId: connectionId,
+            snaptradeBrokerName: brokerName,
+            isActive: true,
+            paperTrading: false, // SnapTrade accounts are typically live (user controls this in their broker)
+          });
+          await connection.save();
+          savedAccounts.push(accountId);
+        }
+      } catch (saveError) {
+        // Continue with other accounts even if one fails
       }
     }
 
     // Verify accounts were saved
     if (savedAccounts.length === 0) {
-      console.error(`No accounts were saved to database. User: ${user._id}, Accounts found: ${accounts.length}`);
       return NextResponse.redirect(new URL('/?error=save_failed', request.url));
     }
-
-    console.log(`Successfully saved ${savedAccounts.length} accounts for user ${user._id}`);
 
     // Return HTML page that sends postMessage to parent window (for iframe modal)
     // This allows the connection to complete within Whop context
@@ -296,7 +286,6 @@ export async function GET(request: NextRequest) {
       headers: { 'Content-Type': 'text/html' },
     });
   } catch (error) {
-    console.error('SnapTrade callback error:', error);
     return NextResponse.redirect(new URL('/?error=connection_failed', request.url));
   }
 }
