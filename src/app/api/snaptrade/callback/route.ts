@@ -27,41 +27,34 @@ export async function GET(request: NextRequest) {
     await connectDB();
 
     const searchParams = request.nextUrl.searchParams;
-    const userId = searchParams.get('userId'); // SnapTrade userId (our user's MongoDB _id)
+    const snaptradeUserId = searchParams.get('userId'); // SnapTrade userId (format: edgeiq-test-{companyId}-{whopUserId}-{timestamp})
     const connectionId = searchParams.get('connectionId'); // SnapTrade connection UUID
 
-    if (!userId) {
+    if (!snaptradeUserId) {
       return NextResponse.redirect(new URL('/?error=missing_user_id', request.url));
     }
 
-    // Find user by MongoDB _id
-    const user = await User.findById(userId);
+    // Extract whopUserId and companyId from SnapTrade userId format
+    // Format: edgeiq-test-{companyId}-{whopUserId}-{timestamp}
+    const match = snaptradeUserId.match(/^edgeiq-test-(.+?)-(.+?)-(\d+)$/);
+    if (!match) {
+      return NextResponse.redirect(new URL('/?error=invalid_user_id_format', request.url));
+    }
+
+    const [, companyId, whopUserId] = match;
+
+    // Find user by whopUserId and companyId
+    const user = await User.findOne({ whopUserId, companyId });
     if (!user) {
       return NextResponse.redirect(new URL('/?error=user_not_found', request.url));
     }
 
-    // Get or create userSecret
-    // First, try to find existing connection to get userSecret
-    let userSecret: string | undefined;
-    const existingConnection = await BrokerConnection.findOne({
-      userId: user._id,
-      brokerType: 'snaptrade',
-      snaptradeUserId: userId,
+    // Register/get userSecret (idempotent - returns same secret if user exists)
+    const registerResp = await snaptrade.authentication.registerSnapTradeUser({
+      userId: snaptradeUserId,
     });
-
-    if (existingConnection?.snaptradeUserSecret) {
-      const conn = await BrokerConnection.findById(existingConnection._id);
-      userSecret = conn?.getDecryptedSnaptradeUserSecret() || undefined;
-    }
-
-    // If no existing connection, register new SnapTrade user
-    if (!userSecret) {
-      const registerResp = await snaptrade.authentication.registerSnapTradeUser({
-        userId: userId,
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      userSecret = (registerResp.data as any).userSecret as string;
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userSecret = (registerResp.data as any).userSecret as string;
 
     if (!userSecret) {
       return NextResponse.redirect(new URL('/?error=missing_user_secret', request.url));
@@ -69,7 +62,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch connected accounts for this user
     const accountsResp = await snaptrade.accountInformation.listUserAccounts({
-      userId: userId,
+      userId: snaptradeUserId,
       userSecret: userSecret,
     });
 
@@ -109,7 +102,7 @@ export async function GET(request: NextRequest) {
         const connection = new BrokerConnection({
           userId: user._id,
           brokerType: 'snaptrade',
-          snaptradeUserId: userId,
+          snaptradeUserId: snaptradeUserId,
           snaptradeUserSecret: userSecret, // Will be encrypted by pre-save hook
           snaptradeAccountId: accountId,
           snaptradeConnectionId: connectionId,
