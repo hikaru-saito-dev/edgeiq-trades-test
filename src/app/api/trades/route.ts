@@ -382,18 +382,11 @@ export async function POST(request: NextRequest) {
         brokerCostInfo = result.costInfo;
       }
     } catch (brokerError) {
+      // The broker.placeOptionOrder already returns a detailed error message
+      // If it's a BrokerOrderResult with success: false, use that error
       let errorMessage = 'Failed to place order with broker';
       if (brokerError instanceof Error) {
-        const msg = brokerError.message;
-        // Simplify error messages
-        if (msg.includes('403') || msg.includes('Forbidden')) {
-          errorMessage = 'Options trading not enabled or account restricted';
-        } else if (msg.includes('400') || msg.includes('Bad Request')) {
-          errorMessage = 'Invalid order request';
-        } else {
-          // Take first line only, remove technical details
-          errorMessage = msg.split('\n')[0].replace(/RESPONSE HEADERS:.*/i, '').trim() || errorMessage;
-        }
+        errorMessage = brokerError.message;
       }
       return NextResponse.json({
         error: errorMessage,

@@ -263,39 +263,20 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
         if (onSuccess) onSuccess();
         onClose();
       } else {
-        // Try to parse error response
+        // Try to parse error response - show the actual error message from the API
         let errorMessage = 'Failed to create trade';
         try {
           const errorData = await res.json();
           if (errorData.error) {
-            // Simplify error message - remove technical details
-            const rawError = errorData.error;
-            // Remove response headers and technical details
-            errorMessage = rawError
-              .split('\n')[0]
-              .replace(/RESPONSE HEADERS:.*/i, '')
-              .replace(/Request failed with status code \d+/i, '')
-              .trim();
-
-            // If still too long or technical, use simple message
-            if (errorMessage.length > 100 || errorMessage.includes('RESPONSE')) {
-              if (res.status === 403) {
-                errorMessage = 'Options trading not enabled or account restricted';
-              } else if (res.status === 400) {
-                errorMessage = 'Invalid order request';
-              } else {
-                errorMessage = 'Failed to create trade';
-              }
-            }
+            // Use the actual error message from the API (already simplified by the backend)
+            errorMessage = errorData.error;
           }
         } catch {
-          // If response is not JSON, use simple status-based message
+          // If response is not JSON, use status-based message
           if (res.status === 403) {
-            errorMessage = 'Options trading not enabled or account restricted';
+            errorMessage = 'Trading permission denied. Please check your account settings.';
           } else if (res.status === 400) {
             errorMessage = 'Invalid order request';
-          } else {
-            errorMessage = 'Failed to create trade';
           }
         }
         toast.showError(errorMessage);

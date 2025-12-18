@@ -145,10 +145,13 @@ export async function POST() {
             }
         );
 
-        // Get login redirect URI
+        // Get login redirect URI with trading permissions enabled
+        // connectionType: 'trade' is REQUIRED to enable trading (default is 'read' which is read-only)
         const loginResponse = await snaptrade.authentication.loginSnapTradeUser({
             userId: snaptradeUserId,
             userSecret,
+            connectionType: 'trade', // Enable trading permissions (not just read-only)
+            reconnect: existingConnection?.authorizationId || undefined, // Reconnect if existing connection
         });
 
         if (!loginResponse.data || !('redirectURI' in loginResponse.data)) {
