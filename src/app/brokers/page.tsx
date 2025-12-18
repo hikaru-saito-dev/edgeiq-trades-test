@@ -85,11 +85,11 @@ export default function BrokerTestPage() {
         toast.showSuccess('Broker connected successfully!');
       }
       // Handle SUCCESS from our callback route (OAuth completed) - must have source: 'callback'
+      // Accept from any origin since callback sends from popup (same origin) but we use '*' for reliability
       else if (
         typeof data === 'object' &&
         data.status === 'SUCCESS' &&
-        data.source === 'callback' &&
-        event.origin === window.location.origin
+        data.source === 'callback'
       ) {
         if (popupWindow) {
           popupWindow.close();
@@ -162,12 +162,38 @@ export default function BrokerTestPage() {
 
       if (popup) {
         setPopupWindow(popup);
-        // Monitor popup - if user closes it manually
+
+        // Monitor popup URL changes to detect callback redirect
+        const checkUrl = setInterval(() => {
+          try {
+            if (popup.closed) {
+              clearInterval(checkUrl);
+              setPopupWindow(null);
+              // Popup closed - check if connection was successful
+              setTimeout(() => loadConnectedAccounts(), 1000);
+              return;
+            }
+
+            // Try to access popup location (will fail if cross-origin, which is expected)
+            const popupUrl = popup.location.href;
+            if (popupUrl.includes('/api/snaptrade/callback')) {
+              // Callback page loaded in popup - it will send postMessage
+              clearInterval(checkUrl);
+            }
+          } catch (e) {
+            // Cross-origin - can't access URL, which is normal for SnapTrade portal
+            // Just continue monitoring
+          }
+        }, 500);
+
+        // Also monitor popup close
         const checkClosed = setInterval(() => {
           if (popup.closed) {
+            clearInterval(checkUrl);
             clearInterval(checkClosed);
             setPopupWindow(null);
-            loadConnectedAccounts();
+            // Wait a bit then check accounts (callback might have completed)
+            setTimeout(() => loadConnectedAccounts(), 2000);
           }
         }, 500);
       } else {

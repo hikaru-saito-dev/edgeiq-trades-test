@@ -27,14 +27,8 @@ export async function GET(request: NextRequest) {
     await connectDB();
 
     const searchParams = request.nextUrl.searchParams;
-    const snaptradeUserId = searchParams.get('userId'); // SnapTrade userId (format: edgeiq-test-{companyId}-{whopUserId}-{timestamp})
+    const snaptradeUserId = searchParams.get('userId') || searchParams.get('snaptradeUserId'); // SnapTrade userId (format: edgeiq-test-{companyId}-{whopUserId}-{timestamp})
     const connectionId = searchParams.get('connectionId'); // SnapTrade connection UUID
-
-    // Log all query params for debugging
-    const allParams: Record<string, string> = {};
-    searchParams.forEach((value, key) => {
-      allParams[key] = value;
-    });
 
     if (!snaptradeUserId) {
       // If no userId in query, try to get from headers (Whop context)
@@ -128,7 +122,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Still no userId - return error
-      return NextResponse.redirect(new URL(`/?error=missing_user_id&params=${encodeURIComponent(JSON.stringify(allParams))}`, request.url));
+      return NextResponse.redirect(new URL('/?error=missing_user_id', request.url));
     }
 
     // Extract whopUserId and companyId from SnapTrade userId format
@@ -242,31 +236,43 @@ export async function GET(request: NextRequest) {
         </head>
         <body>
           <script>
-            // Send success message to opener window (the main window with modal)
-            // This is called when OAuth completes in the new tab
-            if (window.opener) {
-              // Send message to opener with our origin for security
-              window.opener.postMessage({
+            // Send success message to opener window (popup context)
+            // When callback runs in popup, window.opener is the main window
+            const sendMessage = () => {
+              const message = {
                 status: 'SUCCESS',
                 authorizationId: '${connectionId || 'connected'}',
-                accounts: ${JSON.stringify(accounts.length)},
+                accounts: ${savedAccounts.length},
                 source: 'callback'
-              }, window.location.origin);
-              // Close this OAuth tab after a short delay
+              };
+              
+              // Try opener first (popup context)
+              if (window.opener && !window.opener.closed) {
+                window.opener.postMessage(message, '*');
+              }
+              // Fallback: try parent (iframe context)
+              else if (window.parent && window.parent !== window) {
+                window.parent.postMessage(message, '*');
+              }
+              // Last resort: redirect
+              else {
+                window.location.href = '/brokers?connected=true';
+              }
+              
+              // Close popup after sending message
               setTimeout(() => {
-                window.close();
-              }, 1000);
-            } else if (window.parent && window.parent !== window) {
-              // Fallback: if in iframe, send to parent
-              window.parent.postMessage({
-                status: 'SUCCESS',
-                authorizationId: '${connectionId || 'connected'}',
-                accounts: ${JSON.stringify(accounts.length)},
-                source: 'callback'
-              }, window.location.origin);
+                if (window.opener) {
+                  window.close();
+                }
+              }, 500);
+            };
+            
+            // Send immediately and also on load (in case script runs before DOM ready)
+            sendMessage();
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', sendMessage);
             } else {
-              // No opener/parent - redirect
-              window.location.href = '/brokers?connected=true';
+              window.addEventListener('load', sendMessage);
             }
           </script>
           <div style="text-align: center; padding: 40px; font-family: Arial, sans-serif;">
