@@ -132,17 +132,28 @@ export async function GET(request: NextRequest) {
     }
 
     // Extract whopUserId and companyId from SnapTrade userId format
-    // Format: edgeiq-test-{companyId}-{whopUserId}-{timestamp}
-    const match = snaptradeUserId.match(/^edgeiq-test-(.+?)-(.+?)-(\d+)$/);
-    if (!match) {
+    // Format: edgeiq-test-{companyId}-{whopUserId} (no timestamp in new format)
+    // Also support old format: edgeiq-test-{companyId}-{whopUserId}-{timestamp}
+    let companyId: string;
+    let whopUserId: string;
+
+    const matchWithTimestamp = snaptradeUserId.match(/^edgeiq-test-(.+?)-(.+?)-(\d+)$/);
+    const matchWithoutTimestamp = snaptradeUserId.match(/^edgeiq-test-(.+?)-(.+?)$/);
+
+    if (matchWithTimestamp) {
+      // Old format with timestamp
+      [, companyId, whopUserId] = matchWithTimestamp;
+    } else if (matchWithoutTimestamp) {
+      // New format without timestamp
+      [, companyId, whopUserId] = matchWithoutTimestamp;
+    } else {
       return NextResponse.redirect(new URL('/?error=invalid_user_id_format', request.url));
     }
-
-    const [, companyId, whopUserId] = match;
 
     // Find user by whopUserId and companyId
     const user = await User.findOne({ whopUserId, companyId });
     if (!user) {
+      console.error(`User not found: whopUserId=${whopUserId}, companyId=${companyId}, snaptradeUserId=${snaptradeUserId}`);
       return NextResponse.redirect(new URL('/?error=user_not_found', request.url));
     }
 
@@ -166,7 +177,15 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const accounts = (accountsResp.data as any)?.accounts || [];
 
+    console.log(`Found ${accounts.length} accounts for user ${snaptradeUserId}`);
+
+    if (accounts.length === 0) {
+      // No accounts found - this might be normal if connection is still pending
+      return NextResponse.redirect(new URL('/?error=no_accounts_found', request.url));
+    }
+
     // Save each connected account as a BrokerConnection
+    const savedAccounts: string[] = [];
     for (const account of accounts) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const accountData = account as any;
@@ -192,8 +211,11 @@ export async function GET(request: NextRequest) {
         // Update existing connection
         existing.snaptradeConnectionId = connectionId;
         existing.snaptradeBrokerName = brokerName;
+        existing.snaptradeUserId = snaptradeUserId; // Ensure userId is set
+        existing.snaptradeUserSecret = userSecret; // Update secret (will be encrypted by pre-save hook)
         existing.isActive = true;
         await existing.save();
+        savedAccounts.push(accountId);
       } else {
         // Create new connection
         const connection = new BrokerConnection({
@@ -208,8 +230,17 @@ export async function GET(request: NextRequest) {
           paperTrading: false, // SnapTrade accounts are typically live (user controls this in their broker)
         });
         await connection.save();
+        savedAccounts.push(accountId);
       }
     }
+
+    // Verify accounts were saved
+    if (savedAccounts.length === 0) {
+      console.error(`No accounts were saved to database. User: ${user._id}, Accounts found: ${accounts.length}`);
+      return NextResponse.redirect(new URL('/?error=save_failed', request.url));
+    }
+
+    console.log(`Successfully saved ${savedAccounts.length} accounts for user ${user._id}`);
 
     // Return HTML page that sends postMessage to parent window (for iframe modal)
     // This allows the connection to complete within Whop context
@@ -243,8 +274,15 @@ export async function GET(request: NextRequest) {
               }, 500);
             }
             // Fallback: redirect if no parent/opener
+            // For Whop apps, use relative URL which will work in iframe context
             setTimeout(() => {
-              window.location.href = '/brokers?connected=true';
+              if (window.parent && window.parent !== window) {
+                // In iframe, try to communicate with parent
+                window.parent.postMessage({ status: 'SUCCESS', accounts: ${JSON.stringify(accounts.length)} }, '*');
+              } else {
+                // Not in iframe, redirect
+                window.location.href = '/brokers?connected=true';
+              }
             }, 1000);
           </script>
           <div style="text-align: center; padding: 40px; font-family: Arial, sans-serif;">

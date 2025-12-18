@@ -51,9 +51,9 @@ const TradeSchema = new Schema<ITrade>({
   optionType: { type: String, enum: ['C', 'P'], required: true },
   expiryDate: { type: Date, required: true, index: true },
   fillPrice: { type: Number, required: true, min: 0 },
-  status: {
-    type: String,
-    enum: ['OPEN', 'CLOSED', 'REJECTED'],
+  status: { 
+    type: String, 
+    enum: ['OPEN', 'CLOSED', 'REJECTED'], 
     default: 'OPEN',
     index: true
   },

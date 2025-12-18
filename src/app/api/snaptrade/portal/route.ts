@@ -44,8 +44,23 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const brokerSlug = (body.brokerSlug as string) || undefined;
 
-    // Format: edgeiq-{whopCompanyId}-{whopUserId} to ensure it's a valid string format
-    const snaptradeUserId = `edgeiq-test-${companyId}-${whopUserId}-${Date.now()}`;
+    // Check if user already has a SnapTrade connection - reuse snaptradeUserId
+    let snaptradeUserId: string;
+    const existingConnection = await BrokerConnection.findOne({
+      userId: user._id,
+      brokerType: 'snaptrade',
+      isActive: true,
+      snaptradeUserId: { $exists: true, $ne: null },
+    }).sort({ createdAt: -1 }); // Get most recent
+
+    if (existingConnection?.snaptradeUserId) {
+      // Reuse existing snaptradeUserId
+      snaptradeUserId = existingConnection.snaptradeUserId;
+    } else {
+      // Create new snaptradeUserId (without timestamp for consistency)
+      // Format: edgeiq-{companyId}-{whopUserId} (no timestamp to ensure consistency)
+      snaptradeUserId = `edgeiq-${companyId}-${whopUserId}`;
+    }
 
     // 1) Register SnapTrade user (returns userSecret in .data)
     // Idempotent - safe to call multiple times, returns same userSecret if user already exists
@@ -58,7 +73,10 @@ export async function POST(request: NextRequest) {
 
     // 2) Create Connection Portal session
     // Include userId in customRedirect so SnapTrade passes it back in callback
-    const callbackUrl = new URL('/api/snaptrade/callback', request.nextUrl.origin);
+    // For Whop apps, use the request origin (works in iframe context)
+    // If NEXT_PUBLIC_APP_URL is set, use that for production
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    const callbackUrl = new URL('/api/snaptrade/callback', baseUrl);
     callbackUrl.searchParams.set('userId', snaptradeUserId);
 
     const loginResp = await snaptrade.authentication.loginSnapTradeUser({
@@ -71,7 +89,15 @@ export async function POST(request: NextRequest) {
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const redirectURI = (loginResp.data as any).redirectURI as string;
+    let redirectURI = (loginResp.data as any).redirectURI as string;
+
+    // Append iframe=true to portal URL to ensure OAuth stays in iframe
+    // SnapTrade's passSession endpoint will handle OAuth redirects in iframe mode
+    if (redirectURI && !redirectURI.includes('iframe=true')) {
+      const url = new URL(redirectURI);
+      url.searchParams.set('iframe', 'true');
+      redirectURI = url.toString();
+    }
 
     return NextResponse.json({
       success: true,
