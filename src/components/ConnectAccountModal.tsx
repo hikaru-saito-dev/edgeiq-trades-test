@@ -63,14 +63,31 @@ export default function ConnectAccountModal({
             }
 
             if (data.redirectURI) {
+                // Store connectionId and userId for callback
+                const connectionId = data.connectionId;
+                const storedUserId = data.userId;
+
                 // Open SnapTrade OAuth in new window
                 const width = 600;
                 const height = 700;
                 const left = window.screen.width / 2 - width / 2;
                 const top = window.screen.height / 2 - height / 2;
 
+                // Append callback parameters to redirect URI if possible
+                // Note: SnapTrade may not allow this, so we'll handle it in the callback route
+                let redirectUrl = data.redirectURI;
+                try {
+                    const url = new URL(redirectUrl);
+                    // Try to append our callback info (may be stripped by SnapTrade)
+                    url.searchParams.set('_callback_connectionId', connectionId || '');
+                    url.searchParams.set('_callback_userId', storedUserId || userId || '');
+                    redirectUrl = url.toString();
+                } catch {
+                    // If URL parsing fails, use original
+                }
+
                 const popup = window.open(
-                    data.redirectURI,
+                    redirectUrl,
                     'SnapTrade Connect',
                     `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
                 );
@@ -82,29 +99,65 @@ export default function ConnectAccountModal({
                 setRedirectUri(data.redirectURI);
 
                 // Poll for popup to close (user completed OAuth)
-                const checkClosed = setInterval(() => {
+                const checkClosed = setInterval(async () => {
                     if (popup.closed) {
                         clearInterval(checkClosed);
-                        // Wait a moment for callback to process
-                        setTimeout(() => {
-                            if (onSuccess) onSuccess();
-                            onClose();
-                            toast.showSuccess('Account connected successfully!');
-                        }, 1000);
+                        // Wait a moment for callback to process, then try to complete manually
+                        setTimeout(async () => {
+                            try {
+                                // Try to manually complete the connection if callback didn't fire
+                                const completeResponse = await apiRequest('/api/snaptrade/complete', {
+                                    method: 'POST',
+                                    userId,
+                                    companyId,
+                                });
+
+                                if (completeResponse.ok) {
+                                    const completeData = await completeResponse.json();
+                                    if (completeData.success) {
+                                        // Success! Reload accounts
+                                        if (onSuccess) onSuccess();
+                                        onClose();
+                                        toast.showSuccess('Account connected successfully!');
+                                        return;
+                                    }
+                                }
+
+                                // If manual complete failed, still try to reload (maybe callback worked)
+                                if (onSuccess) onSuccess();
+                                onClose();
+                                toast.showSuccess('Connection completed! Please refresh if accounts don\'t appear.');
+                            } catch (err) {
+                                console.error('Error completing connection:', err);
+                                // Still close modal and reload - callback might have worked
+                                if (onSuccess) onSuccess();
+                                onClose();
+                            }
+                        }, 2000); // Wait 2 seconds for callback to process
                     }
                 }, 500);
 
-                // Also listen for message from popup (if callback page sends it)
-                const messageHandler = (event: MessageEvent) => {
-                    if (event.data === 'snaptrade-connected') {
+                // Listen for storage event (if callback sets it)
+                const storageHandler = () => {
+                    const connected = sessionStorage.getItem('snaptrade_connected');
+                    if (connected === 'true') {
+                        sessionStorage.removeItem('snaptrade_connected');
                         clearInterval(checkClosed);
-                        window.removeEventListener('message', messageHandler);
                         if (onSuccess) onSuccess();
                         onClose();
-                        toast.showSuccess('Account connected successfully!');
                     }
                 };
-                window.addEventListener('message', messageHandler);
+                window.addEventListener('storage', storageHandler);
+
+                // Also check periodically if we're redirected to success page
+                const checkSuccess = setInterval(() => {
+                    if (window.location.search.includes('success=connected')) {
+                        clearInterval(checkSuccess);
+                        clearInterval(checkClosed);
+                        if (onSuccess) onSuccess();
+                        onClose();
+                    }
+                }, 1000);
             } else {
                 throw new Error('No redirect URI received');
             }

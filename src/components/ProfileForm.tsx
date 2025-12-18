@@ -195,6 +195,22 @@ export default function ProfileForm() {
     }
     if (userId) {
       fetchProfile(userId, companyId);
+
+      // Check for success/error params in URL and reload accounts if needed
+      const urlParams = new URLSearchParams(window.location.search);
+      const success = urlParams.get('success');
+      const error = urlParams.get('error');
+
+      if (success === 'connected') {
+        // Reload broker accounts after successful connection
+        loadConnectedBrokers();
+        // Clean up URL
+        window.history.replaceState({}, '', window.location.pathname);
+      } else if (error) {
+        toast.showError(`Connection failed: ${error}`);
+        // Clean up URL
+        window.history.replaceState({}, '', window.location.pathname);
+      }
     } else {
       setLoading(false);
     }

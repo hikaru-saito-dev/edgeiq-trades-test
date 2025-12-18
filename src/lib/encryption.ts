@@ -10,7 +10,11 @@ const ENCRYPTED_POSITION = TAG_POSITION + TAG_LENGTH;
 
 function getKey(): Buffer {
   if (!ENCRYPTION_KEY) {
-    throw new Error('ENCRYPTION_KEY environment variable is not set');
+    throw new Error(
+      'ENCRYPTION_KEY environment variable is not set. ' +
+      'Please set it in your .env.local file. ' +
+      'Generate a key by running: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+    );
   }
 
   // If key is hex string, convert to buffer

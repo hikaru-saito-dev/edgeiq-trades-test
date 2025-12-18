@@ -4,7 +4,6 @@ import { User } from '@/models/User';
 import { BrokerConnection } from '@/models/BrokerConnection';
 import { Snaptrade } from 'snaptrade-typescript-sdk';
 import { encrypt } from '@/lib/encryption';
-import { randomUUID } from 'node:crypto';
 
 export const runtime = 'nodejs';
 
@@ -34,6 +33,18 @@ export async function POST() {
             );
         }
 
+        // Check for encryption key
+        if (!process.env.ENCRYPTION_KEY) {
+            return NextResponse.json(
+                {
+                    error: 'ENCRYPTION_KEY environment variable is not set. ' +
+                        'Please add it to your .env.local file. ' +
+                        'Generate a key by running: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+                },
+                { status: 500 }
+            );
+        }
+
         // Find user
         const user = await User.findOne({ whopUserId: userId, companyId: companyId });
         if (!user) {
@@ -47,7 +58,7 @@ export async function POST() {
         });
 
         // Generate unique SnapTrade user ID (use UUID)
-        const snaptradeUserId = `user_${user._id.toString()}_${randomUUID()}`;
+        const snaptradeUserId = `user_${user.whopUserId}_${Date.now()}`;
 
         // Register user with SnapTrade
         const registerResponse = await snaptrade.authentication.registerSnapTradeUser({
@@ -106,10 +117,23 @@ export async function POST() {
 
         const redirectURI = loginResponse.data.redirectURI;
 
+        // Append connectionId and userId to the redirect URI so callback can find the connection
+        // SnapTrade will redirect back to our callback URL after OAuth
+        const callbackUrl = new URL('/api/snaptrade/callback', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+        callbackUrl.searchParams.set('connectionId', connection._id.toString());
+        callbackUrl.searchParams.set('userId', user.whopUserId);
+
+        // If SnapTrade allows custom redirect_uri, we can use our callback URL
+        // Otherwise, we'll need to handle it differently
+        // For now, append our callback info to SnapTrade's redirect URI as a fragment or query param
+        // Note: SnapTrade may not allow modifying the redirectURI, so we'll store the connectionId in session/cookie
+        // or find it by userId in the callback
+
         return NextResponse.json({
             success: true,
             redirectURI,
             connectionId: connection._id.toString(),
+            userId: user.whopUserId,
         });
     } catch (error) {
         console.error('SnapTrade connect error:', error);

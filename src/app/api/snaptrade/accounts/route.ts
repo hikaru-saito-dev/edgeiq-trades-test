@@ -39,17 +39,20 @@ export async function GET() {
             brokerType: 'snaptrade',
         });
 
+        // Always return at least the cached data, even if refresh fails
+        const getCachedAccounts = () => connections.map(conn => ({
+            id: conn._id.toString(),
+            brokerName: conn.brokerName || 'Unknown',
+            accountName: conn.accountName || 'Unknown',
+            accountNumber: conn.accountNumber,
+            buyingPower: conn.buyingPower,
+        }));
+
         if (!SNAPTRADE_CONSUMER_KEY || !SNAPTRADE_CLIENT_ID) {
             // Return cached account info if available
             return NextResponse.json({
                 success: true,
-                accounts: connections.map(conn => ({
-                    id: conn._id.toString(),
-                    brokerName: conn.brokerName || 'Unknown',
-                    accountName: conn.accountName || 'Unknown',
-                    accountNumber: conn.accountNumber,
-                    buyingPower: conn.buyingPower,
-                })),
+                accounts: getCachedAccounts(),
             });
         }
 
@@ -114,12 +117,46 @@ export async function GET() {
             })
         );
 
+        // Filter out any undefined accounts (from failed refresh attempts)
+        const validAccounts = accounts.filter(acc => acc !== undefined && acc !== null);
+
         return NextResponse.json({
             success: true,
-            accounts,
+            accounts: validAccounts.length > 0 ? validAccounts : getCachedAccounts(),
         });
     } catch (error) {
         console.error('Error fetching accounts:', error);
+        // Even on error, return cached accounts if available
+        try {
+            const errorHeaders = await import('next/headers').then(m => m.headers());
+            const errorUserId = errorHeaders.get('x-user-id');
+            const errorCompanyId = errorHeaders.get('x-company-id');
+
+            if (errorUserId) {
+                const errorUser = await User.findOne({ whopUserId: errorUserId, companyId: errorCompanyId });
+                if (errorUser) {
+                    const errorConnections = await BrokerConnection.find({
+                        userId: errorUser._id,
+                        isActive: true,
+                        brokerType: 'snaptrade',
+                    });
+
+                    return NextResponse.json({
+                        success: true,
+                        accounts: errorConnections.map(conn => ({
+                            id: conn._id.toString(),
+                            brokerName: conn.brokerName || 'Unknown',
+                            accountName: conn.accountName || 'Unknown',
+                            accountNumber: conn.accountNumber,
+                            buyingPower: conn.buyingPower,
+                        })),
+                    });
+                }
+            }
+        } catch (fallbackError) {
+            console.error('Error in fallback:', fallbackError);
+        }
+
         return NextResponse.json(
             { error: error instanceof Error ? error.message : 'Failed to fetch accounts' },
             { status: 500 }
