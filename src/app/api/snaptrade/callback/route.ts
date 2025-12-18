@@ -121,8 +121,48 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Redirect to brokers page with success message
-    return NextResponse.redirect(new URL('/brokers?connected=true', request.url));
+    // Return HTML page that sends postMessage to parent window (for iframe modal)
+    // This allows the connection to complete within Whop context
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Connection Complete</title>
+        </head>
+        <body>
+          <script>
+            // Send success message to parent window (Whop)
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({
+                status: 'SUCCESS',
+                authorizationId: '${connectionId || 'connected'}',
+                accounts: ${JSON.stringify(accounts.length)}
+              }, '*');
+            }
+            // Also handle case where this is opened in popup - close it
+            if (window.opener) {
+              window.opener.postMessage({
+                status: 'SUCCESS',
+                authorizationId: '${connectionId || 'connected'}',
+                accounts: ${JSON.stringify(accounts.length)}
+              }, '*');
+              window.close();
+            }
+            // Fallback: redirect if no parent/opener
+            setTimeout(() => {
+              window.location.href = '/brokers?connected=true';
+            }, 1000);
+          </script>
+          <div style="text-align: center; padding: 40px; font-family: Arial, sans-serif;">
+            <h2>Connection Successful!</h2>
+            <p>You can close this window.</p>
+          </div>
+        </body>
+      </html>
+    `;
+    return new NextResponse(html, {
+      headers: { 'Content-Type': 'text/html' },
+    });
   } catch (error) {
     console.error('SnapTrade callback error:', error);
     return NextResponse.redirect(new URL('/?error=connection_failed', request.url));

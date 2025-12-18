@@ -35,6 +35,8 @@ export default function BrokerTestPage() {
   const [connectedBrokers, setConnectedBrokers] = useState<ConnectedBroker[]>([]);
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [portalUrl, setPortalUrl] = useState<string | null>(null);
 
   useEffect(() => {
     // Load connected accounts on mount
@@ -60,6 +62,26 @@ export default function BrokerTestPage() {
     }
   };
 
+  // Listen for postMessage from iframe (callback route sends this)
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Accept messages from our callback route
+      if (event.data && typeof event.data === 'object' && event.data.status === 'SUCCESS') {
+        setModalOpen(false);
+        setPortalUrl(null);
+        loadConnectedAccounts();
+        toast.showSuccess('Broker connected successfully!');
+      } else if (event.data && typeof event.data === 'object' && event.data.status === 'ERROR') {
+        setModalOpen(false);
+        setPortalUrl(null);
+        toast.showError(event.data.detail || 'Connection failed');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
   const handleConnectClick = async () => {
     setConnecting(true);
 
@@ -78,33 +100,10 @@ export default function BrokerTestPage() {
         return;
       }
 
-      // Open SnapTrade's portal directly - it will show their own modal with the 3 steps
-      const width = 960;
-      const height = 720;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-
-      const popup = window.open(
-        data.redirectURI as string,
-        'snaptrade-connection-portal',
-        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
-      );
-
-      if (popup) {
-        toast.showSuccess('Opening broker connection portal...');
-
-        // Listen for popup close to refresh connections
-        const checkClosed = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(checkClosed);
-            // Reload connected accounts after connection completes
-            loadConnectedAccounts();
-            toast.showSuccess('Connection process completed. Your connected broker has been added.');
-          }
-        }, 500);
-      } else {
-        toast.showError('Popup blocked. Please allow popups for this site.');
-      }
+      // Open modal with iframe (stays within Whop)
+      setPortalUrl(data.redirectURI as string);
+      setModalOpen(true);
+      toast.showSuccess('Opening broker connection portal...');
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
       toast.showError(`Failed to open connection portal: ${msg}`);
@@ -278,6 +277,87 @@ export default function BrokerTestPage() {
         </Button>
       </Box>
 
+      {/* SnapTrade Connection Modal (iframe) */}
+      {modalOpen && portalUrl && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 10000,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setModalOpen(false);
+              setPortalUrl(null);
+            }
+          }}
+        >
+          <Box
+            sx={{
+              position: 'relative',
+              width: '90%',
+              maxWidth: '900px',
+              height: '90%',
+              maxHeight: '700px',
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            {/* Header */}
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '16px 20px',
+                borderBottom: '1px solid #e0e0e0',
+              }}
+            >
+              <Typography variant="h6" fontWeight={600}>
+                Connect Your Brokerage Account
+              </Typography>
+              <Button
+                onClick={() => {
+                  setModalOpen(false);
+                  setPortalUrl(null);
+                }}
+                sx={{
+                  minWidth: 'auto',
+                  padding: '4px',
+                  color: '#666',
+                  '&:hover': { backgroundColor: '#f0f0f0' },
+                }}
+              >
+                ×
+              </Button>
+            </Box>
+
+            {/* Iframe */}
+            <Box sx={{ flex: 1, overflow: 'hidden', borderRadius: '0 0 8px 8px' }}>
+              <iframe
+                src={portalUrl}
+                title="SnapTrade Connection Portal"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                }}
+                allowFullScreen
+              />
+            </Box>
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 }
