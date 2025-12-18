@@ -38,6 +38,7 @@ export default function BrokerTestPage() {
   const [connecting, setConnecting] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [portalUrl, setPortalUrl] = useState<string | null>(null);
+  const [oauthPopup, setOauthPopup] = useState<Window | null>(null);
 
   useEffect(() => {
     // Load connected accounts on mount
@@ -63,25 +64,125 @@ export default function BrokerTestPage() {
     }
   };
 
-  // Listen for postMessage from callback route
+  // Function to open OAuth popup when broker authentication is needed
+  const openOAuthPopup = (oauthUrl: string) => {
+    // Don't open if popup already exists
+    if (oauthPopup && !oauthPopup.closed) {
+      return;
+    }
+
+    const width = 960;
+    const height = 720;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+
+    const popup = window.open(
+      oauthUrl,
+      'broker-oauth',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`,
+    );
+
+    if (popup) {
+      setOauthPopup(popup);
+      toast.showSuccess('Opening broker authentication...');
+
+      // Monitor popup for closure
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkClosed);
+          setOauthPopup(null);
+          // Reload iframe to continue flow after OAuth
+          const iframe = document.getElementById('snaptrade-iframe') as HTMLIFrameElement;
+          if (iframe && portalUrl) {
+            // Small delay to ensure OAuth callback has processed
+            setTimeout(() => {
+              iframe.src = portalUrl; // Reload to continue flow
+            }, 1000);
+          }
+        }
+      }, 500);
+    } else {
+      toast.showError('Popup blocked. Please allow popups for this site.');
+    }
+  };
+
+  // Listen for postMessage from callback route and handle OAuth popup
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       // Accept messages from our callback route
       if (event.data && typeof event.data === 'object' && event.data.status === 'SUCCESS') {
+        // Close OAuth popup if open
+        if (oauthPopup && !oauthPopup.closed) {
+          oauthPopup.close();
+          setOauthPopup(null);
+        }
         setModalOpen(false);
         setPortalUrl(null);
         loadConnectedAccounts();
         toast.showSuccess('Broker connected successfully!');
       } else if (event.data && typeof event.data === 'object' && event.data.status === 'ERROR') {
+        // Close OAuth popup if open
+        if (oauthPopup && !oauthPopup.closed) {
+          oauthPopup.close();
+          setOauthPopup(null);
+        }
         setModalOpen(false);
         setPortalUrl(null);
         toast.showError(event.data.detail || 'Connection failed');
+      }
+      // Listen for OAuth redirect requests from SnapTrade portal
+      else if (event.data && typeof event.data === 'object' && event.data.type === 'OAUTH_REDIRECT' && event.data.url) {
+        openOAuthPopup(event.data.url);
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [oauthPopup, portalUrl]);
+
+  // Monitor iframe for OAuth redirect attempts
+  useEffect(() => {
+    if (!modalOpen || !portalUrl) return;
+
+    const iframe = document.getElementById('snaptrade-iframe') as HTMLIFrameElement;
+    if (!iframe) return;
+
+    // Check iframe src for passSession URLs (SnapTrade's OAuth redirect handler)
+    const checkPassSession = () => {
+      const currentSrc = iframe.src;
+      if (currentSrc.includes('passSession') && currentSrc.includes('oauthUrl=')) {
+        // Extract oauthUrl from query params
+        try {
+          const url = new URL(currentSrc);
+          const oauthUrlParam = url.searchParams.get('oauthUrl');
+          if (oauthUrlParam) {
+            const decodedOAuthUrl = decodeURIComponent(oauthUrlParam);
+            // Open OAuth URL in popup instead of letting iframe navigate
+            openOAuthPopup(decodedOAuthUrl);
+            // Prevent iframe from navigating by keeping it on SnapTrade's passSession page
+            // The popup will handle the OAuth flow
+          }
+        } catch (e) {
+          console.error('Failed to parse OAuth URL:', e);
+        }
+      }
+    };
+
+    // Check periodically for passSession URLs
+    const checkInterval = setInterval(checkPassSession, 500);
+
+    // Also check on load
+    const handleLoad = () => {
+      checkPassSession();
+    };
+
+    iframe.addEventListener('load', handleLoad);
+
+    return () => {
+      clearInterval(checkInterval);
+      iframe.removeEventListener('load', handleLoad);
+    };
+  }, [modalOpen, portalUrl, oauthPopup]);
 
   const handleConnectClick = async () => {
     setConnecting(true);
@@ -344,7 +445,7 @@ export default function BrokerTestPage() {
             </Box>
 
             {/* Iframe */}
-            <Box sx={{ flex: 1, overflow: 'hidden', borderRadius: '0 0 8px 8px' }}>
+            <Box sx={{ flex: 1, overflow: 'hidden', borderRadius: '0 0 8px 8px', position: 'relative' }}>
               <iframe
                 id="snaptrade-iframe"
                 src={portalUrl}
@@ -355,8 +456,41 @@ export default function BrokerTestPage() {
                   border: 'none',
                 }}
                 allowFullScreen
-                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
               />
+              {oauthPopup && !oauthPopup.closed && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      backgroundColor: 'white',
+                      padding: '20px',
+                      borderRadius: '8px',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <CircularProgress size={40} />
+                    <Typography variant="body2" sx={{ mt: 2 }}>
+                      Completing broker authentication...
+                    </Typography>
+                    <Typography variant="caption" sx={{ mt: 1, display: 'block', color: 'text.secondary' }}>
+                      Please complete authentication in the popup window
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
             </Box>
           </Box>
         </Box>
