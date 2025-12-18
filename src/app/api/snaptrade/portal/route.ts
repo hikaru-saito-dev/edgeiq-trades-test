@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Create new snaptradeUserId (without timestamp for consistency)
       // Format: edgeiq-{companyId}-{whopUserId} (no timestamp to ensure consistency)
-      snaptradeUserId = `edgeiq-${companyId}-${whopUserId}`;
+      snaptradeUserId = `edgeiq-sdlkfjlksdjflds-${companyId}-${whopUserId}`;
     }
 
     // 1) Register SnapTrade user (returns userSecret in .data)
