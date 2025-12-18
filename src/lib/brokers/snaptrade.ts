@@ -110,12 +110,15 @@ export class SnapTradeBroker implements IBroker {
     const action = side === 'BUY' ? 'BUY_TO_OPEN' : 'SELL_TO_CLOSE';
 
     // Use placeMlegOrder for options (required structure even for single-leg)
+    // For MARKET orders, explicitly set limit_price and stop_price to null
     const orderResponse = await this.client.trading.placeMlegOrder({
       userId: this.connection.snaptradeUserId,
       userSecret,
       accountId: this.connection.accountId,
       order_type: 'MARKET',
       time_in_force: 'Day',
+      limit_price: null,
+      stop_price: null,
       legs: [
         {
           instrument: {

@@ -21,11 +21,11 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB();
     const headers = await import('next/headers').then(m => m.headers());
-    
+
     // Read userId and companyId from headers
     const userId = headers.get('x-user-id');
     const companyId = headers.get('x-company-id');
-    
+
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    
+
     // Validate request data
     let validated;
     try {
@@ -64,9 +64,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Find the trade
-    const trade = await Trade.findOne({ 
-      _id: validated.tradeId, 
-      userId: user._id, 
+    const trade = await Trade.findOne({
+      _id: validated.tradeId,
+      userId: user._id,
       whopUserId: user.whopUserId,
       side: 'BUY', // Only settle BUY trades
     });
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       `${String(trade.expiryDate.getMonth() + 1).padStart(2, '0')}/${String(trade.expiryDate.getDate()).padStart(2, '0')}/${trade.expiryDate.getFullYear()}`
     );
     const contractType = trade.optionType === 'C' ? 'call' : 'put';
-    
+
     let snapshot = null;
 
     if (trade.optionContract) {
@@ -104,12 +104,12 @@ export async function POST(request: NextRequest) {
 
     if (!snapshot) {
       const { snapshot: fetchedSnapshot, error: snapshotError } = await getOptionContractSnapshot(
-      trade.ticker,
-      trade.strike,
-      expiryDateAPI,
+        trade.ticker,
+        trade.strike,
+        expiryDateAPI,
         contractType
       );
-      
+
       if (snapshotError || !fetchedSnapshot) {
         // Determine error message based on error type
         let errorMessage = 'Unable to fetch market data to settle trade. Please try again.';
@@ -136,11 +136,11 @@ export async function POST(request: NextRequest) {
           }
         }
 
-      return NextResponse.json({
+        return NextResponse.json({
           error: errorMessage,
         }, { status: 400 });
       }
-      
+
       snapshot = fetchedSnapshot;
     }
 
@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
     if (newRemainingContracts === 0) {
       trade.status = 'CLOSED';
       trade.netPnl = netPnl;
-      
+
       if (netPnl > 0) {
         trade.outcome = 'WIN';
       } else if (netPnl < 0) {
