@@ -34,7 +34,8 @@ export class SnapTradeBroker implements IBroker {
   async placeOptionOrder(
     trade: ITrade,
     side: 'BUY' | 'SELL',
-    contracts: number
+    contracts: number,
+    limitPrice?: number
   ): Promise<BrokerOrderResult> {
     if (!this.connection.accountId) {
       throw new Error('No account ID configured');
@@ -44,6 +45,7 @@ export class SnapTradeBroker implements IBroker {
       throw new Error('No authorization ID configured');
     }
 
+    const accountId = this.connection.accountId; // Store for TypeScript
     const userSecret = await this.getUserSecret();
 
     // Refresh account to sync latest permissions and data
@@ -122,13 +124,28 @@ export class SnapTradeBroker implements IBroker {
     const action: 'BUY_TO_OPEN' | 'SELL_TO_CLOSE' = side === 'BUY' ? 'BUY_TO_OPEN' : 'SELL_TO_CLOSE';
 
     // Use placeMlegOrder for options (required structure even for single-leg)
-    // For MARKET orders, omit limit_price and stop_price entirely (don't include in request)
-    try {
-      const orderResponse = await this.client.trading.placeMlegOrder({
+    // Try MARKET order first, fall back to LIMIT if no quote available
+    const tryPlaceOrder = async (useLimit: boolean, limitPriceValue?: number): Promise<BrokerOrderResult> => {
+      const orderRequest: {
+        userId: string;
+        userSecret: string;
+        accountId: string;
+        order_type: 'MARKET' | 'LIMIT';
+        time_in_force: 'Day';
+        limit_price?: string | null;
+        legs: Array<{
+          instrument: {
+            symbol: string;
+            instrument_type: 'OPTION';
+          };
+          action: 'BUY_TO_OPEN' | 'SELL_TO_CLOSE';
+          units: number;
+        }>;
+      } = {
         userId: this.connection.snaptradeUserId,
         userSecret,
-        accountId: this.connection.accountId,
-        order_type: 'MARKET',
+        accountId,
+        order_type: useLimit ? 'LIMIT' : 'MARKET',
         time_in_force: 'Day',
         legs: [
           {
@@ -140,12 +157,24 @@ export class SnapTradeBroker implements IBroker {
             units: contracts,
           },
         ],
-      });
+      };
 
+      // Add limit_price for LIMIT orders (required for LIMIT order type)
+      if (useLimit && limitPriceValue !== undefined) {
+        orderRequest.limit_price = limitPriceValue.toFixed(2);
+      }
+
+      const orderResponse = await this.client.trading.placeMlegOrder(orderRequest);
       return processOrderResponse(orderResponse.data);
+    };
+
+    try {
+      // Try MARKET order first
+      return await tryPlaceOrder(false);
     } catch (error: unknown) {
       // Extract actual error message from SnapTrade response
       let errorMessage = 'Failed to place order with broker';
+      let shouldRetryWithLimit = false;
 
       if (error && typeof error === 'object' && 'responseBody' in error) {
         // Try to extract error message from response body
@@ -159,9 +188,32 @@ export class SnapTradeBroker implements IBroker {
             (responseBody as { error?: string; message?: string; detail?: string }).detail ||
             JSON.stringify(responseBody) ||
             errorMessage;
+
+          // Check if error is about no available quote - retry with LIMIT order
+          const errorStr = errorMessage.toLowerCase();
+          if (errorStr.includes('no available quote') || errorStr.includes('please reenter with a limit')) {
+            shouldRetryWithLimit = true;
+          }
         }
       } else if (error instanceof Error) {
         errorMessage = error.message;
+        const errorStr = errorMessage.toLowerCase();
+        if (errorStr.includes('no available quote') || errorStr.includes('please reenter with a limit')) {
+          shouldRetryWithLimit = true;
+        }
+      }
+
+      // If error is about no quote, retry with LIMIT order using provided limitPrice or trade.fillPrice
+      if (shouldRetryWithLimit) {
+        const limitPriceValue = limitPrice || trade.fillPrice;
+        if (limitPriceValue) {
+          try {
+            return await tryPlaceOrder(true, limitPriceValue);
+          } catch {
+            // If LIMIT order also fails, throw the original error
+            throw new Error(errorMessage);
+          }
+        }
       }
 
       throw new Error(errorMessage);

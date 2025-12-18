@@ -18,7 +18,8 @@ export interface IBroker {
     placeOptionOrder(
         trade: ITrade,
         side: 'BUY' | 'SELL',
-        contracts: number
+        contracts: number,
+        limitPrice?: number
     ): Promise<BrokerOrderResult>;
 
     getAccountInfo(): Promise<{

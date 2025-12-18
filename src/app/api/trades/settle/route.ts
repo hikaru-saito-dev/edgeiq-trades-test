@@ -178,10 +178,12 @@ export async function POST(request: NextRequest) {
         if (brokerConnection) {
           const { createBroker } = await import('@/lib/brokers/factory');
           const broker = createBroker(brokerConnection.brokerType, brokerConnection);
+          // Pass market price as limit price for closing positions (required when no quote available)
           const result = await broker.placeOptionOrder(
             trade,
             'SELL',
-            validated.contracts
+            validated.contracts,
+            finalFillPrice
           );
 
           if (!result.success) {
