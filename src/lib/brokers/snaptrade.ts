@@ -112,11 +112,43 @@ export class SnapTradeBroker implements IBroker {
           totalCost,
         },
       };
-    } catch (error) {
-      console.error('SnapTrade order error:', error);
+    } catch (error: unknown) {
+      // Extract detailed error message from SnapTrade API response
+      let errorMessage = 'Unknown error placing order';
+
+      if (error && typeof error === 'object') {
+        // Check if it's a SnapTrade SDK error with responseBody
+        const snaptradeError = error as {
+          message?: string;
+          responseBody?: { error?: string; message?: string; detail?: string };
+          status?: number;
+          statusText?: string;
+        };
+
+        // Try to get the actual error message from response body
+        if (snaptradeError.responseBody) {
+          errorMessage =
+            snaptradeError.responseBody.error ||
+            snaptradeError.responseBody.message ||
+            snaptradeError.responseBody.detail ||
+            errorMessage;
+        } else if (snaptradeError.message) {
+          errorMessage = snaptradeError.message;
+        }
+
+        // Add status code context for 403 errors
+        if (snaptradeError.status === 403) {
+          if (!errorMessage.includes('403') && !errorMessage.includes('Forbidden')) {
+            errorMessage = `Forbidden (403): ${errorMessage}. This usually means: 1) Options trading may not be enabled on your account, 2) The account may need to be refreshed, or 3) Your brokerage may have restrictions on options trading.`;
+          }
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error placing order',
+        error: errorMessage,
       };
     }
   }
