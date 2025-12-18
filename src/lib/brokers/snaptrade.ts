@@ -106,6 +106,9 @@ export class SnapTradeBroker implements IBroker {
       };
     };
 
+    // Determine correct action: BUY opens position, SELL closes position
+    const action = side === 'BUY' ? 'BUY_TO_OPEN' : 'SELL_TO_CLOSE';
+
     // Use placeMlegOrder for options (required structure even for single-leg)
     const orderResponse = await this.client.trading.placeMlegOrder({
       userId: this.connection.snaptradeUserId,
@@ -119,7 +122,7 @@ export class SnapTradeBroker implements IBroker {
             symbol: occSymbol,
             instrument_type: 'OPTION',
           },
-          action: side === 'BUY' ? 'BUY_TO_OPEN' : 'SELL_TO_OPEN',
+          action,
           units: contracts,
         },
       ],
