@@ -46,50 +46,40 @@ export class SnapTradeBroker implements IBroker {
 
       const userSecret = await this.getUserSecret();
 
-      // Format expiry date for SnapTrade (YYYY-MM-DD)
+      // Format option symbol in OCC format (21 characters)
+      // Format: ROOT(6 chars, space-padded) + YYMMDD(6) + C/P(1) + STRIKE*1000(8 digits, zero-padded)
+      // Example from SDK: AAPL  251114C00240000 (AAPL call, 2025-11-14, $240 strike)
+      // Example: SPY PUT 680 expiring 12/19/2025 -> "SPY   251219P00680000"
+      // Note: trade.expiryDate is stored as UTC midnight, so use UTC methods
       const expiryDate = new Date(trade.expiryDate);
-      const expiryDateStr = expiryDate.toISOString().split('T')[0];
+      const year = expiryDate.getUTCFullYear().toString().slice(-2); // Last 2 digits of year (YY)
+      const month = String(expiryDate.getUTCMonth() + 1).padStart(2, '0'); // MM (1-12)
+      const day = String(expiryDate.getUTCDate()).padStart(2, '0'); // DD
+      const dateStr = `${year}${month}${day}`; // YYMMDD (6 digits)
 
-      // Get option symbol format for SnapTrade
-      // SnapTrade uses format like: AAPL_20250117_C_200.00
-      const optionSymbol = `${trade.ticker}_${expiryDateStr.replace(/-/g, '')}_${trade.optionType === 'C' ? 'C' : 'P'}_${trade.strike.toFixed(2)}`;
+      // Root symbol: 6 characters, space-padded on the right
+      const rootSymbol = trade.ticker.toUpperCase().padEnd(6, ' ');
 
-      // Get quote first to verify the option exists
-      const quoteResponse = await this.client.trading.getUserAccountQuotes({
-        userId: this.connection.snaptradeUserId,
-        userSecret,
-        accountId: this.connection.accountId,
-        symbols: optionSymbol, // Comma-separated string for multiple symbols
-      });
+      // Option type: C or P
+      const optionType = trade.optionType === 'C' ? 'C' : 'P';
 
-      if (!quoteResponse.data || quoteResponse.data.length === 0) {
-        return {
-          success: false,
-          error: `Option symbol ${optionSymbol} not found or not tradeable`,
-        };
-      }
+      // Strike: multiply by 1000, round, pad to 8 digits
+      const strikeInt = Math.round(trade.strike * 1000);
+      const strikeStr = String(strikeInt).padStart(8, '0');
 
-      const quote = quoteResponse.data[0];
-      const lastPrice = quote.last_trade_price || quote.bid_price || trade.fillPrice;
-
-      // Get universal symbol ID from quote
-      const universalSymbolId = quote.symbol?.id;
-      if (!universalSymbolId) {
-        return {
-          success: false,
-          error: `Could not find universal symbol ID for ${optionSymbol}`,
-        };
-      }
+      // Combine: ROOT(6) + YYMMDD(6) + C/P(1) + STRIKE(8) = 21 characters
+      const occSymbol = `${rootSymbol}${dateStr}${optionType}${strikeStr}`;
 
       // Place the order using placeForceOrder for options
       // For options: BUY -> BUY_TO_OPEN, SELL -> SELL_TO_OPEN
-      // TradingApiPlaceForceOrderRequest = { userId, userSecret } & ManualTradeFormWithOptions
+      // Use 'symbol' field with OCC format (not universal_symbol_id)
       const orderResponse = await this.client.trading.placeForceOrder({
         userId: this.connection.snaptradeUserId,
         userSecret,
         account_id: this.connection.accountId,
-        action: side === 'BUY' ? 'BUY' : 'SELL',
-        universal_symbol_id: universalSymbolId,
+        action: side === 'BUY' ? 'BUY_TO_OPEN' : 'SELL_TO_OPEN',
+        symbol: occSymbol, // Use OCC format symbol directly
+        universal_symbol_id: null, // Must be null when symbol is provided
         order_type: 'Market',
         time_in_force: 'Day',
         units: contracts,
@@ -105,8 +95,9 @@ export class SnapTradeBroker implements IBroker {
       const orderData = orderResponse.data;
       const orderId = orderData.brokerageOrderId || orderData.id || 'unknown';
 
-      // Calculate cost info
-      const grossCost = lastPrice * contracts * 100; // Options are per 100 shares
+      // Calculate cost info using the trade fill price
+      // Options are priced per share, but each contract represents 100 shares
+      const grossCost = trade.fillPrice * contracts * 100;
       const commission = 0; // SnapTrade may provide this in the response
       const totalCost = grossCost + commission;
 
