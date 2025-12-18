@@ -45,36 +45,46 @@ export async function POST(request: NextRequest) {
     const brokerSlug = (body.brokerSlug as string) || undefined;
 
     // Use MongoDB _id as persistent SnapTrade userId
-    const snaptradeUserId = user._id.toString();
+    // Format: edgeiq-{mongoId} to ensure it's a valid string format
+    const snaptradeUserId = `edgeiq-${companyId}-${whopUserId}`;
 
-    // 1) Register SnapTrade user (returns userSecret in .data)
-    const registerResp = await snaptrade.authentication.registerSnapTradeUser({
-      userId: snaptradeUserId,
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const userSecret = (registerResp.data as any).userSecret as string;
-
-    // Store userSecret in database (encryption handled by pre-save hook)
+    // Check if we already have userSecret stored
+    let userSecret: string | undefined;
     let connection = await BrokerConnection.findOne({
       userId: user._id,
       brokerType: 'snaptrade',
       snaptradeUserId: snaptradeUserId,
     });
 
-    if (connection) {
-      connection.snaptradeUserSecret = userSecret;
-      connection.isActive = true;
-      await connection.save();
-    } else {
-      connection = new BrokerConnection({
-        userId: user._id,
-        brokerType: 'snaptrade',
-        snaptradeUserId: snaptradeUserId,
-        snaptradeUserSecret: userSecret,
-        isActive: true,
+    if (connection?.snaptradeUserSecret) {
+      const conn = await BrokerConnection.findById(connection._id);
+      userSecret = conn?.getDecryptedSnaptradeUserSecret() || undefined;
+    }
+
+    // Register user if no secret found (idempotent - safe to call multiple times)
+    if (!userSecret) {
+      const registerResp = await snaptrade.authentication.registerSnapTradeUser({
+        userId: snaptradeUserId,
       });
-      await connection.save();
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      userSecret = (registerResp.data as any).userSecret as string;
+
+      // Store userSecret in database (encryption handled by pre-save hook)
+      if (connection) {
+        connection.snaptradeUserSecret = userSecret;
+        connection.isActive = true;
+        await connection.save();
+      } else {
+        connection = new BrokerConnection({
+          userId: user._id,
+          brokerType: 'snaptrade',
+          snaptradeUserId: snaptradeUserId,
+          snaptradeUserSecret: userSecret,
+          isActive: true,
+        });
+        await connection.save();
+      }
     }
 
     // 2) Create Connection Portal session (multi-broker portal)
