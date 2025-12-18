@@ -164,9 +164,9 @@ export async function POST(request: NextRequest) {
     const sellNotional = validated.contracts * finalFillPrice * 100;
 
     // Sync settlement to broker BEFORE updating database
-    // Only sync if the trade was actually placed with the broker (has brokerOrderId)
+    // Only sync if the trade was actually placed with the broker (has valid brokerOrderId)
     // If broker sync fails, the settlement will not be saved
-    if (trade.brokerOrderId && trade.brokerConnectionId) {
+    if (trade.brokerOrderId && trade.brokerOrderId !== 'unknown' && trade.brokerConnectionId) {
       try {
         const { BrokerConnection } = await import('@/models/BrokerConnection');
         const brokerConnection = await BrokerConnection.findOne({

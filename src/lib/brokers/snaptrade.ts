@@ -92,8 +92,17 @@ export class SnapTradeBroker implements IBroker {
         };
       }
 
-      const data = orderData as { brokerageOrderId?: string; id?: string };
-      const orderId = data.brokerageOrderId || data.id || 'unknown';
+      // SnapTrade SDK uses snake_case: 'brokerage_order_id' not 'brokerageOrderId'
+      const data = orderData as { brokerage_order_id?: string; brokerageOrderId?: string; id?: string };
+      const orderId = data.brokerage_order_id || data.brokerageOrderId || data.id;
+
+      if (!orderId) {
+        return {
+          success: false,
+          error: 'Failed to place order: No order ID in response',
+        };
+      }
+
       const grossCost = trade.fillPrice * contracts * 100;
 
       return {
