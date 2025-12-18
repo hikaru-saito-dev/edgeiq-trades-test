@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -28,24 +28,6 @@ interface ConnectedBroker {
   lastSync?: string;
 }
 
-// Component to handle iframe - SnapTrade handles OAuth redirects automatically
-// According to SnapTrade docs: OAuth will open in new tab when in iframe, which is expected
-// We just need to listen for postMessage events (SUCCESS, ERROR, CLOSED)
-function SnapTradeIframe({ src }: { src: string }) {
-  return (
-    <iframe
-      id="snaptrade-iframe"
-      src={src}
-      title="SnapTrade Connection Portal"
-      style={{
-        width: '100%',
-        height: '100%',
-        border: 'none',
-      }}
-      allowFullScreen
-    />
-  );
-}
 
 export default function BrokerTestPage() {
   const toast = useToast();
@@ -54,8 +36,7 @@ export default function BrokerTestPage() {
   const [connectedBrokers, setConnectedBrokers] = useState<ConnectedBroker[]>([]);
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [portalUrl, setPortalUrl] = useState<string | null>(null);
+  const [popupWindow, setPopupWindow] = useState<Window | null>(null);
 
   useEffect(() => {
     // Load connected accounts on mount
@@ -81,14 +62,14 @@ export default function BrokerTestPage() {
     }
   };
 
-  // Listen for postMessage from SnapTrade portal and callback route
+  // Listen for postMessage from SnapTrade portal (in popup) and callback route
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (!event.data) return;
 
       const data = event.data;
 
-      // Handle SUCCESS from SnapTrade portal (iframe) - must have authorizationId from SnapTrade
+      // Handle SUCCESS from SnapTrade portal (popup) - must have authorizationId from SnapTrade
       if (
         typeof data === 'object' &&
         data.status === 'SUCCESS' &&
@@ -96,20 +77,24 @@ export default function BrokerTestPage() {
         !data.source && // Not from callback
         (event.origin === 'https://app.snaptrade.com' || event.origin === 'https://connect.snaptrade.com')
       ) {
-        setModalOpen(false);
-        setPortalUrl(null);
+        if (popupWindow) {
+          popupWindow.close();
+          setPopupWindow(null);
+        }
         loadConnectedAccounts();
         toast.showSuccess('Broker connected successfully!');
       }
-      // Handle SUCCESS from our callback route (OAuth tab) - must have source: 'callback' and be from our origin
+      // Handle SUCCESS from our callback route (OAuth completed) - must have source: 'callback'
       else if (
         typeof data === 'object' &&
         data.status === 'SUCCESS' &&
         data.source === 'callback' &&
         event.origin === window.location.origin
       ) {
-        setModalOpen(false);
-        setPortalUrl(null);
+        if (popupWindow) {
+          popupWindow.close();
+          setPopupWindow(null);
+        }
         loadConnectedAccounts();
         toast.showSuccess('Broker connected successfully!');
       }
@@ -119,25 +104,31 @@ export default function BrokerTestPage() {
         data.status === 'ERROR' &&
         (event.origin === 'https://app.snaptrade.com' || event.origin === 'https://connect.snaptrade.com')
       ) {
-        setModalOpen(false);
-        setPortalUrl(null);
+        if (popupWindow) {
+          popupWindow.close();
+          setPopupWindow(null);
+        }
         toast.showError(data.detail || 'Connection failed');
       }
-      // Handle CLOSED message (when OAuth tab is closed) - only from SnapTrade
+      // Handle CLOSED message (when popup is closed)
       else if (data === 'CLOSED' && (event.origin === 'https://app.snaptrade.com' || event.origin === 'https://connect.snaptrade.com')) {
-        // OAuth tab was closed - check if connection was successful
+        if (popupWindow) {
+          setPopupWindow(null);
+        }
         loadConnectedAccounts();
       }
-      // Handle CLOSE_MODAL message - only from SnapTrade
+      // Handle CLOSE_MODAL message
       else if (data === 'CLOSE_MODAL' && (event.origin === 'https://app.snaptrade.com' || event.origin === 'https://connect.snaptrade.com')) {
-        setModalOpen(false);
-        setPortalUrl(null);
+        if (popupWindow) {
+          popupWindow.close();
+          setPopupWindow(null);
+        }
       }
     };
 
     window.addEventListener('message', handleMessage, false);
     return () => window.removeEventListener('message', handleMessage, false);
-  }, []);
+  }, [popupWindow]);
 
   const handleConnectClick = async () => {
     setConnecting(true);
@@ -157,9 +148,31 @@ export default function BrokerTestPage() {
         return;
       }
 
-      // Open modal with iframe - OAuth will open in new tab (expected behavior)
-      setPortalUrl(data.redirectURI as string);
-      setModalOpen(true);
+      // Open styled popup window (looks like modal) - OAuth will stay in popup, no new tab
+      const width = 960;
+      const height = 720;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+
+      const popup = window.open(
+        data.redirectURI as string,
+        'snaptrade-connection',
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no,toolbar=no,menubar=no,location=no`
+      );
+
+      if (popup) {
+        setPopupWindow(popup);
+        // Monitor popup - if user closes it manually
+        const checkClosed = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkClosed);
+            setPopupWindow(null);
+            loadConnectedAccounts();
+          }
+        }, 500);
+      } else {
+        toast.showError('Popup blocked. Please allow popups for this site.');
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
       toast.showError(`Failed to open connection portal: ${msg}`);
@@ -333,92 +346,6 @@ export default function BrokerTestPage() {
         </Button>
       </Box>
 
-      {/* SnapTrade Connection Modal (iframe) */}
-      {modalOpen && portalUrl && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 10000,
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setModalOpen(false);
-              setPortalUrl(null);
-            }
-          }}
-        >
-          <Box
-            sx={{
-              position: 'relative',
-              width: '90%',
-              maxWidth: '960px',
-              height: '90%',
-              maxHeight: '720px',
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            }}
-          >
-            {/* Header */}
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '20px 24px',
-                borderBottom: '1px solid #e0e0e0',
-                background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
-              }}
-            >
-              <Box>
-                <Typography variant="h5" fontWeight={700} sx={{ color: '#1a1a1a', mb: 0.5 }}>
-                  Connect Your Brokerage Account
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#666', fontSize: '0.875rem' }}>
-                  Securely connect your trading account to start placing trades
-                </Typography>
-              </Box>
-              <Button
-                onClick={() => {
-                  setModalOpen(false);
-                  setPortalUrl(null);
-                }}
-                sx={{
-                  minWidth: 'auto',
-                  width: '32px',
-                  height: '32px',
-                  padding: 0,
-                  color: '#666',
-                  borderRadius: '50%',
-                  '&:hover': {
-                    backgroundColor: '#f0f0f0',
-                    color: '#1a1a1a',
-                  },
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                ×
-              </Button>
-            </Box>
-
-            {/* Iframe */}
-            <Box sx={{ flex: 1, overflow: 'hidden', borderRadius: '0 0 8px 8px' }}>
-              <SnapTradeIframe src={portalUrl} />
-            </Box>
-          </Box>
-        </Box>
-      )}
     </Box>
   );
 }
