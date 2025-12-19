@@ -664,7 +664,9 @@ export default function ProfileForm() {
   };
 
   const timeSeriesData = prepareTimeSeriesData();
-  console.log(canSetCompanyStats  && companyStats);
+  console.log(canSetCompanyStats);
+  console.log(activeTab);
+  console.log(companyStats);
   return (
     <Box>
       <Box display="flex" alignItems="center" gap={2} mb={3}>
