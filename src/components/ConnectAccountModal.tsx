@@ -37,6 +37,7 @@ export default function ConnectAccountModal({
     const popupRef = useRef<Window | null>(null);
     const intervalsRef = useRef<{ popup: NodeJS.Timeout | null; success: NodeJS.Timeout | null }>({ popup: null, success: null });
     const isCompletedRef = useRef(false);
+    const messageHandlerRef = useRef<((event: MessageEvent) => void) | null>(null);
 
     // Cleanup on modal close
     useEffect(() => {
@@ -63,6 +64,12 @@ export default function ConnectAccountModal({
                     // Ignore
                 }
                 popupRef.current = null;
+            }
+
+            // Remove message listener if it exists
+            if (messageHandlerRef.current) {
+                window.removeEventListener('message', messageHandlerRef.current);
+                messageHandlerRef.current = null;
             }
         }
     }, [open]);
@@ -131,6 +138,12 @@ export default function ConnectAccountModal({
                     if (isCompletedRef.current) return;
                     isCompletedRef.current = true;
 
+                    // Remove message listener if it exists
+                    if (messageHandlerRef.current) {
+                        window.removeEventListener('message', messageHandlerRef.current);
+                        messageHandlerRef.current = null;
+                    }
+
                     // Clear all intervals
                     if (intervalsRef.current.popup) {
                         clearInterval(intervalsRef.current.popup);
@@ -179,12 +192,22 @@ export default function ConnectAccountModal({
                     }, 1000);
                 };
 
+                // Track popup closed state to detect when user clicks "Done"
+                let popupClosedCount = 0;
+
                 // Poll for popup to detect success and close it automatically
                 intervalsRef.current.popup = setInterval(() => {
-                    // Check if popup was closed manually
+                    // Check if popup was closed (user clicked "Done" on connection complete page)
                     if (popup.closed) {
-                        completeConnection();
-                        return;
+                        popupClosedCount++;
+                        // If popup was closed and we've been polling for a bit, assume connection is complete
+                        // This handles the case where user clicks "Done" on SnapTrade's connection complete page
+                        if (popupClosedCount >= 2) { // Wait 2 checks (400ms) to ensure it's really closed
+                            completeConnection();
+                            return;
+                        }
+                    } else {
+                        popupClosedCount = 0; // Reset if popup is still open
                     }
 
                     // Try to detect if popup has redirected to our domain (success)
@@ -207,7 +230,21 @@ export default function ConnectAccountModal({
                         }
                     } catch {
                         // CORS error - popup is still on different domain (SnapTrade)
-                        // This is expected, continue polling
+                        // Try to detect connection-complete page by checking accessible properties
+                        try {
+                            // Check if popup title contains "Connection Complete" (if accessible)
+                            const popupTitle = popup.document?.title || '';
+                            if (popupTitle.toLowerCase().includes('connection complete') ||
+                                popupTitle.toLowerCase().includes('connection-complete')) {
+                                // Wait a moment for any final processing, then complete
+                                setTimeout(() => {
+                                    completeConnection();
+                                }, 500);
+                            }
+                        } catch {
+                            // Can't access popup document due to CORS - this is expected
+                            // Continue polling and rely on popup.closed detection
+                        }
                     }
                 }, 200); // Check every 200ms for fast response
 
@@ -217,6 +254,21 @@ export default function ConnectAccountModal({
                         completeConnection();
                     }
                 }, 500);
+
+                // Add message listener for postMessage from popup (if SnapTrade sends one)
+                messageHandlerRef.current = (event: MessageEvent) => {
+                    // Only accept messages from SnapTrade domain or our own domain
+                    if (event.origin.includes('snaptrade.com') || event.origin === window.location.origin) {
+                        if (event.data && (
+                            event.data.type === 'connection-complete' ||
+                            event.data.success === true ||
+                            event.data.connectionComplete === true
+                        )) {
+                            completeConnection();
+                        }
+                    }
+                };
+                window.addEventListener('message', messageHandlerRef.current);
             } else {
                 throw new Error('No redirect URI received');
             }
