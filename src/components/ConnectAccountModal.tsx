@@ -192,22 +192,21 @@ export default function ConnectAccountModal({
                     }, 1000);
                 };
 
-                // Track popup closed state to detect when user clicks "Done"
-                let popupClosedCount = 0;
-
-                // Poll for popup to detect success and close it automatically
+                // Monitor popup close - if it closes without success message, treat as cancelled or completed
                 intervalsRef.current.popup = setInterval(() => {
                     // Check if popup was closed (user clicked "Done" on connection complete page)
                     if (popup.closed) {
-                        popupClosedCount++;
-                        // If popup was closed and we've been polling for a bit, assume connection is complete
-                        // This handles the case where user clicks "Done" on SnapTrade's connection complete page
-                        if (popupClosedCount >= 2) { // Wait 2 checks (400ms) to ensure it's really closed
-                            completeConnection();
-                            return;
+                        // If no success message was received yet, connection might have completed
+                        // Wait a moment for any postMessage to arrive, then complete
+                        if (!isCompletedRef.current) {
+                            setTimeout(() => {
+                                if (!isCompletedRef.current) {
+                                    // Connection likely completed, try to complete it
+                                    completeConnection();
+                                }
+                            }, 1000);
                         }
-                    } else {
-                        popupClosedCount = 0; // Reset if popup is still open
+                        return;
                     }
 
                     // Try to detect if popup has redirected to our domain (success)
@@ -255,17 +254,64 @@ export default function ConnectAccountModal({
                     }
                 }, 500);
 
-                // Add message listener for postMessage from popup (if SnapTrade sends one)
+                // Add message listener for postMessage from SnapTrade portal (popup) and callback route
                 messageHandlerRef.current = (event: MessageEvent) => {
-                    // Only accept messages from SnapTrade domain or our own domain
-                    if (event.origin.includes('snaptrade.com') || event.origin === window.location.origin) {
-                        if (event.data && (
-                            event.data.type === 'connection-complete' ||
-                            event.data.success === true ||
-                            event.data.connectionComplete === true
-                        )) {
-                            completeConnection();
+                    if (!event.data) return;
+
+                    const data = event.data;
+
+                    // Handle SUCCESS from SnapTrade portal (popup) - must have authorizationId from SnapTrade
+                    if (
+                        typeof data === 'object' &&
+                        data.status === 'SUCCESS' &&
+                        data.authorizationId &&
+                        !data.source && // Not from callback
+                        (event.origin === 'https://app.snaptrade.com' || event.origin === 'https://connect.snaptrade.com')
+                    ) {
+                        completeConnection();
+                    }
+                    // Handle SUCCESS from our callback route (OAuth completed) - must have source: 'callback'
+                    else if (
+                        typeof data === 'object' &&
+                        data.status === 'SUCCESS' &&
+                        data.source === 'callback'
+                    ) {
+                        completeConnection();
+                    }
+                    // Handle ERROR from SnapTrade portal
+                    else if (
+                        typeof data === 'object' &&
+                        data.status === 'ERROR' &&
+                        (event.origin === 'https://app.snaptrade.com' || event.origin === 'https://connect.snaptrade.com')
+                    ) {
+                        // Connection failed - close popup and show error
+                        try {
+                            if (popup && !popup.closed) {
+                                popup.close();
+                            }
+                        } catch {
+                            // Ignore
                         }
+                        setError(data.detail || 'Connection failed');
+                        toast.showError(data.detail || 'Connection failed');
+                        setLoading(false);
+                        setRedirectUri(null);
+                    }
+                    // Handle CLOSED message (when popup is closed)
+                    else if (data === 'CLOSED' && (event.origin === 'https://app.snaptrade.com' || event.origin === 'https://connect.snaptrade.com')) {
+                        // Popup was closed - check if connection completed
+                        if (!isCompletedRef.current) {
+                            // Connection might have completed, try to complete it
+                            setTimeout(() => {
+                                if (!isCompletedRef.current) {
+                                    completeConnection();
+                                }
+                            }, 1000);
+                        }
+                    }
+                    // Handle CLOSE_MODAL message
+                    else if (data === 'CLOSE_MODAL' && (event.origin === 'https://app.snaptrade.com' || event.origin === 'https://connect.snaptrade.com')) {
+                        completeConnection();
                     }
                 };
                 window.addEventListener('message', messageHandlerRef.current);
