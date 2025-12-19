@@ -163,7 +163,12 @@ export default function ConnectAccountModal({
                         // Popup might already be closed
                     }
 
-                    // Wait a moment for callback to process, then complete
+                    // Close modal immediately
+                    if (onSuccess) onSuccess();
+                    onClose();
+                    toast.showSuccess('Account connected successfully!');
+
+                    // Process completion in background (refresh broker list)
                     setTimeout(async () => {
                         try {
                             const completeResponse = await apiRequest('/api/snaptrade/complete', {
@@ -174,37 +179,24 @@ export default function ConnectAccountModal({
 
                             if (completeResponse.ok) {
                                 const completeData = await completeResponse.json();
-                                if (completeData.success) {
-                                    if (onSuccess) onSuccess();
-                                    onClose();
-                                    toast.showSuccess('Account connected successfully!');
-                                    return;
+                                if (completeData.success && onSuccess) {
+                                    // Refresh broker list
+                                    onSuccess();
                                 }
                             }
                         } catch {
-                            // Continue anyway
+                            // Continue anyway - modal is already closed
                         }
-
-                        // Fallback: still reload and close
-                        if (onSuccess) onSuccess();
-                        onClose();
-                        toast.showSuccess('Connection completed!');
                     }, 1000);
                 };
 
-                // Monitor popup close - if it closes without success message, treat as cancelled or completed
+                // Monitor popup close - if it closes, assume connection completed and close modal
                 intervalsRef.current.popup = setInterval(() => {
                     // Check if popup was closed (user clicked "Done" on connection complete page)
                     if (popup.closed) {
-                        // If no success message was received yet, connection might have completed
-                        // Wait a moment for any postMessage to arrive, then complete
+                        // Popup closed - complete connection and close modal
                         if (!isCompletedRef.current) {
-                            setTimeout(() => {
-                                if (!isCompletedRef.current) {
-                                    // Connection likely completed, try to complete it
-                                    completeConnection();
-                                }
-                            }, 1000);
+                            completeConnection();
                         }
                         return;
                     }
@@ -299,14 +291,9 @@ export default function ConnectAccountModal({
                     }
                     // Handle CLOSED message (when popup is closed)
                     else if (data === 'CLOSED' && (event.origin === 'https://app.snaptrade.com' || event.origin === 'https://connect.snaptrade.com')) {
-                        // Popup was closed - check if connection completed
+                        // Popup was closed - complete connection and close modal
                         if (!isCompletedRef.current) {
-                            // Connection might have completed, try to complete it
-                            setTimeout(() => {
-                                if (!isCompletedRef.current) {
-                                    completeConnection();
-                                }
-                            }, 1000);
+                            completeConnection();
                         }
                     }
                     // Handle CLOSE_MODAL message
