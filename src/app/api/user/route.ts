@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
-import { User, MembershipPlan, Webhook } from '@/models/User';
+import { User, MembershipPlan, Webhook, IUser } from '@/models/User';
 import { Trade } from '@/models/Trade';
 import { z } from 'zod';
 import { PipelineStage } from 'mongoose';
@@ -234,9 +234,6 @@ const updateUserSchema = z.object({
   onlyNotifyWinningSettlements: z.boolean().optional(), // Only send settlement webhooks for winning trades
   followingDiscordWebhook: z.string().url().optional().nullable(), // Discord webhook URL for following page notifications
   followingWhopWebhook: z.string().url().optional().nullable(), // Whop webhook URL for following page notifications
-  webullApiKey: z.string().max(256).optional().nullable(),
-  webullApiSecret: z.string().max(256).optional().nullable(),
-  webullAccountId: z.string().max(256).optional().nullable(),
   membershipPlans: z.array(z.object({
     id: z.string(),
     name: z.string().min(1).max(100),
@@ -297,10 +294,17 @@ export async function GET() {
         // Ignore errors
       }
     }
-
+    let hideCompanyStatsFromMembers = true;
+    if (user.role !== 'companyOwner' && user.role !== 'owner') {
+      const companyOwner = await User.findOne({
+        companyId: user.companyId,
+        role: 'companyOwner',
+      }).select('hideCompanyStatsFromMembers').lean();
+      hideCompanyStatsFromMembers = (companyOwner as unknown as IUser)?.hideCompanyStatsFromMembers ?? false;
+    }
     // For owners and companyOwners: also get company stats (aggregated from all company trades)
     let companyStats = null;
-    if ((user.role === 'owner' || user.role === 'companyOwner') && user.companyId) {
+    if ((user.role === 'owner' || user.role === 'companyOwner' || ((user.role === 'member' || user.role === 'admin') && !hideCompanyStatsFromMembers)) && user.companyId) {
       // Get all users in the same company with roles that contribute to company stats
       // Exclude members - only include owner/admin/companyOwner roles
       const companyUsers = await User.find({
@@ -343,9 +347,6 @@ export async function GET() {
         onlyNotifyWinningSettlements: user.onlyNotifyWinningSettlements ?? false,
         followingDiscordWebhook: user.followingDiscordWebhook || null,
         followingWhopWebhook: user.followingWhopWebhook || null,
-        webullApiKey: user.webullApiKey || null,
-        webullApiSecret: user.webullApiSecret || null,
-        webullAccountId: user.webullAccountId || null,
         membershipPlans: user.membershipPlans || [],
         hideLeaderboardFromMembers: user.hideLeaderboardFromMembers ?? false,
         hideCompanyStatsFromMembers: user.hideCompanyStatsFromMembers ?? false,
@@ -469,15 +470,6 @@ export async function PATCH(request: NextRequest) {
     }
     if (validated.followingWhopWebhook !== undefined) {
       user.followingWhopWebhook = validated.followingWhopWebhook || undefined;
-    }
-    if (validated.webullApiKey !== undefined) {
-      user.webullApiKey = validated.webullApiKey || undefined;
-    }
-    if (validated.webullApiSecret !== undefined) {
-      user.webullApiSecret = validated.webullApiSecret || undefined;
-    }
-    if (validated.webullAccountId !== undefined) {
-      user.webullAccountId = validated.webullAccountId || undefined;
     }
 
     await user.save();

@@ -167,37 +167,37 @@ export async function POST(request: NextRequest) {
     // Only sync if the trade was actually placed with the broker (has valid brokerOrderId)
     // If broker sync fails, the settlement will not be saved
     if (trade.brokerOrderId && trade.brokerOrderId !== 'unknown' && trade.brokerConnectionId) {
-      try {
-        const { BrokerConnection } = await import('@/models/BrokerConnection');
+    try {
+      const { BrokerConnection } = await import('@/models/BrokerConnection');
         const brokerConnection = await BrokerConnection.findOne({
           _id: trade.brokerConnectionId,
           userId: user._id,
           isActive: true,
         });
 
-        if (brokerConnection) {
-          const { createBroker } = await import('@/lib/brokers/factory');
-          const broker = createBroker(brokerConnection.brokerType, brokerConnection);
+      if (brokerConnection) {
+        const { createBroker } = await import('@/lib/brokers/factory');
+        const broker = createBroker(brokerConnection.brokerType, brokerConnection);
           // Pass market price as limit price for closing positions (required when no quote available)
-          const result = await broker.placeOptionOrder(
-            trade,
-            'SELL',
+        const result = await broker.placeOptionOrder(
+          trade,
+          'SELL',
             validated.contracts,
             finalFillPrice
-          );
+        );
 
-          if (!result.success) {
-            return NextResponse.json({
-              error: result.error || 'Failed to place sell order with broker',
-            }, { status: 400 });
-          }
+        if (!result.success) {
+          return NextResponse.json({
+            error: result.error || 'Failed to place sell order with broker',
+          }, { status: 400 });
         }
-      } catch (brokerError) {
-        const errorMessage = brokerError instanceof Error ? brokerError.message : 'Broker sync failed';
-        console.error('Error syncing settlement to broker:', brokerError);
-        return NextResponse.json({
-          error: errorMessage,
-        }, { status: 400 });
+      }
+    } catch (brokerError) {
+      const errorMessage = brokerError instanceof Error ? brokerError.message : 'Broker sync failed';
+      console.error('Error syncing settlement to broker:', brokerError);
+      return NextResponse.json({
+        error: errorMessage,
+      }, { status: 400 });
       }
     }
 
