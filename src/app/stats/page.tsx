@@ -12,6 +12,7 @@ import {
   Chip,
   IconButton,
   Button,
+  Container,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
@@ -250,7 +251,8 @@ export default function StatsCalendarPage() {
     val >= 0 ? theme.palette.success.main : theme.palette.error.main;
 
   return (
-    <Box sx={{ p: { xs: 1, md: 2 }, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       <Box
         display="flex"
         justifyContent="space-between"
@@ -550,7 +552,8 @@ export default function StatsCalendarPage() {
           )}
         </CardContent>
       </Card>
-    </Box>
+      </Box>
+    </Container>
   );
 }
 

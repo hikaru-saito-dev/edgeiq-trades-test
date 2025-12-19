@@ -152,17 +152,19 @@ export default function FollowingPage() {
 
   if (accessLoading) {
     return (
-      <Box sx={{ p: { xs: 1, md: 2 }, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-        <CircularProgress />
-      </Box>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress />
+        </Box>
+      </Container>
     );
   }
 
   if (!isAuthorized) {
     return (
-      <Box sx={{ p: { xs: 1, md: 2 } }}>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
         <Alert severity="warning">Please sign in to view your following feed.</Alert>
-      </Box>
+      </Container>
     );
   }
 
@@ -197,7 +199,7 @@ export default function FollowingPage() {
     : filteredTrades.length;
 
   return (
-    <Box sx={{ p: { xs: 1, md: 2 }, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -509,7 +511,7 @@ export default function FollowingPage() {
           </Box>
         )}
       </motion.div>
-    </Box>
+    </Container>
   );
 }
 

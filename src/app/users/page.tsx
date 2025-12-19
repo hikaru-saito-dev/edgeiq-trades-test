@@ -259,7 +259,7 @@ export default function UsersPage() {
 
   if (accessLoading || loading) {
     return (
-      <Box sx={{ p: { xs: 1, md: 2 }, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: '400px' }}>
+      <Container maxWidth="lg" sx={{ py: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
         <CircularProgress 
           size={60}
           thickness={4}
@@ -271,13 +271,13 @@ export default function UsersPage() {
         <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
           Loading...
         </Typography>
-      </Box>
+      </Container>
     );
   }
 
   if (currentRole !== 'companyOwner' && currentRole !== 'owner') {
     return (
-      <Box sx={{ p: { xs: 1, md: 2 } }}>
+      <Container maxWidth="md" sx={{ py: 6 }}>
       <Paper
         sx={{
           p: 6,
@@ -296,12 +296,12 @@ export default function UsersPage() {
             Only owners can manage user roles.
           </Typography>
         </Paper>
-      </Box>
+      </Container>
     );
   }
 
   return (
-    <Box sx={{ p: { xs: 1, md: 2 }, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
       <motion.div
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -757,7 +757,7 @@ export default function UsersPage() {
           </DialogActions>
         </Dialog>
       </motion.div>
-    </Box>
+    </Container>
   );
 }
 
