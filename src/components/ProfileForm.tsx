@@ -432,7 +432,7 @@ export default function ProfileForm() {
       },
     ]);
   };
-  const canSetCompanyStats = role === 'companyOwner' || role === 'owner' || (role === 'member' || role === 'admin') && !hideCompanyStats;
+  const canSetCompanyStats = role === 'companyOwner' || role === 'owner' || ((role === 'member' || role === 'admin') && !hideCompanyStats);
   const handleRemoveWebhook = (id: string) => {
     setWebhooks(webhooks.filter(webhook => webhook.id !== id));
   };
@@ -664,7 +664,7 @@ export default function ProfileForm() {
   };
 
   const timeSeriesData = prepareTimeSeriesData();
-
+  console.log(canSetCompanyStats);
   return (
     <Box>
       <Box display="flex" alignItems="center" gap={2} mb={3}>
