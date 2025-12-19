@@ -5,7 +5,6 @@ import {
   Box,
   Typography,
   Button,
-  Container,
   Paper,
   CircularProgress,
   TextField,
@@ -166,27 +165,25 @@ export default function TradesPage() {
 
   if (accessLoading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight={400} gap={3}>
-          <CircularProgress 
-            size={60}
-            thickness={4}
-            sx={{ 
-              color: '#22c55e',
-              filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))',
-            }} 
-          />
-          <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
-            Checking access...
-          </Typography>
-        </Box>
-      </Container>
+      <Box sx={{ p: { xs: 1, md: 2 }, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', gap: 3 }}>
+        <CircularProgress 
+          size={60}
+          thickness={4}
+          sx={{ 
+            color: '#22c55e',
+            filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))',
+          }} 
+        />
+        <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
+          Checking access...
+        </Typography>
+      </Box>
     );
   }
 
   if (!isAuthorized) {
     return (
-      <Container maxWidth="md" sx={{ py: 6 }}>
+      <Box sx={{ p: { xs: 1, md: 2 } }}>
         <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3 }}>
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 600 }}>
             Access Restricted
@@ -195,12 +192,12 @@ export default function TradesPage() {
             Only administrators and owners can manage trades.
           </Typography>
         </Paper>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
+    <Box sx={{ p: { xs: 1, md: 2 }, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       <motion.div
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -549,7 +546,7 @@ export default function TradesPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 }
 

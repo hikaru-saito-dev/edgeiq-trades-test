@@ -1,13 +1,13 @@
 'use client';
 
-import { Container } from '@mui/material';
+import { Box } from '@mui/material';
 import LeaderboardTable from '@/components/LeaderboardTable';
 
 export default function LeaderboardPage() {
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
+    <Box sx={{ p: { xs: 1, md: 2 }, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       <LeaderboardTable />
-    </Container>
+    </Box>
   );
 }
 
