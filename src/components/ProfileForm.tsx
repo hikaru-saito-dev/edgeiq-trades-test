@@ -53,6 +53,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import { downloadBlob, generateStatsSnapshot, type StatsSnapshotData } from '@/utils/snapshotGenerator';
 import ConnectAccountModal from './ConnectAccountModal';
+import DisconnectBrokerModal from './DisconnectBrokerModal';
 
 interface UserStats {
   totalTrades: number;
@@ -157,6 +158,9 @@ export default function ProfileForm() {
   }>>([]);
   const [loadingBrokers, setLoadingBrokers] = useState(false);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
+  const [disconnectingBroker, setDisconnectingBroker] = useState<{ id: string; brokerName: string } | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
   const { isAuthorized, loading: accessLoading, userId, companyId, hideCompanyStatsFromMembers: hideCompanyStats } = useAccess();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -245,15 +249,17 @@ export default function ProfileForm() {
     }
   };
 
-  const handleDisconnect = async (connectionId: string) => {
-    if (!userId || !companyId) return;
+  const handleDisconnectClick = (connectionId: string, brokerName: string) => {
+    setDisconnectingBroker({ id: connectionId, brokerName });
+    setDisconnectModalOpen(true);
+  };
 
-    if (!confirm('Are you sure you want to disconnect this broker account? You will need to reconnect it to place trades.')) {
-      return;
-    }
+  const handleDisconnectConfirm = async () => {
+    if (!userId || !companyId || !disconnectingBroker) return;
 
+    setDisconnecting(true);
     try {
-      const res = await apiRequest(`/api/snaptrade/disconnect?connectionId=${connectionId}`, {
+      const res = await apiRequest(`/api/snaptrade/disconnect?connectionId=${disconnectingBroker.id}`, {
         method: 'DELETE',
         userId,
         companyId,
@@ -263,12 +269,16 @@ export default function ProfileForm() {
       if (res.ok && data.success) {
         toast.showSuccess('Broker account disconnected successfully');
         loadConnectedBrokers();
+        setDisconnectModalOpen(false);
+        setDisconnectingBroker(null);
       } else {
         toast.showError(data.error || 'Failed to disconnect broker account');
       }
     } catch (error) {
       console.error('Failed to disconnect broker:', error);
       toast.showError('Failed to disconnect broker account');
+    } finally {
+      setDisconnecting(false);
     }
   };
 
@@ -1074,7 +1084,7 @@ export default function ProfileForm() {
                           icon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
                         />
                         <IconButton
-                          onClick={() => handleDisconnect(account.id)}
+                          onClick={() => handleDisconnectClick(account.id, account.brokerName)}
                           size="small"
                           sx={{
                             color: 'var(--text-muted)',
@@ -2187,6 +2197,20 @@ export default function ProfileForm() {
           loadConnectedBrokers();
         }}
       />
+
+      {/* Disconnect Broker Modal */}
+      {disconnectingBroker && (
+        <DisconnectBrokerModal
+          open={disconnectModalOpen}
+          onClose={() => {
+            setDisconnectModalOpen(false);
+            setDisconnectingBroker(null);
+          }}
+          onConfirm={handleDisconnectConfirm}
+          brokerName={disconnectingBroker.brokerName}
+          loading={disconnecting}
+        />
+      )}
     </Box>
   );
 }
