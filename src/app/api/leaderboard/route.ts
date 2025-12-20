@@ -195,7 +195,23 @@ export async function GET(request: NextRequest) {
       {
         $addFields: {
           ownerData: { $arrayElemAt: ['$ownerData', 0] },
-          ownerMembership: { $arrayElemAt: ['$ownerData.companyMemberships', 0] },
+        },
+      },
+      {
+        $addFields: {
+          ownerMembership: {
+            $cond: {
+              if: {
+                $and: [
+                  { $ne: ['$ownerData', null] },
+                  { $ne: ['$ownerData.companyMemberships', null] },
+                  { $gt: [{ $size: { $ifNull: ['$ownerData.companyMemberships', []] } }, 0] },
+                ],
+              },
+              then: { $arrayElemAt: ['$ownerData.companyMemberships', 0] },
+              else: null,
+            },
+          },
         },
       },
       {
