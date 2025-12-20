@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import { User } from '@/models/User';
-import { Company } from '@/models/Company';
 import { Trade } from '@/models/Trade';
 import { aggregationStreakFunction } from '@/lib/aggregation/streaks';
 import { PipelineStage } from 'mongoose';
@@ -151,7 +150,7 @@ export async function GET(request: NextRequest) {
       },
       {
         $lookup: {
-          from: Company.collection.name,
+          from: 'companies',
           localField: 'companyId',
           foreignField: 'companyId',
           as: 'companyData',
@@ -160,6 +159,43 @@ export async function GET(request: NextRequest) {
       {
         $addFields: {
           companyData: { $arrayElemAt: ['$companyData', 0] },
+        },
+      },
+      {
+        $lookup: {
+          from: User.collection.name,
+          let: { ownerWhopUserId: '$companyData.companyOwnerWhopUserId', companyId: '$companyId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ['$whopUserId', '$$ownerWhopUserId'],
+                },
+              },
+            },
+            {
+              $project: {
+                whopUserId: 1,
+                whopDisplayName: 1,
+                whopUsername: 1,
+                whopAvatarUrl: 1,
+                companyMemberships: {
+                  $filter: {
+                    input: '$companyMemberships',
+                    as: 'membership',
+                    cond: { $eq: ['$$membership.companyId', '$$companyId'] },
+                  },
+                },
+              },
+            },
+          ],
+          as: 'ownerData',
+        },
+      },
+      {
+        $addFields: {
+          ownerData: { $arrayElemAt: ['$ownerData', 0] },
+          ownerMembership: { $arrayElemAt: ['$ownerData.companyMemberships', 0] },
         },
       },
       {
@@ -294,23 +330,73 @@ export async function GET(request: NextRequest) {
               2,
             ],
           },
-          alias: { $ifNull: ['$companyData.companyName', 'Unknown Company'] },
+          alias: {
+            $ifNull: [
+              '$ownerMembership.alias',
+              {
+                $ifNull: [
+                  '$ownerData.whopDisplayName',
+                  {
+                    $ifNull: [
+                      '$ownerData.whopUsername',
+                      {
+                        $ifNull: [
+                          '$companyData.companyName',
+                          'Unknown Company',
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
           aliasLower: {
             $toLower: {
               $ifNull: [
-                { $ifNull: ['$companyData.companyName', 'Unknown Company'] },
-                'Unknown Company',
+                '$ownerMembership.alias',
+                {
+                  $ifNull: [
+                    '$ownerData.whopDisplayName',
+                    {
+                      $ifNull: [
+                        '$ownerData.whopUsername',
+                        {
+                          $ifNull: [
+                            '$companyData.companyName',
+                            'Unknown Company',
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
               ],
             },
           },
           membershipPlans: { $ifNull: ['$companyData.membershipPlans', []] },
-          followOfferEnabled: false, // Company-level, not per-user
-          followOfferPriceCents: 0,
-          followOfferNumPlays: 0,
-          followOfferCheckoutUrl: null,
-          whopDisplayName: { $ifNull: ['$companyData.companyName', 'Unknown Company'] },
-          whopUsername: null,
-          whopAvatarUrl: null,
+          followOfferEnabled: { $ifNull: ['$ownerMembership.followOfferEnabled', false] },
+          followOfferPriceCents: { $ifNull: ['$ownerMembership.followOfferPriceCents', 0] },
+          followOfferNumPlays: { $ifNull: ['$ownerMembership.followOfferNumPlays', 0] },
+          followOfferCheckoutUrl: { $ifNull: ['$ownerMembership.followOfferCheckoutUrl', null] },
+          whopDisplayName: {
+            $ifNull: [
+              '$ownerData.whopDisplayName',
+              {
+                $ifNull: [
+                  '$ownerData.whopUsername',
+                  {
+                    $ifNull: [
+                      '$companyData.companyName',
+                      'Unknown Company',
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          whopUsername: { $ifNull: ['$ownerData.whopUsername', null] },
+          whopAvatarUrl: { $ifNull: ['$ownerData.whopAvatarUrl', null] },
         },
       },
       { $sort: sortSpec },
@@ -321,6 +407,8 @@ export async function GET(request: NextRequest) {
           closedTrades: 0,
           aliasLower: 0,
           companyData: 0,
+          ownerData: 0,
+          ownerMembership: 0,
         },
       },
       {
@@ -355,56 +443,6 @@ export async function GET(request: NextRequest) {
     const aggregated = await User.aggregate(pipeline).allowDiskUse(true);
     const facetResult = aggregated[0] || { data: [], totalCount: [] };
     const total = facetResult.totalCount[0]?.count || 0;
-
-    // Auto-fetch company names from Whop if missing and update Company collection
-    const entriesWithMissingCompanyName = (facetResult.data || []).filter(
-      (entry: Record<string, unknown>) => {
-        const companyData = entry.companyData as { companyName?: string; companyId?: string } | undefined;
-        return companyData && !companyData.companyName && companyData.companyId;
-      }
-    );
-
-    if (entriesWithMissingCompanyName.length > 0) {
-      try {
-        const { getWhopCompany } = await import('@/lib/whop');
-        const companyNameMap = new Map<string, string>();
-
-        const updatePromises = entriesWithMissingCompanyName.map(async (entry: Record<string, unknown>) => {
-          const companyData = entry.companyData as { companyId?: string };
-          if (!companyData?.companyId) return;
-
-          try {
-            const whopCompanyData = await getWhopCompany(companyData.companyId);
-            if (whopCompanyData?.name) {
-              companyNameMap.set(companyData.companyId, whopCompanyData.name);
-              await Company.findOneAndUpdate(
-                { companyId: companyData.companyId },
-                { companyName: whopCompanyData.name },
-                { upsert: false }
-              );
-            }
-          } catch {
-            // Ignore individual errors
-          }
-        });
-        await Promise.allSettled(updatePromises);
-
-        // Update results in memory with fetched company names
-        if (companyNameMap.size > 0) {
-          (facetResult.data || []).forEach((entry: Record<string, unknown>) => {
-            const companyData = entry.companyData as { companyId?: string; companyName?: string } | undefined;
-            if (companyData?.companyId && companyNameMap.has(companyData.companyId)) {
-              companyData.companyName = companyNameMap.get(companyData.companyId);
-              // Update alias and whopDisplayName in the entry
-              entry.alias = companyData.companyName;
-              entry.whopDisplayName = companyData.companyName;
-            }
-          });
-        }
-      } catch {
-        // Ignore errors - continue with existing data
-      }
-    }
 
     const leaderboard = ((facetResult.data || []) as Array<Record<string, unknown>>).map((entry, index) => {
       const membershipPlans = (Array.isArray(entry.membershipPlans) ? entry.membershipPlans : []).map((plan) => {
