@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import { User } from '@/models/User';
+import { Company } from '@/models/Company';
 import { Trade } from '@/models/Trade';
 import { aggregationStreakFunction } from '@/lib/aggregation/streaks';
 import { PipelineStage } from 'mongoose';
@@ -150,7 +151,7 @@ export async function GET(request: NextRequest) {
       },
       {
         $lookup: {
-          from: 'companies',
+          from: Company.collection.name,
           localField: 'companyId',
           foreignField: 'companyId',
           as: 'companyData',
@@ -354,6 +355,56 @@ export async function GET(request: NextRequest) {
     const aggregated = await User.aggregate(pipeline).allowDiskUse(true);
     const facetResult = aggregated[0] || { data: [], totalCount: [] };
     const total = facetResult.totalCount[0]?.count || 0;
+
+    // Auto-fetch company names from Whop if missing and update Company collection
+    const entriesWithMissingCompanyName = (facetResult.data || []).filter(
+      (entry: Record<string, unknown>) => {
+        const companyData = entry.companyData as { companyName?: string; companyId?: string } | undefined;
+        return companyData && !companyData.companyName && companyData.companyId;
+      }
+    );
+
+    if (entriesWithMissingCompanyName.length > 0) {
+      try {
+        const { getWhopCompany } = await import('@/lib/whop');
+        const companyNameMap = new Map<string, string>();
+
+        const updatePromises = entriesWithMissingCompanyName.map(async (entry: Record<string, unknown>) => {
+          const companyData = entry.companyData as { companyId?: string };
+          if (!companyData?.companyId) return;
+
+          try {
+            const whopCompanyData = await getWhopCompany(companyData.companyId);
+            if (whopCompanyData?.name) {
+              companyNameMap.set(companyData.companyId, whopCompanyData.name);
+              await Company.findOneAndUpdate(
+                { companyId: companyData.companyId },
+                { companyName: whopCompanyData.name },
+                { upsert: false }
+              );
+            }
+          } catch {
+            // Ignore individual errors
+          }
+        });
+        await Promise.allSettled(updatePromises);
+
+        // Update results in memory with fetched company names
+        if (companyNameMap.size > 0) {
+          (facetResult.data || []).forEach((entry: Record<string, unknown>) => {
+            const companyData = entry.companyData as { companyId?: string; companyName?: string } | undefined;
+            if (companyData?.companyId && companyNameMap.has(companyData.companyId)) {
+              companyData.companyName = companyNameMap.get(companyData.companyId);
+              // Update alias and whopDisplayName in the entry
+              entry.alias = companyData.companyName;
+              entry.whopDisplayName = companyData.companyName;
+            }
+          });
+        }
+      } catch {
+        // Ignore errors - continue with existing data
+      }
+    }
 
     const leaderboard = ((facetResult.data || []) as Array<Record<string, unknown>>).map((entry, index) => {
       const membershipPlans = (Array.isArray(entry.membershipPlans) ? entry.membershipPlans : []).map((plan) => {
