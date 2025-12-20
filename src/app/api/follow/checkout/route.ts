@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import { User } from '@/models/User';
 import Whop from '@whop/sdk';
+import { z } from 'zod';
 
 export const runtime = 'nodejs';
 
@@ -19,7 +20,7 @@ const whopClient = new Whop({
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
-    
+
     const headers = await import('next/headers').then(m => m.headers());
     const userId = headers.get('x-user-id');
     const companyId = headers.get('x-company-id');
@@ -29,45 +30,44 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { priceCents, numPlays, capperUsername } = body;
 
-    if (!priceCents || !numPlays || !capperUsername) {
+    // Validate input with Zod schema
+    const checkoutSchema = z.object({
+      priceCents: z.number().int().positive('Price must be a positive number'),
+      numPlays: z.number().int().positive('Number of plays must be a positive integer').max(1000, 'Number of plays cannot exceed 1000'),
+      capperUsername: z.string().min(1, 'Capper username is required'),
+    });
+
+    let validated;
+    try {
+      validated = checkoutSchema.parse(body);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return NextResponse.json(
+          { error: 'Validation error', details: error.errors },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
-        { error: 'Missing required fields: priceCents, numPlays, capperUsername' },
+        { error: 'Invalid request data' },
         { status: 400 }
       );
     }
 
-    // Validate price is positive
-    if (typeof priceCents !== 'number' || priceCents <= 0) {
-      return NextResponse.json(
-        { error: 'Price must be a positive number' },
-        { status: 400 }
-      );
+    const { priceCents, numPlays, capperUsername } = validated;
+
+    if (!companyId) {
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
     }
 
-    // Validate numPlays is positive integer
-    if (typeof numPlays !== 'number' || numPlays <= 0 || !Number.isInteger(numPlays)) {
-      return NextResponse.json(
-        { error: 'Number of plays must be a positive integer' },
-        { status: 400 }
-      );
-    }
-
-    // Validate reasonable limits
-    if (numPlays > 1000) {
-      return NextResponse.json(
-        { error: 'Number of plays cannot exceed 1000' },
-        { status: 400 }
-      );
-    }
-
-    const capper = await User.findOne({ whopUserId: userId, companyId: companyId });
-    if (!capper) {
+    const { getUserForCompany } = await import('@/lib/userHelpers');
+    const capperResult = await getUserForCompany(userId, companyId);
+    if (!capperResult || !capperResult.membership) {
       return NextResponse.json({ error: 'Capper user not found' }, { status: 404 });
     }
+    const { user: capper, membership } = capperResult;
 
-    if (capper.role !== 'companyOwner' && capper.role !== 'owner') {
+    if (membership.role !== 'companyOwner' && membership.role !== 'owner') {
       return NextResponse.json(
         { error: 'Only company owners can create follow offers' },
         { status: 403 }
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
         followPurchase: true,
         project: 'Trade',
         capperUserId: capperIdString,
-        capperCompanyId: capper.companyId || companyId,
+        capperCompanyId: membership.companyId || companyId,
         numPlays,
       },
     });
@@ -123,21 +123,23 @@ export async function POST(request: NextRequest) {
     // Remove all existing query parameters, remove trailing slash, and add only ?a=username
     const url = new URL(purchaseUrl);
     url.search = ''; // Clear all existing query parameters (including session)
-    
+
     // Remove trailing slash from pathname
     url.pathname = url.pathname.replace(/\/$/, '');
-    
+
     // Add affiliate code
     url.searchParams.set('a', capperUsername);
     const finalCheckoutUrl = url.toString();
 
     // Always update with new plan_id - each capper gets unique plan_id
-    capper.followOfferEnabled = true;
-    capper.followOfferPriceCents = priceCents;
-    capper.followOfferNumPlays = numPlays;
-    capper.followOfferPlanId = planId; // Unique plan_id per capper
-    capper.followOfferCheckoutUrl = finalCheckoutUrl;
-    await capper.save();
+    const { updateCompanyMembership } = await import('@/lib/userHelpers');
+    await updateCompanyMembership(userId, companyId, {
+      followOfferEnabled: true,
+      followOfferPriceCents: priceCents,
+      followOfferNumPlays: numPlays,
+      followOfferPlanId: planId, // Unique plan_id per capper
+      followOfferCheckoutUrl: finalCheckoutUrl,
+    });
 
     return NextResponse.json({
       success: true,

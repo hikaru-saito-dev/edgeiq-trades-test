@@ -253,305 +253,305 @@ export default function StatsCalendarPage() {
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems={{ xs: 'flex-start', sm: 'center' }}
-        flexWrap="wrap"
-        gap={1.5}
-      >
-        <Box display="flex" alignItems="center" gap={1.25} flexWrap="wrap">
-          <Typography variant="h5" fontWeight={700}>
-            Performance Calendar
-          </Typography>
-          {(() => {
-            const showScopeToggle =
-              role === 'companyOwner' || role === 'owner' || (!hideCompanyStatsFromMembers && (role === 'admin' || role === 'member'));
-            if (!showScopeToggle) return null;
-            return (
-              <ToggleButtonGroup
-                size="small"
-                exclusive
-                value={scope}
-                onChange={(_, val) => val && setScope(val)}
-              >
-                <ToggleButton value="personal">Personal</ToggleButton>
-                <ToggleButton value="company">Company</ToggleButton>
-              </ToggleButtonGroup>
-            );
-          })()}
-          <Box
-            display="flex"
-            alignItems="center"
-            gap={0.5}
-            flexWrap="wrap"
-            sx={{
-              px: 1,
-              py: 0.25,
-            }}
-          >
-            <IconButton
-              size="small"
-              onClick={() => {
-                const next = new Date(currentMonth);
-                next.setMonth(next.getMonth() - 1);
-                setCurrentMonth(next);
-              }}
-              sx={{ color: 'inherit' }}
-            >
-              <ArrowBackIosNewIcon fontSize="small" />
-            </IconButton>
-            <Typography
-              variant="subtitle1"
-              fontWeight={700}
-              sx={{ minWidth: 140, textAlign: 'center', px: 0.75 }}
-            >
-              {currentMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' })}
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          flexWrap="wrap"
+          gap={1.5}
+        >
+          <Box display="flex" alignItems="center" gap={1.25} flexWrap="wrap">
+            <Typography variant="h5" fontWeight={700}>
+              Performance Calendar
             </Typography>
-            <IconButton
-              size="small"
-              onClick={() => {
-                const next = new Date(currentMonth);
-                next.setMonth(next.getMonth() + 1);
-                setCurrentMonth(next);
+            {(() => {
+              const showScopeToggle =
+                role === 'companyOwner' || role === 'owner' || (!hideCompanyStatsFromMembers && (role === 'admin' || role === 'member'));
+              if (!showScopeToggle) return null;
+              return (
+                <ToggleButtonGroup
+                  size="small"
+                  exclusive
+                  value={scope}
+                  onChange={(_, val) => val && setScope(val)}
+                >
+                  <ToggleButton value="personal">Personal</ToggleButton>
+                  <ToggleButton value="company">Company</ToggleButton>
+                </ToggleButtonGroup>
+              );
+            })()}
+            <Box
+              display="flex"
+              alignItems="center"
+              gap={0.5}
+              flexWrap="wrap"
+              sx={{
+                px: 1,
+                py: 0.25,
               }}
-              sx={{ color: 'inherit' }}
             >
-              <ArrowForwardIosIcon fontSize="small" />
-            </IconButton>
-            <Button
-              size="small"
-              variant="contained"
-              color="primary"
-              onClick={() => {
-                const today = new Date();
-                today.setDate(1);
-                today.setHours(0, 0, 0, 0);
-                setCurrentMonth(today);
-              }}
-              sx={{ borderRadius: 999, textTransform: 'none', px: 1.5, py: 0.5 }}
-            >
-              Today
-            </Button>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  const next = new Date(currentMonth);
+                  next.setMonth(next.getMonth() - 1);
+                  setCurrentMonth(next);
+                }}
+                sx={{ color: 'inherit' }}
+              >
+                <ArrowBackIosNewIcon fontSize="small" />
+              </IconButton>
+              <Typography
+                variant="subtitle1"
+                fontWeight={700}
+                sx={{ minWidth: 140, textAlign: 'center', px: 0.75 }}
+              >
+                {currentMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' })}
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  const next = new Date(currentMonth);
+                  next.setMonth(next.getMonth() + 1);
+                  setCurrentMonth(next);
+                }}
+                sx={{ color: 'inherit' }}
+              >
+                <ArrowForwardIosIcon fontSize="small" />
+              </IconButton>
+              <Button
+                size="small"
+                variant="contained"
+                color="primary"
+                onClick={() => {
+                  const today = new Date();
+                  today.setDate(1);
+                  today.setHours(0, 0, 0, 0);
+                  setCurrentMonth(today);
+                }}
+                sx={{ borderRadius: 999, textTransform: 'none', px: 1.5, py: 0.5 }}
+              >
+                Today
+              </Button>
+            </Box>
           </Box>
-        </Box>
-        {data && (
-          <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
-            <Chip
-              label={`P&L ${data.totalPnl >= 0 ? '+' : ''}$${data.totalPnl.toFixed(2)}`}
-              sx={{ background: alpha(pnlColor(data.totalPnl), 0.15), color: pnlColor(data.totalPnl) }}
-            />
-            <Chip label={`Trades ${data.totalTrades}`} />
-          </Box>
-        )}
-      </Box>
-
-      <Card
-        sx={{
-          border: `1px solid ${alpha(theme.palette.primary.main, isDark ? 0.12 : 0.1)}`,
-          background: alpha(theme.palette.background.default, isDark ? 0.5 : 0.9),
-          borderRadius: 1,
-          boxShadow: 'none',
-        }}
-      >
-        <CardContent>
-          {loading && (
-            <Box display="flex" justifyContent="center" py={6}>
-              <CircularProgress size={32} />
+          {data && (
+            <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
+              <Chip
+                label={`P&L ${data.totalPnl >= 0 ? '+' : ''}$${data.totalPnl.toFixed(2)}`}
+                sx={{ background: alpha(pnlColor(data.totalPnl), 0.15), color: pnlColor(data.totalPnl) }}
+              />
+              <Chip label={`Trades ${data.totalTrades}`} />
             </Box>
           )}
-          {error && (
-            <Typography color="error" textAlign="center">
-              {error}
-            </Typography>
-          )}
+        </Box>
 
-          {!loading && !error && weeks.length > 0 && (
-            <Box
-              display="grid"
-              gridTemplateColumns={{
-                xs: 'repeat(2, minmax(0, 1fr))',
-                sm: 'repeat(4, minmax(0, 1fr))',
-                md: 'repeat(7, minmax(0, 1fr))',
-              }}
-            >
-              {/* Grid starts Sunday */}
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-                <Typography
-                  key={d}
-                  variant="caption"
-                  textAlign="center"
-                  sx={{ color: 'text.secondary', display: { xs: 'none', md: 'block' } }}
-                >
-                  {d}
-                </Typography>
-              ))}
-              {weeks.map((week) =>
-                week.days.map((d) => {
-                  const pnl = d.data?.netPnl ?? 0;
-                  const trades = d.data?.trades ?? 0;
-                  // Parse date string (YYYY-MM-DD) as NY timezone date
-                  const [year, month, day] = d.date.split('-').map(Number);
-                  const dateObj = new Date(Date.UTC(year, month - 1, day, 12, 0, 0)); // Use noon UTC to avoid timezone edge cases
-                  const isSaturday = getDayOfWeekInNY(dateObj) === 6;
-                  // Check if date is in current month using NY timezone
-                  const dateInNY = new Intl.DateTimeFormat('en-US', {
-                    timeZone: 'America/New_York',
-                    year: 'numeric',
-                    month: 'numeric',
-                  }).format(dateObj);
-                  const [nyMonth, nyYear] = dateInNY.split('/').map(Number);
-                  const isCurrentMonth =
-                    nyMonth === currentMonth.getMonth() + 1 &&
-                    nyYear === currentMonth.getFullYear();
-                  const weekSummary = weeklySummaries[week.weekOf];
-                  const hasWeeklyRecap =
-                    isSaturday &&
-                    isCurrentMonth &&
-                    weekSummary &&
-                    typeof weekSummary.totalTrades === 'number' &&
-                    weekSummary.totalTrades > 0;
-                  const effectivePnl = hasWeeklyRecap ? weekSummary.totalPnl : pnl;
-                  const isEmpty = !d.data && !hasWeeklyRecap;
-                  const muted = !isCurrentMonth;
-                  // Check if today in NY timezone
-                  const todayInNY = new Date();
-                  const isToday = d.date === todayInNY.toLocaleDateString('en-CA', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                  });
+        <Card
+          sx={{
+            border: `1px solid ${alpha(theme.palette.primary.main, isDark ? 0.12 : 0.1)}`,
+            background: alpha(theme.palette.background.default, isDark ? 0.5 : 0.9),
+            borderRadius: 1,
+            boxShadow: 'none',
+          }}
+        >
+          <CardContent>
+            {loading && (
+              <Box display="flex" justifyContent="center" py={6}>
+                <CircularProgress size={32} />
+              </Box>
+            )}
+            {error && (
+              <Typography color="error" textAlign="center">
+                {error}
+              </Typography>
+            )}
 
-                  return (
-                    <Box
-                      key={d.date}
-                      sx={{
-                        p: { xs: 0.6, md: 0.75 },
-                        borderRadius: 0,
-                        minHeight: { xs: 92, md: 110 },
-                        border: `1px solid ${isToday
-                          ? alpha(theme.palette.primary.main, 0.8)
-                          : alpha(theme.palette.divider, 0.35)
-                          }`,
-                        backgroundColor: isEmpty
-                          ? alpha(theme.palette.background.default, isDark ? 0.55 : 0.9)
-                          : effectivePnl > 0
-                            ? alpha(theme.palette.success.main, 0.2)
-                            : effectivePnl < 0
-                              ? alpha(theme.palette.error.main, 0.25)
-                              : alpha(theme.palette.background.default, isDark ? 0.55 : 0.9),
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        textAlign: 'center',
-                        gap: 0.35,
-                        opacity: muted ? 0.45 : 1,
-                        boxShadow: 'none',
-                      }}
-                    >
-                      <Typography
-                        variant="body2"
+            {!loading && !error && weeks.length > 0 && (
+              <Box
+                display="grid"
+                gridTemplateColumns={{
+                  xs: 'repeat(2, minmax(0, 1fr))',
+                  sm: 'repeat(4, minmax(0, 1fr))',
+                  md: 'repeat(7, minmax(0, 1fr))',
+                }}
+              >
+                {/* Grid starts Sunday */}
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                  <Typography
+                    key={d}
+                    variant="caption"
+                    textAlign="center"
+                    sx={{ color: 'text.secondary', display: { xs: 'none', md: 'block' } }}
+                  >
+                    {d}
+                  </Typography>
+                ))}
+                {weeks.map((week) =>
+                  week.days.map((d) => {
+                    const pnl = d.data?.netPnl ?? 0;
+                    const trades = d.data?.trades ?? 0;
+                    // Parse date string (YYYY-MM-DD) as NY timezone date
+                    const [year, month, day] = d.date.split('-').map(Number);
+                    const dateObj = new Date(Date.UTC(year, month - 1, day, 12, 0, 0)); // Use noon UTC to avoid timezone edge cases
+                    const isSaturday = getDayOfWeekInNY(dateObj) === 6;
+                    // Check if date is in current month using NY timezone
+                    const dateInNY = new Intl.DateTimeFormat('en-US', {
+                      timeZone: 'America/New_York',
+                      year: 'numeric',
+                      month: 'numeric',
+                    }).format(dateObj);
+                    const [nyMonth, nyYear] = dateInNY.split('/').map(Number);
+                    const isCurrentMonth =
+                      nyMonth === currentMonth.getMonth() + 1 &&
+                      nyYear === currentMonth.getFullYear();
+                    const weekSummary = weeklySummaries[week.weekOf];
+                    const hasWeeklyRecap =
+                      isSaturday &&
+                      isCurrentMonth &&
+                      weekSummary &&
+                      typeof weekSummary.totalTrades === 'number' &&
+                      weekSummary.totalTrades > 0;
+                    const effectivePnl = hasWeeklyRecap ? weekSummary.totalPnl : pnl;
+                    const isEmpty = !d.data && !hasWeeklyRecap;
+                    const muted = !isCurrentMonth;
+                    // Check if today in NY timezone
+                    const todayInNY = new Date();
+                    const isToday = d.date === todayInNY.toLocaleDateString('en-CA', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                    });
+
+                    return (
+                      <Box
+                        key={d.date}
                         sx={{
-                          color: muted ? 'text.disabled' : 'text.secondary',
-                          fontWeight: 700,
-                          fontSize: 12,
-                          alignSelf: 'center',
+                          p: { xs: 0.6, md: 0.75 },
+                          borderRadius: 0,
+                          minHeight: { xs: 92, md: 110 },
+                          border: `1px solid ${isToday
+                            ? alpha(theme.palette.primary.main, 0.8)
+                            : alpha(theme.palette.divider, 0.35)
+                            }`,
+                          backgroundColor: isEmpty
+                            ? alpha(theme.palette.background.default, isDark ? 0.55 : 0.9)
+                            : effectivePnl > 0
+                              ? alpha(theme.palette.success.main, 0.2)
+                              : effectivePnl < 0
+                                ? alpha(theme.palette.error.main, 0.25)
+                                : alpha(theme.palette.background.default, isDark ? 0.55 : 0.9),
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          textAlign: 'center',
+                          gap: 0.35,
+                          opacity: muted ? 0.45 : 1,
+                          boxShadow: 'none',
                         }}
                       >
-                        {dateObj.toLocaleDateString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </Typography>
-                      {!isEmpty ? (
-                        <Box
+                        <Typography
+                          variant="body2"
                           sx={{
-                            flexGrow: 1,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'flex-end',
-                            gap: 0.7,
-                            width: '100%',
+                            color: muted ? 'text.disabled' : 'text.secondary',
+                            fontWeight: 700,
+                            fontSize: 12,
+                            alignSelf: 'center',
                           }}
                         >
-                          {hasWeeklyRecap && weekSummary ? (
-                            <>
-                              <Typography
-                                variant="subtitle2"
-                                sx={{
-                                  color: pnlColor(weekSummary.totalPnl),
-                                  fontWeight: 900,
-                                  lineHeight: 1.15,
-                                  fontSize: 18,
-                                }}
-                              >
-                                {weekSummary.totalPnl >= 0 ? '+' : '-'}$
-                                {Math.abs(weekSummary.totalPnl).toFixed(2)}
-                              </Typography>
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  color: muted ? 'text.disabled' : 'text.secondary',
-                                  fontSize: 11,
-                                  fontWeight: 700,
-                                }}
-                              >
-                                Week {weekSummary.weekIndex}
-                              </Typography>
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  color: muted ? 'text.disabled' : 'text.secondary',
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                }}
-                              >
-                                {weekSummary.totalTrades} trade
-                                {weekSummary.totalTrades === 1 ? '' : 's'}
-                              </Typography>
-                            </>
-                          ) : (
-                            <>
-                              <Typography
-                                variant="subtitle2"
-                                sx={{
-                                  color: pnlColor(pnl),
-                                  fontWeight: 900,
-                                  lineHeight: 1.15,
-                                  fontSize: 20,
-                                }}
-                              >
-                                {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
-                              </Typography>
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  color: muted ? 'text.disabled' : 'text.secondary',
-                                  fontSize: 12,
-                                  fontWeight: 600,
-                                }}
-                              >
-                                {trades} trade{trades === 1 ? '' : 's'}
-                              </Typography>
-                            </>
-                          )}
-                        </Box>
-                      ) : (
-                        <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Typography variant="body2" sx={{ color: muted ? 'text.disabled' : 'text.disabled' }}>
-                            &nbsp;
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-                  );
-                })
-              )}
-            </Box>
-          )}
-        </CardContent>
-      </Card>
+                          {dateObj.toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </Typography>
+                        {!isEmpty ? (
+                          <Box
+                            sx={{
+                              flexGrow: 1,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              gap: 0.7,
+                              width: '100%',
+                            }}
+                          >
+                            {hasWeeklyRecap && weekSummary ? (
+                              <>
+                                <Typography
+                                  variant="subtitle2"
+                                  sx={{
+                                    color: pnlColor(weekSummary.totalPnl),
+                                    fontWeight: 900,
+                                    lineHeight: 1.15,
+                                    fontSize: 18,
+                                  }}
+                                >
+                                  {weekSummary.totalPnl >= 0 ? '+' : '-'}$
+                                  {Math.abs(weekSummary.totalPnl).toFixed(2)}
+                                </Typography>
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    color: muted ? 'text.disabled' : 'text.secondary',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  Week {weekSummary.weekIndex}
+                                </Typography>
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    color: muted ? 'text.disabled' : 'text.secondary',
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {weekSummary.totalTrades} trade
+                                  {weekSummary.totalTrades === 1 ? '' : 's'}
+                                </Typography>
+                              </>
+                            ) : (
+                              <>
+                                <Typography
+                                  variant="subtitle2"
+                                  sx={{
+                                    color: pnlColor(pnl),
+                                    fontWeight: 900,
+                                    lineHeight: 1.15,
+                                    fontSize: 20,
+                                  }}
+                                >
+                                  {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
+                                </Typography>
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    color: muted ? 'text.disabled' : 'text.secondary',
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {trades} trade{trades === 1 ? '' : 's'}
+                                </Typography>
+                              </>
+                            )}
+                          </Box>
+                        ) : (
+                          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography variant="body2" sx={{ color: muted ? 'text.disabled' : 'text.disabled' }}>
+                              &nbsp;
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    );
+                  })
+                )}
+              </Box>
+            )}
+          </CardContent>
+        </Card>
       </Box>
     </Container>
   );

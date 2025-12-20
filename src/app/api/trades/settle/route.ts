@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
+import mongoose from 'mongoose';
 import { Trade } from '@/models/Trade';
 import { TradeFill } from '@/models/TradeFill';
 import { User } from '@/models/User';
@@ -30,11 +31,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Find user by whopUserId
-    const user = await User.findOne({ whopUserId: userId, companyId: companyId });
-    if (!user) {
+    // Find user with company membership
+    const { getUserForCompany } = await import('@/lib/userHelpers');
+    if (!companyId) {
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
+    }
+    const userResult = await getUserForCompany(userId, companyId);
+    if (!userResult || !userResult.membership) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    const { user, membership } = userResult;
 
     // Check market hours
     const now = new Date();
@@ -63,29 +69,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the trade
-    const trade = await Trade.findOne({
-      _id: validated.tradeId,
-      userId: user._id,
-      whopUserId: user.whopUserId,
-      side: 'BUY', // Only settle BUY trades
-    });
+    // Atomically find and update trade to prevent race conditions
+    // This ensures only one settlement can proceed if multiple requests arrive simultaneously
+    const trade = await Trade.findOneAndUpdate(
+      {
+        _id: validated.tradeId,
+        userId: user._id,
+        whopUserId: user.whopUserId,
+        side: 'BUY', // Only settle BUY trades
+        status: 'OPEN', // Only allow settlement of OPEN trades
+        remainingOpenContracts: { $gte: validated.contracts }, // Ensure enough contracts available
+      },
+      {
+        $inc: { remainingOpenContracts: -validated.contracts }, // Atomically decrement
+      },
+      {
+        new: false, // Return original document before update
+        runValidators: true,
+      }
+    );
 
     if (!trade) {
-      return NextResponse.json({ error: 'Trade not found' }, { status: 404 });
-    }
+      // Trade not found, not OPEN, or insufficient contracts
+      // Check which condition failed for better error message
+      const tradeCheck = await Trade.findOne({
+        _id: validated.tradeId,
+        userId: user._id,
+        whopUserId: user.whopUserId,
+        side: 'BUY',
+      });
 
-    // Only allow settlement of OPEN trades
-    if (trade.status !== 'OPEN') {
-      return NextResponse.json({
-        error: 'Cannot settle trade that is not OPEN.',
-      }, { status: 400 });
-    }
+      if (!tradeCheck) {
+        return NextResponse.json({ error: 'Trade not found' }, { status: 404 });
+      }
 
-    // Check if selling more contracts than available
-    if (validated.contracts > trade.remainingOpenContracts) {
+      if (tradeCheck.status !== 'OPEN') {
+        return NextResponse.json({
+          error: 'Cannot settle trade that is not OPEN.',
+        }, { status: 400 });
+      }
+
+      if (validated.contracts > tradeCheck.remainingOpenContracts) {
+        return NextResponse.json({
+          error: `Cannot sell ${validated.contracts} contracts. Only ${tradeCheck.remainingOpenContracts} contracts remaining.`,
+        }, { status: 400 });
+      }
+
+      // Fallback error (shouldn't happen)
       return NextResponse.json({
-        error: `Cannot sell ${validated.contracts} contracts. Only ${trade.remainingOpenContracts} contracts remaining.`,
+        error: 'Unable to settle trade. Please try again.',
       }, { status: 400 });
     }
 
@@ -163,115 +195,163 @@ export async function POST(request: NextRequest) {
     // Calculate notional for this SELL fill
     const sellNotional = validated.contracts * finalFillPrice * 100;
 
-    // Sync settlement to broker BEFORE updating database
-    // Only sync if the trade was actually placed with the broker (has valid brokerOrderId)
-    // If broker sync fails, the settlement will not be saved
-    if (trade.brokerOrderId && trade.brokerOrderId !== 'unknown' && trade.brokerConnectionId) {
+    // Calculate new remaining contracts (already decremented atomically)
+    const newRemainingContracts = trade.remainingOpenContracts - validated.contracts;
+
+    // Start database session for transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
-      const { BrokerConnection } = await import('@/models/BrokerConnection');
-        const brokerConnection = await BrokerConnection.findOne({
-          _id: trade.brokerConnectionId,
-          userId: user._id,
-          isActive: true,
-        });
+      // Sync settlement to broker BEFORE updating database
+      // Only sync if the trade was actually placed with the broker (has valid brokerOrderId)
+      // If broker sync fails, the transaction will rollback
+      if (trade.brokerOrderId && trade.brokerOrderId !== 'unknown' && trade.brokerConnectionId) {
+        try {
+          const { BrokerConnection } = await import('@/models/BrokerConnection');
+          const brokerConnection = await BrokerConnection.findOne({
+            _id: trade.brokerConnectionId,
+            userId: user._id,
+            isActive: true,
+          }).session(session);
 
-      if (brokerConnection) {
-        const { createBroker } = await import('@/lib/brokers/factory');
-        const broker = createBroker(brokerConnection.brokerType, brokerConnection);
-          // Pass market price as limit price for closing positions (required when no quote available)
-        const result = await broker.placeOptionOrder(
-          trade,
-          'SELL',
-            validated.contracts,
-            finalFillPrice
-        );
+          if (brokerConnection) {
+            const { createBroker } = await import('@/lib/brokers/factory');
+            const broker = createBroker(brokerConnection.brokerType, brokerConnection);
+            // Pass market price as limit price for closing positions (required when no quote available)
+            const result = await broker.placeOptionOrder(
+              trade,
+              'SELL',
+              validated.contracts,
+              finalFillPrice
+            );
 
-        if (!result.success) {
+            if (!result.success) {
+              await session.abortTransaction();
+              await session.endSession();
+              return NextResponse.json({
+                error: result.error || 'Failed to place sell order with broker',
+              }, { status: 400 });
+            }
+          }
+        } catch (brokerError) {
+          await session.abortTransaction();
+          await session.endSession();
+          const errorMessage = brokerError instanceof Error ? brokerError.message : 'Broker sync failed';
+          console.error('Error syncing settlement to broker:', brokerError);
           return NextResponse.json({
-            error: result.error || 'Failed to place sell order with broker',
+            error: errorMessage,
           }, { status: 400 });
         }
       }
-    } catch (brokerError) {
-      const errorMessage = brokerError instanceof Error ? brokerError.message : 'Broker sync failed';
-      console.error('Error syncing settlement to broker:', brokerError);
-      return NextResponse.json({
-        error: errorMessage,
-      }, { status: 400 });
-      }
-    }
 
-    // Create SELL fill
-    const fill = await TradeFill.create({
-      tradeId: trade._id,
-      side: 'SELL',
-      contracts: validated.contracts,
-      fillPrice: finalFillPrice,
-      priceVerified: true,
-      refPrice: referencePrice || undefined,
-      refTimestamp,
-      notional: sellNotional,
-      isMarketOrder: true, // Always market orders
-    });
-
-    // Update trade: reduce remaining contracts
-    const newRemainingContracts = trade.remainingOpenContracts - validated.contracts;
-    trade.remainingOpenContracts = newRemainingContracts;
-
-    // Get all SELL fills for this trade to calculate totals
-    const allFills = await TradeFill.find({ tradeId: trade._id }).lean();
-    const totalSellNotional = allFills.reduce((sum, f) => sum + (f.notional || 0), 0);
-    trade.totalSellNotional = totalSellNotional;
-
-    // Calculate net P&L
-    const netPnl = totalSellNotional - (trade.totalBuyNotional || 0);
-
-    // If all contracts are sold, close the trade and determine outcome
-    if (newRemainingContracts === 0) {
-      trade.status = 'CLOSED';
-      trade.netPnl = netPnl;
-
-      if (netPnl > 0) {
-        trade.outcome = 'WIN';
-      } else if (netPnl < 0) {
-        trade.outcome = 'LOSS';
-      } else {
-        trade.outcome = 'BREAKEVEN';
-      }
-    }
-
-    await trade.save();
-
-    // Log the action
-    await Log.create({
-      userId: user._id,
-      action: 'trade_settled',
-      metadata: {
+      // Create SELL fill within transaction
+      const fill = await TradeFill.create([{
         tradeId: trade._id,
-        fillId: fill._id,
+        side: 'SELL',
         contracts: validated.contracts,
         fillPrice: finalFillPrice,
+        priceVerified: true,
+        refPrice: referencePrice || undefined,
+        refTimestamp,
+        notional: sellNotional,
+        isMarketOrder: true, // Always market orders
+      }], { session });
+
+      // Get all SELL fills for this trade to calculate totals (within transaction)
+      const allFills = await TradeFill.find({ tradeId: trade._id }).session(session).lean();
+      const totalSellNotional = allFills.reduce((sum, f) => sum + (f.notional || 0), 0);
+
+      // Calculate net P&L
+      const netPnl = totalSellNotional - (trade.totalBuyNotional || 0);
+
+      // Update trade with totals and status (if closed)
+      const updateData: {
+        totalSellNotional: number;
+        status?: 'CLOSED';
+        netPnl?: number;
+        outcome?: 'WIN' | 'LOSS' | 'BREAKEVEN';
+      } = {
+        totalSellNotional,
+      };
+
+      // If all contracts are sold, close the trade and determine outcome
+      if (newRemainingContracts === 0) {
+        updateData.status = 'CLOSED';
+        updateData.netPnl = netPnl;
+
+        if (netPnl > 0) {
+          updateData.outcome = 'WIN';
+        } else if (netPnl < 0) {
+          updateData.outcome = 'LOSS';
+        } else {
+          updateData.outcome = 'BREAKEVEN';
+        }
+      }
+
+      // Atomically update trade with totals and status (within transaction)
+      const updatedTrade = await Trade.findByIdAndUpdate(
+        trade._id,
+        updateData,
+        { new: true, runValidators: true, session }
+      );
+
+      if (!updatedTrade) {
+        await session.abortTransaction();
+        await session.endSession();
+        console.error('Failed to update trade after settlement:', trade._id);
+        return NextResponse.json(
+          { error: 'Failed to update trade. Please contact support.' },
+          { status: 500 }
+        );
+      }
+
+      // Log the action (within transaction)
+      await Log.create([{
+        userId: user._id,
+        action: 'trade_settled',
+        metadata: {
+          tradeId: updatedTrade._id,
+          fillId: fill[0]._id,
+          contracts: validated.contracts,
+          fillPrice: finalFillPrice,
+          remainingContracts: newRemainingContracts,
+          status: updatedTrade.status,
+          outcome: updatedTrade.outcome,
+        },
+      }], { session });
+
+      // Commit transaction
+      await session.commitTransaction();
+      await session.endSession();
+
+      // Send notification (outside transaction - fire and forget)
+      notifyTradeSettled(updatedTrade, validated.contracts, finalFillPrice, user).catch((err) => {
+        console.error('Error sending settlement notification:', err);
+      });
+
+      // Format message
+      const expiryFormatted = `${String(updatedTrade.expiryDate.getMonth() + 1)}/${String(updatedTrade.expiryDate.getDate())}/${updatedTrade.expiryDate.getFullYear()}`;
+      const optionTypeLabel = updatedTrade.optionType === 'C' ? 'C' : 'P';
+      const message = `Sell Order: ${validated.contracts}x ${updatedTrade.ticker} ${updatedTrade.strike}${optionTypeLabel} ${expiryFormatted} @ $${finalFillPrice.toFixed(2)}`;
+
+      return NextResponse.json({
+        fill: fill[0],
+        trade: updatedTrade,
+        message,
         remainingContracts: newRemainingContracts,
-        status: trade.status,
-        outcome: trade.outcome,
-      },
-    });
+        isClosed: newRemainingContracts === 0,
+      }, { status: 201 });
+    } catch (transactionError) {
+      // Rollback transaction on any error
+      if (session.inTransaction()) {
+        await session.abortTransaction();
+      }
+      await session.endSession();
 
-    // Send notification
-    await notifyTradeSettled(trade, validated.contracts, finalFillPrice, user);
-
-    // Format message
-    const expiryFormatted = `${String(trade.expiryDate.getMonth() + 1)}/${String(trade.expiryDate.getDate())}/${trade.expiryDate.getFullYear()}`;
-    const optionTypeLabel = trade.optionType === 'C' ? 'C' : 'P';
-    const message = `Sell Order: ${validated.contracts}x ${trade.ticker} ${trade.strike}${optionTypeLabel} ${expiryFormatted} @ $${finalFillPrice.toFixed(2)}`;
-
-    return NextResponse.json({
-      fill,
-      trade,
-      message,
-      remainingContracts: newRemainingContracts,
-      isClosed: newRemainingContracts === 0,
-    }, { status: 201 });
+      // Re-throw to be handled by outer catch
+      throw transactionError;
+    }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

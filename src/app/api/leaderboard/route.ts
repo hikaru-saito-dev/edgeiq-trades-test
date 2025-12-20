@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
-import { User, IUser } from '@/models/User';
+import { User } from '@/models/User';
 import { Trade } from '@/models/Trade';
 import { aggregationStreakFunction } from '@/lib/aggregation/streaks';
 import { PipelineStage } from 'mongoose';
@@ -81,13 +81,14 @@ export async function GET(request: NextRequest) {
 
     // Only show owners and companyOwners who are opted in (default) and have companyId set
     // Include users where optIn is true or undefined/null (since default is opted in)
+    // Query users with companyMemberships that have companyOwner role and optIn
     const baseQuery: Record<string, unknown> = {
+      'companyMemberships.role': 'companyOwner',
       $or: [
-        { optIn: true },
-        { optIn: { $exists: false } },
-        { optIn: null },
+        { 'companyMemberships.optIn': true },
+        { 'companyMemberships.optIn': { $exists: false } },
+        { 'companyMemberships.optIn': null },
       ],
-      role: 'companyOwner',
     };
 
     const cutoffDate = rangeToCutoff(range);
@@ -119,32 +120,45 @@ export async function GET(request: NextRequest) {
     }
 
     const pipeline: PipelineStage[] = [
-      { $match: { ...baseQuery, companyId: { $exists: true, $ne: null } } },
+      { $match: baseQuery },
       {
-        $lookup: {
-          from: User.collection.name,
-          let: { companyId: '$companyId' },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ['$companyId', '$$companyId'] },
-                    { $in: ['$role', ['companyOwner', 'owner', 'admin']] },
-                  ],
-                },
-              },
-            },
-            { $project: { _id: 1, whopUserId: 1 } },
+        $unwind: '$companyMemberships',
+      },
+      {
+        $match: {
+          'companyMemberships.role': { $in: ['companyOwner', 'owner', 'admin'] },
+          $or: [
+            { 'companyMemberships.optIn': true },
+            { 'companyMemberships.optIn': { $exists: false } },
+            { 'companyMemberships.optIn': null },
           ],
-          as: 'companyUsers',
+        },
+      },
+      {
+        $group: {
+          _id: '$companyMemberships.companyId',
+          companyUsers: { $push: { _id: '$_id', whopUserId: '$whopUserId' } },
         },
       },
       {
         $addFields: {
+          companyId: '$_id',
           companyWhopUserIds: {
             $map: { input: '$companyUsers', as: 'u', in: '$$u.whopUserId' },
           },
+        },
+      },
+      {
+        $lookup: {
+          from: 'companies',
+          localField: 'companyId',
+          foreignField: 'companyId',
+          as: 'companyData',
+        },
+      },
+      {
+        $addFields: {
+          companyData: { $arrayElemAt: ['$companyData', 0] },
         },
       },
       {
@@ -279,14 +293,23 @@ export async function GET(request: NextRequest) {
               2,
             ],
           },
+          alias: { $ifNull: ['$companyData.companyName', 'Unknown Company'] },
           aliasLower: {
             $toLower: {
               $ifNull: [
-                '$alias',
-                { $ifNull: ['$whopDisplayName', '$whopUsername'] },
+                { $ifNull: ['$companyData.companyName', 'Unknown Company'] },
+                'Unknown Company',
               ],
             },
           },
+          membershipPlans: { $ifNull: ['$companyData.membershipPlans', []] },
+          followOfferEnabled: false, // Company-level, not per-user
+          followOfferPriceCents: 0,
+          followOfferNumPlays: 0,
+          followOfferCheckoutUrl: null,
+          whopDisplayName: { $ifNull: ['$companyData.companyName', 'Unknown Company'] },
+          whopUsername: null,
+          whopAvatarUrl: null,
         },
       },
       { $sort: sortSpec },
@@ -296,6 +319,7 @@ export async function GET(request: NextRequest) {
           companyWhopUserIds: 0,
           closedTrades: 0,
           aliasLower: 0,
+          companyData: 0,
         },
       },
       {
@@ -316,7 +340,7 @@ export async function GET(request: NextRequest) {
           $or: [
             { alias: searchRegex },
             { whopDisplayName: searchRegex },
-            { whopUsername: searchRegex },
+            { 'companyData.companyName': searchRegex },
           ],
         },
       };
@@ -331,8 +355,8 @@ export async function GET(request: NextRequest) {
     const facetResult = aggregated[0] || { data: [], totalCount: [] };
     const total = facetResult.totalCount[0]?.count || 0;
 
-    const leaderboard = (facetResult.data as Array<IUser & Record<string, unknown>>).map((entry, index) => {
-      const membershipPlans = (entry.membershipPlans || []).map((plan) => {
+    const leaderboard = ((facetResult.data || []) as Array<Record<string, unknown>>).map((entry, index) => {
+      const membershipPlans = (Array.isArray(entry.membershipPlans) ? entry.membershipPlans : []).map((plan) => {
         const typedPlan = plan as {
           id: string;
           name: string;

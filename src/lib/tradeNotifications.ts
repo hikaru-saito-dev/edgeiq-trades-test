@@ -1,5 +1,5 @@
 import type { ITrade } from '@/models/Trade';
-import type { IUser } from '@/models/User';
+import type { IUser, CompanyMembership } from '@/models/User';
 import { User } from '@/models/User';
 import connectDB from '@/lib/db';
 
@@ -231,17 +231,18 @@ async function sendWebhookMessage(message: string, webhookUrl: string, imageUrl?
  */
 async function sendMessageToUser(
   message: string, 
-  user: IUser | null | undefined, 
+  user: IUser | null | undefined,
+  membership: CompanyMembership | null | undefined,
   imageUrl?: string,
   selectedWebhookIds?: string[]
 ): Promise<void> {
-  if (!user || (user.role !== 'companyOwner' && user.role !== 'owner' && user.role !== 'admin')) {
+  if (!user || !membership || (membership.role !== 'companyOwner' && membership.role !== 'owner' && membership.role !== 'admin')) {
     return;
   }
 
   try {
     const webhookPromises: Promise<void>[] = [];
-    const availableWebhooks = user.webhooks || [];
+    const availableWebhooks = membership.webhooks || [];
     
     // If no webhooks configured, don't send
     if (availableWebhooks.length === 0) {
@@ -300,23 +301,24 @@ function formatTradeLabel(trade: ITrade): string {
   return `${trade.contracts}x ${trade.ticker} ${trade.strike}${trade.optionType} ${expiryStr}`;
 }
 
-function formatUser(user?: IUser | null): string {
+function formatUser(user?: IUser | null, membership?: CompanyMembership | null): string {
   if (!user) return 'Unknown trader';
-  return user.alias || user.whopDisplayName || user.whopUsername || user.whopUserId || 'Unknown trader';
+  const alias = membership?.alias || user.whopDisplayName || user.whopUsername || user.whopUserId || 'Unknown trader';
+  return alias;
 }
 
 function formatNotional(notional: number): string {
   return `$${notional.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export async function notifyTradeCreated(trade: ITrade, user?: IUser | null, _companyId?: string, selectedWebhookIds?: string[]): Promise<void> {
-  if (!user || (user.role !== 'companyOwner' && user.role !== 'owner' && user.role !== 'admin')) {
+export async function notifyTradeCreated(trade: ITrade, user?: IUser | null, membership?: CompanyMembership | null, _companyId?: string, selectedWebhookIds?: string[]): Promise<void> {
+  if (!user || !membership || (membership.role !== 'companyOwner' && membership.role !== 'owner' && membership.role !== 'admin')) {
     return;
   }
 
   const messageLines = [
     '🆕 **Trade Created**',
-    `User: ${formatUser(user)}`,
+    `User: ${formatUser(user, membership)}`,
     `Trade: ${formatTradeLabel(trade)}`,
     `Contracts: ${trade.contracts}`,
     `Fill Price: $${trade.fillPrice.toFixed(2)}`,
@@ -330,11 +332,11 @@ export async function notifyTradeCreated(trade: ITrade, user?: IUser | null, _co
 
   // For trade creation: if selectedWebhookIds is undefined, send to all webhooks (backward compatibility)
   // If it's an empty array, don't send (explicitly no webhooks selected)
-  await sendMessageToUser(messageLines.join('\n'), user, undefined, selectedWebhookIds);
+  await sendMessageToUser(messageLines.join('\n'), user, membership, undefined, selectedWebhookIds);
 }
 
-export async function notifyTradeDeleted(trade: ITrade, user?: IUser | null, selectedWebhookIds?: string[]): Promise<void> {
-  if (!user || (user.role !== 'companyOwner' && user.role !== 'owner' && user.role !== 'admin')) {
+export async function notifyTradeDeleted(trade: ITrade, user?: IUser | null, membership?: CompanyMembership | null, selectedWebhookIds?: string[]): Promise<void> {
+  if (!user || !membership || (membership.role !== 'companyOwner' && membership.role !== 'owner' && membership.role !== 'admin')) {
     return;
   }
 
@@ -346,29 +348,38 @@ export async function notifyTradeDeleted(trade: ITrade, user?: IUser | null, sel
     `Fill Price: $${trade.fillPrice.toFixed(2)}`,
   ].join('\n');
 
-  await sendMessageToUser(message, user, undefined, selectedWebhookIds);
+  await sendMessageToUser(message, user, membership, undefined, selectedWebhookIds);
 }
 
-export async function notifyTradeSettled(trade: ITrade, fillContracts: number, fillPrice: number, user?: IUser | null): Promise<void> {
-  let userForNotification = user;
-  if (!userForNotification && trade.userId) {
-    try {
-      await connectDB();
-      userForNotification = await User.findById(trade.userId).lean() as unknown as IUser | null;
-    } catch {
-      return;
+export async function notifyTradeSettled(trade: ITrade, fillContracts: number, fillPrice: number, user?: IUser | null, membership?: CompanyMembership | null): Promise<void> {
+  if (!user || !membership) {
+    // Try to fetch user if not provided
+    if (trade.userId) {
+      try {
+        await connectDB();
+        const fetchedUser = await User.findById(trade.userId);
+        if (!fetchedUser) return;
+        // For settlement, we need to find the membership for the trade's company
+        // Since we don't have companyId in trade, we'll use the first membership or skip
+        const firstMembership = fetchedUser.companyMemberships[0];
+        if (!firstMembership) return;
+        return notifyTradeSettled(trade, fillContracts, fillPrice, fetchedUser, firstMembership);
+      } catch {
+        return;
+      }
     }
-  }
-
-  if (!userForNotification || (userForNotification.role !== 'companyOwner' && userForNotification.role !== 'owner' && userForNotification.role !== 'admin')) {
     return;
   }
-  if (!userForNotification.notifyOnSettlement) {
+
+  if (membership.role !== 'companyOwner' && membership.role !== 'owner' && membership.role !== 'admin') {
+    return;
+  }
+  if (!membership.notifyOnSettlement) {
     return;
   }
 
   // If onlyNotifyWinningSettlements is enabled, only send for winning trades
-  if (userForNotification.onlyNotifyWinningSettlements && trade.outcome !== 'WIN') {
+  if (membership.onlyNotifyWinningSettlements && trade.outcome !== 'WIN') {
     return;
   }
 
@@ -396,7 +407,7 @@ export async function notifyTradeSettled(trade: ITrade, fillContracts: number, f
   const sellNotional = fillContracts * fillPrice * 100;
   const messageLines = [
     `${emoji} **Trade Settled – ${outcome}**`,
-    `User: ${formatUser(userForNotification)}`,
+    `User: ${formatUser(user, membership)}`,
     `Trade: ${formatTradeLabel(trade)}`,
     `Sell: ${fillContracts} contracts @ $${fillPrice.toFixed(2)}`,
     `Sell Notional: ${formatNotional(sellNotional)}`,
@@ -411,7 +422,7 @@ export async function notifyTradeSettled(trade: ITrade, fillContracts: number, f
   }
 
   // Send to the same webhooks that were used when the trade was created
-  await sendMessageToUser(messageLines.join('\n'), userForNotification, undefined, webhookIdsToUse);
+  await sendMessageToUser(messageLines.join('\n'), user, membership, undefined, webhookIdsToUse);
 }
 
 /**

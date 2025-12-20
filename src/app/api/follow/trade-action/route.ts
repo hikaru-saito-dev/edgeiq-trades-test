@@ -4,6 +4,7 @@ import { User } from '@/models/User';
 import { Trade, ITrade } from '@/models/Trade';
 import { FollowedTradeAction } from '@/models/FollowedTradeAction';
 import mongoose from 'mongoose';
+import { z } from 'zod';
 
 export const runtime = 'nodejs';
 
@@ -19,7 +20,7 @@ export const runtime = 'nodejs';
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
-    
+
     const headers = await import('next/headers').then(m => m.headers());
     const userId = headers.get('x-user-id');
     const companyId = headers.get('x-company-id');
@@ -28,36 +29,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Find current user - try with companyId first, fallback to whopUserId only
-    let followerUser = companyId 
-      ? await User.findOne({ whopUserId: userId, companyId: companyId })
-      : null;
-    
-    if (!followerUser) {
-      // Fallback: find any user record with this whopUserId
-      followerUser = await User.findOne({ whopUserId: userId });
+    // Find current user with company membership
+    const { getUserForCompany } = await import('@/lib/userHelpers');
+    if (!companyId) {
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
     }
-    
-    if (!followerUser || !followerUser.whopUserId) {
+    const userResult = await getUserForCompany(userId, companyId);
+    if (!userResult || !userResult.membership) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    const followerUser = userResult.user;
 
     const body = await request.json();
-    const { tradeId, action } = body;
 
-    if (!tradeId || !action) {
+    // Validate input with Zod schema
+    const tradeActionSchema = z.object({
+      tradeId: z.string().min(1, 'Trade ID is required'),
+      action: z.enum(['follow', 'fade'], {
+        errorMap: () => ({ message: 'action must be "follow" or "fade"' }),
+      }),
+    });
+
+    let validated;
+    try {
+      validated = tradeActionSchema.parse(body);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return NextResponse.json(
+          { error: 'Validation error', details: error.errors },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
-        { error: 'tradeId and action are required' },
+        { error: 'Invalid request data' },
         { status: 400 }
       );
     }
 
-    if (action !== 'follow' && action !== 'fade') {
-      return NextResponse.json(
-        { error: 'action must be "follow" or "fade"' },
-        { status: 400 }
-      );
-    }
+    const { tradeId, action } = validated;
 
     // Check if user already took an action on this trade
     const existingAction = await FollowedTradeAction.findOne({
@@ -86,7 +95,7 @@ export async function POST(request: NextRequest) {
       // Create a duplicate trade for the follower
       // Exclude system fields that should be new for the follower's trade
       const tradeData: Partial<ITrade> = {
-        userId: followerUser._id,
+        userId: followerUser._id as mongoose.Types.ObjectId,
         whopUserId: followerUser.whopUserId,
         side: 'BUY',
         contracts: originalTrade.contracts,
@@ -110,7 +119,7 @@ export async function POST(request: NextRequest) {
       // Create the new trade
       const newTrade = new Trade(tradeData);
       await newTrade.save();
-      
+
       followedTradeId = newTrade._id;
 
       // Note: Plays are NOT consumed here when following a trade.
@@ -126,15 +135,15 @@ export async function POST(request: NextRequest) {
       action,
       followedTradeId,
     });
-    
+
     await followedTradeAction.save();
 
     return NextResponse.json({
       success: true,
       action,
       followedTradeId: followedTradeId?.toString(),
-      message: action === 'follow' 
-        ? 'Trade added to your account successfully' 
+      message: action === 'follow'
+        ? 'Trade added to your account successfully'
         : 'Trade marked as faded',
     });
   } catch (error) {
@@ -155,7 +164,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
-    
+
     const headers = await import('next/headers').then(m => m.headers());
     const userId = headers.get('x-user-id');
 
@@ -175,7 +184,7 @@ export async function GET(request: NextRequest) {
 
     // Find current user by whopUserId only (cross-company)
     const followerUser = await User.findOne({ whopUserId: userId });
-    
+
     if (!followerUser || !followerUser.whopUserId) {
       return NextResponse.json({ action: null });
     }

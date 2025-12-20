@@ -53,16 +53,17 @@ export async function GET(request: NextRequest) {
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '10', 10)));
     const search = (searchParams.get('search') || '').trim();
 
-    // Step 1: Find user (optimized with single query when possible)
+    // Step 1: Find user with company membership
+    const { getUserForCompany } = await import('@/lib/userHelpers');
+    if (!companyId) {
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
+    }
     const userStart = Date.now();
-    const userDoc = companyId
-      ? await User.findOne({ whopUserId: userId, companyId: companyId }).lean()
-      : await User.findOne({ whopUserId: userId }).lean();
-    
-    const userDocTyped = userDoc as unknown as { whopUserId?: string } | null;
-    if (!userDocTyped || !userDocTyped.whopUserId) {
+    const userResult = await getUserForCompany(userId, companyId);
+    if (!userResult || !userResult.membership) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    const userDocTyped = { whopUserId: userResult.user.whopUserId };
     
     const user = { whopUserId: userDocTyped.whopUserId };
     logPerformance('User lookup', userStart);

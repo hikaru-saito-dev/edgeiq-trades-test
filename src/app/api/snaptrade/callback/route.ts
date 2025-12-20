@@ -160,8 +160,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   } catch (error) {
     console.error('SnapTrade callback error:', error);
+    // Don't expose internal error details to user
     return NextResponse.redirect(
-      new URL(`/profile?error=${encodeURIComponent(error instanceof Error ? error.message : 'callback_failed')}`, request.url)
+      new URL('/profile?error=connection_failed', request.url)
     );
   }
 }

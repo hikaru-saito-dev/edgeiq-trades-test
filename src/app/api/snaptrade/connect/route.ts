@@ -45,11 +45,16 @@ export async function POST() {
             );
         }
 
-        // Find user
-        const user = await User.findOne({ whopUserId: userId, companyId: companyId });
-        if (!user) {
+        // Find user with company membership
+        const { getUserForCompany } = await import('@/lib/userHelpers');
+        if (!companyId) {
+            return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
+        }
+        const userResult = await getUserForCompany(userId, companyId);
+        if (!userResult || !userResult.membership) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
+        const { user } = userResult;
 
         // Initialize SnapTrade client
         const snaptrade = new Snaptrade({
@@ -128,7 +133,7 @@ export async function POST() {
             {
                 $set: {
                     whopUserId: user.whopUserId,
-                    companyId: user.companyId,
+                    companyId: companyId || undefined,
                     snaptradeUserId,
                     snaptradeUserSecret: encryptedSecret,
                     isActive: false, // Will be activated after OAuth completes

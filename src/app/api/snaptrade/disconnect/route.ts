@@ -21,11 +21,16 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Find user
-        const user = await User.findOne({ whopUserId: userId, companyId: companyId });
-        if (!user) {
+        // Find user with company membership
+        const { getUserForCompany } = await import('@/lib/userHelpers');
+        if (!companyId) {
+            return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
+        }
+        const userResult = await getUserForCompany(userId, companyId);
+        if (!userResult || !userResult.membership) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
+        const { user } = userResult;
 
         // Get connection ID from query params
         const { searchParams } = new URL(request.url);

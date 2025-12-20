@@ -32,15 +32,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing capperUserId parameter' }, { status: 400 });
     }
 
-    // Find current user (follower) - try with companyId first, fallback to whopUserId only
-    let followerUser = companyId 
-      ? await User.findOne({ whopUserId: userId, companyId: companyId })
-      : null;
-    
-    if (!followerUser) {
-      // Fallback: find any user record with this whopUserId (for cross-company follows)
-      followerUser = await User.findOne({ whopUserId: userId });
+    // Find current user (follower) with company membership
+    const { getUserForCompany } = await import('@/lib/userHelpers');
+    if (!companyId) {
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
     }
+    const followerResult = await getUserForCompany(userId, companyId);
+    if (!followerResult || !followerResult.membership) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    const followerUser = followerResult.user;
     
     if (!followerUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });

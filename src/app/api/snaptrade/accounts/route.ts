@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
-import { User } from '@/models/User';
 import { BrokerConnection } from '@/models/BrokerConnection';
 import { Snaptrade } from 'snaptrade-typescript-sdk';
 import { decrypt } from '@/lib/encryption';
@@ -26,11 +25,16 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Find user
-        const user = await User.findOne({ whopUserId: userId, companyId: companyId });
-        if (!user) {
+        // Find user with company membership
+        const { getUserForCompany } = await import('@/lib/userHelpers');
+        if (!companyId) {
+            return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
+        }
+        const userResult = await getUserForCompany(userId, companyId);
+        if (!userResult || !userResult.membership) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
+        const { user } = userResult;
 
         // Get all active connections
         const connections = await BrokerConnection.find({
@@ -132,8 +136,10 @@ export async function GET() {
             const errorUserId = errorHeaders.get('x-user-id');
             const errorCompanyId = errorHeaders.get('x-company-id');
 
-            if (errorUserId) {
-                const errorUser = await User.findOne({ whopUserId: errorUserId, companyId: errorCompanyId });
+            if (errorUserId && errorCompanyId) {
+                const { getUserForCompany } = await import('@/lib/userHelpers');
+                const errorUserResult = await getUserForCompany(errorUserId, errorCompanyId);
+                const errorUser = errorUserResult?.user;
                 if (errorUser) {
                     const errorConnections = await BrokerConnection.find({
                         userId: errorUser._id,
@@ -157,8 +163,9 @@ export async function GET() {
             console.error('Error in fallback:', fallbackError);
         }
 
+        // Don't expose internal error details to user
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Failed to fetch accounts' },
+            { error: 'Failed to fetch accounts' },
             { status: 500 }
         );
     }

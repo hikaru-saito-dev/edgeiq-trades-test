@@ -87,10 +87,15 @@ export async function GET(request: NextRequest) {
     const range = (searchParams.get('range') as RangeKey) || 'all';
     const scope = searchParams.get('scope') || 'personal'; // personal | company | both
 
-    const user = await User.findOne({ whopUserId: verifiedUserId, companyId: companyId });
-    if (!user) {
+    if (!companyId) {
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
+    }
+    const { getUserForCompany } = await import('@/lib/userHelpers');
+    const userResult = await getUserForCompany(verifiedUserId, companyId);
+    if (!userResult || !userResult.membership) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    const { user, membership } = userResult;
 
     const startDate = getStartDate(range);
 
@@ -101,29 +106,24 @@ export async function GET(request: NextRequest) {
       personalStats = await aggregateStats([user.whopUserId], startDate);
     }
 
-    if ((scope === 'company' || scope === 'both') && user.companyId) {
+    if ((scope === 'company' || scope === 'both') && companyId) {
       // Check if user has permission to view company stats
-      const isOwnerOrCompanyOwner = user.role === 'owner' || user.role === 'companyOwner';
-      const isAdminOrMember = user.role === 'admin' || user.role === 'member';
+      const isOwnerOrCompanyOwner = membership.role === 'owner' || membership.role === 'companyOwner';
+      const isAdminOrMember = membership.role === 'admin' || membership.role === 'member';
       
       let hasPermission = isOwnerOrCompanyOwner;
       
       if (!hasPermission && isAdminOrMember) {
         // For admins and members, check if company owner has hidden company stats
-        const companyOwner = await User.findOne({
-          companyId: user.companyId,
-          role: 'companyOwner',
-        }).lean();
-        
-        hasPermission = !(companyOwner as unknown as IUser)?.hideCompanyStatsFromMembers;
+        const { Company } = await import('@/models/Company');
+        const company = await Company.findOne({ companyId });
+        hasPermission = !(company && company.hideCompanyStatsFromMembers);
       }
       
       if (hasPermission) {
-        const companyUsers = await User.find({
-          companyId: user.companyId,
-          role: { $in: ['companyOwner', 'owner', 'admin'] },
-        }).select('whopUserId');
-        const whopIds = companyUsers.map(u => u.whopUserId).filter((id): id is string => Boolean(id));
+        const { getUsersInCompanyByRole } = await import('@/lib/userHelpers');
+        const companyUsers = await getUsersInCompanyByRole(companyId, ['companyOwner', 'owner', 'admin']);
+        const whopIds = companyUsers.map(u => u.user.whopUserId).filter((id): id is string => Boolean(id));
         if (whopIds.length) {
           companyStats = await aggregateStats(whopIds, startDate);
         } else {

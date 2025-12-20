@@ -96,10 +96,10 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     // Verify webhook signature
     // Strip whsec_ prefix if present (Whop webhook secret format)
-    const secret = WEBHOOK_SECRET?.startsWith('whsec_') 
-      ? WEBHOOK_SECRET.slice(6) 
+    const secret = WEBHOOK_SECRET?.startsWith('whsec_')
+      ? WEBHOOK_SECRET.slice(6)
       : WEBHOOK_SECRET || '';
-    
+
     const isValidSignature = verifyWhopSignature(
       requestBodyText,
       signature,
@@ -157,12 +157,12 @@ async function handlePaymentSucceeded(paymentData: WhopWebhookPayload['data']): 
     // Extract metadata from payment data - check multiple possible locations
     // Whop stores metadata in different places depending on the webhook structure
     let metadata: Record<string, unknown> = {};
-    
+
     // Try direct metadata first
     if (paymentData.metadata && typeof paymentData.metadata === 'object') {
       metadata = paymentData.metadata as Record<string, unknown>;
     }
-    
+
     // If empty, try nested locations
     if (!metadata || Object.keys(metadata).length === 0) {
       const paymentObj = paymentData as unknown as {
@@ -173,36 +173,34 @@ async function handlePaymentSucceeded(paymentData: WhopWebhookPayload['data']): 
           metadata?: Record<string, unknown>;
         };
       };
-      
-      metadata = paymentObj.checkout_configuration?.metadata || 
-                 paymentObj.plan?.metadata || 
-                 {};
+
+      metadata = paymentObj.checkout_configuration?.metadata ||
+        paymentObj.plan?.metadata ||
+        {};
     }
 
     // Fallback: If metadata is still empty, look up the user by plan_id
-    // We store followOfferPlanId on the User model, so we can reconstruct metadata
+    // We store followOfferPlanId on the CompanyMembership, so we can reconstruct metadata
     // This is necessary because Whop doesn't store metadata on the plan object
     if ((!metadata || Object.keys(metadata).length === 0) && planId) {
       try {
-        const capperUser = await User.findOne({
-          followOfferPlanId: planId,
-          followOfferEnabled: true,
-        });
+        const { getUserByFollowOfferPlanId } = await import('@/lib/userHelpers');
+        const capperResult = await getUserByFollowOfferPlanId(planId);
 
-        if (capperUser && capperUser.whopUserId) {
+        if (capperResult && capperResult.user && capperResult.membership) {
           // Reconstruct metadata from user's follow offer settings
           metadata = {
             followPurchase: true,
             project: 'Trade',
-            capperUserId: String(capperUser._id),
-            capperCompanyId: capperUser.companyId || paymentData.company_id,
-            numPlays: capperUser.followOfferNumPlays || 10,
+            capperUserId: String(capperResult.user._id),
+            capperCompanyId: capperResult.membership.companyId || paymentData.company_id,
+            numPlays: capperResult.membership.followOfferNumPlays || 10,
           };
         } else {
           // User not found or follow offer disabled
           console.error('[FollowPurchase] User lookup failed for plan:', planId, {
-            userFound: !!capperUser,
-            followEnabled: capperUser?.followOfferEnabled,
+            userFound: !!capperResult,
+            followEnabled: capperResult?.membership?.followOfferEnabled,
           });
         }
       } catch (lookupError) {
@@ -230,7 +228,7 @@ async function handlePaymentSucceeded(paymentData: WhopWebhookPayload['data']): 
       typeof metadata.numPlays === 'string'
         ? parseInt(metadata.numPlays, 10)
         : (typeof metadata.numPlays === 'number' ? metadata.numPlays : undefined);
-    
+
     // Ensure numPlays is a valid positive number
     const numPlays = (numPlaysRaw && typeof numPlaysRaw === 'number' && numPlaysRaw > 0) ? numPlaysRaw : 10;
     const followerWhopUserId = paymentData.user_id;
@@ -242,11 +240,13 @@ async function handlePaymentSucceeded(paymentData: WhopWebhookPayload['data']): 
     }
 
     // Check if we already processed this payment (prevent duplicates)
+    // Use findOne with paymentId (which has unique index) to prevent race conditions
     const existingPurchase = await FollowPurchase.findOne({
       paymentId: paymentId,
     });
 
     if (existingPurchase) {
+      // Payment already processed - idempotent success
       return;
     }
 
@@ -293,20 +293,32 @@ async function handlePaymentSucceeded(paymentData: WhopWebhookPayload['data']): 
 
     // Create follow purchase record
     // Use capperCompanyId for the companyId field (the company being followed)
-    const followPurchase = new FollowPurchase({
-      followerUserId: followerUser._id,
-      capperUserId: capperUser._id,
-      followerWhopUserId: followerUser.whopUserId,
-      capperWhopUserId: capperUser.whopUserId,
-      companyId: capperCompanyId, // Company of the capper being followed
-      numPlaysPurchased: numPlays,
-      numPlaysConsumed: 0,
-      status: 'active',
-      planId: planId,
-      paymentId: paymentId,
-    });
+    // Use create with try-catch to handle unique constraint violations (race condition protection)
+    try {
+      const followPurchase = new FollowPurchase({
+        followerUserId: followerUser._id,
+        capperUserId: capperUser._id,
+        followerWhopUserId: followerUser.whopUserId,
+        capperWhopUserId: capperUser.whopUserId,
+        companyId: capperCompanyId, // Company of the capper being followed
+        numPlaysPurchased: numPlays,
+        numPlaysConsumed: 0,
+        status: 'active',
+        planId: planId,
+        paymentId: paymentId,
+      });
 
-    await followPurchase.save();
+      await followPurchase.save();
+    } catch (saveError: unknown) {
+      // Handle duplicate key error (race condition - another webhook processed this payment)
+      if (saveError && typeof saveError === 'object' && 'code' in saveError && saveError.code === 11000) {
+        // Duplicate key error - payment already processed by another webhook call
+        // This is idempotent - return silently
+        return;
+      }
+      // Re-throw other errors
+      throw saveError;
+    }
   } catch {
     // Silent fail - webhook already returned 200 OK
   }

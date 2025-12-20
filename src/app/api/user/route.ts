@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import { User, MembershipPlan, Webhook, IUser } from '@/models/User';
+import { Company } from '@/models/Company';
 import { Trade } from '@/models/Trade';
+import { getUserForCompany, getUsersInCompanyByRole } from '@/lib/userHelpers';
 import { z } from 'zod';
 import { PipelineStage } from 'mongoose';
 import { aggregationStreakFunction } from '@/lib/aggregation/streaks';
@@ -242,6 +244,10 @@ const updateUserSchema = z.object({
     url: whopProductUrlSchema,
     isPremium: z.boolean().optional(),
   })).optional(), // Only owners and companyOwners can manage membership plans
+  followOfferEnabled: z.boolean().optional(),
+  followOfferPriceCents: z.number().int().min(0).optional(),
+  followOfferNumPlays: z.number().int().min(1).optional(),
+  followOfferCheckoutUrl: z.string().url().optional().nullable(),
 });
 
 /**
@@ -264,13 +270,18 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Find user by whopUserId only (companyId is manually entered)
-    const user = await User.findOne({ whopUserId: verifiedUserId, companyId: companyId });
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!companyId) {
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
     }
 
-    const personalCacheKey = `personal:${user._id.toString()}:${companyId ?? 'none'}`;
+    // Find user with company membership
+    const userResult = await getUserForCompany(verifiedUserId, companyId);
+    if (!userResult || !userResult.membership) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    const { user, membership } = userResult;
+
+    const personalCacheKey = `personal:${String(user._id)}:${companyId}`;
     let personalStats = getPersonalStatsCache(personalCacheKey);
     personalCacheHit = Boolean(personalStats);
     recordCacheMetric('personalStats', personalCacheHit);
@@ -281,37 +292,35 @@ export async function GET() {
       setPersonalStatsCache(personalCacheKey, personalStats);
     }
 
+    // Get company data
+    const company = await Company.findOne({ companyId });
+    
     // Auto-fetch company name from Whop if not set
-    if (user.companyId && !user.companyName) {
+    if (company && !company.companyName) {
       try {
         const { getWhopCompany } = await import('@/lib/whop');
-        const companyData = await getWhopCompany(user.companyId);
+        const companyData = await getWhopCompany(companyId);
         if (companyData?.name) {
-          user.companyName = companyData.name;
-          await user.save();
+          company.companyName = companyData.name;
+          await company.save();
         }
       } catch {
         // Ignore errors
       }
     }
+    
     let hideCompanyStatsFromMembers = true;
-    if (user.role !== 'companyOwner' && user.role !== 'owner') {
-      const companyOwner = await User.findOne({
-        companyId: user.companyId,
-        role: 'companyOwner',
-      }).select('hideCompanyStatsFromMembers').lean();
-      hideCompanyStatsFromMembers = (companyOwner as unknown as IUser)?.hideCompanyStatsFromMembers ?? false;
+    if (membership.role !== 'companyOwner' && membership.role !== 'owner') {
+      hideCompanyStatsFromMembers = company?.hideCompanyStatsFromMembers ?? false;
     }
+    
     // For owners and companyOwners: also get company stats (aggregated from all company trades)
     let companyStats = null;
-    if ((user.role === 'owner' || user.role === 'companyOwner' || ((user.role === 'member' || user.role === 'admin') && !hideCompanyStatsFromMembers)) && user.companyId) {
+    if ((membership.role === 'owner' || membership.role === 'companyOwner' || ((membership.role === 'member' || membership.role === 'admin') && !hideCompanyStatsFromMembers)) && companyId) {
       // Get all users in the same company with roles that contribute to company stats
       // Exclude members - only include owner/admin/companyOwner roles
-      const companyUsers = await User.find({
-        companyId: user.companyId,
-        role: { $in: ['companyOwner', 'owner', 'admin'] }
-      }).select('whopUserId');
-      const companyWhopUserIds = companyUsers.map(u => u.whopUserId).filter((id): id is string => Boolean(id));
+      const companyUsers = await getUsersInCompanyByRole(companyId, ['companyOwner', 'owner', 'admin']);
+      const companyWhopUserIds = companyUsers.map(u => u.user.whopUserId).filter((id): id is string => Boolean(id));
 
       // Get all trades from all users in the company (by whopUserId for cross-company aggregation)
       if (companyWhopUserIds.length > 0) {
@@ -333,27 +342,27 @@ export async function GET() {
 
     const responsePayload = {
       user: {
-        alias: user.alias,
-        role: user.role,
-        companyId: user.companyId,
-        companyName: user.companyName,
-        companyDescription: user.companyDescription,
-        optIn: user.optIn,
+        alias: membership.alias,
+        role: membership.role,
+        companyId: companyId,
+        companyName: company?.companyName,
+        companyDescription: company?.companyDescription,
+        optIn: membership.optIn ?? true,
         whopUsername: user.whopUsername,
         whopDisplayName: user.whopDisplayName,
         whopAvatarUrl: user.whopAvatarUrl,
-        webhooks: user.webhooks || [],
-        notifyOnSettlement: user.notifyOnSettlement ?? false,
-        onlyNotifyWinningSettlements: user.onlyNotifyWinningSettlements ?? false,
+        webhooks: membership.webhooks || [],
+        notifyOnSettlement: membership.notifyOnSettlement ?? false,
+        onlyNotifyWinningSettlements: membership.onlyNotifyWinningSettlements ?? false,
         followingDiscordWebhook: user.followingDiscordWebhook || null,
         followingWhopWebhook: user.followingWhopWebhook || null,
-        membershipPlans: user.membershipPlans || [],
-        hideLeaderboardFromMembers: user.hideLeaderboardFromMembers ?? false,
-        hideCompanyStatsFromMembers: user.hideCompanyStatsFromMembers ?? false,
-        followOfferEnabled: user.followOfferEnabled ?? false,
-        followOfferPriceCents: user.followOfferPriceCents ?? 0,
-        followOfferNumPlays: user.followOfferNumPlays ?? 0,
-        followOfferCheckoutUrl: user.followOfferCheckoutUrl ?? null,
+        membershipPlans: company?.membershipPlans || [],
+        hideLeaderboardFromMembers: company?.hideLeaderboardFromMembers ?? false,
+        hideCompanyStatsFromMembers: company?.hideCompanyStatsFromMembers ?? false,
+        followOfferEnabled: membership.followOfferEnabled ?? false,
+        followOfferPriceCents: membership.followOfferPriceCents ?? 0,
+        followOfferNumPlays: membership.followOfferNumPlays ?? 0,
+        followOfferCheckoutUrl: membership.followOfferCheckoutUrl ?? null,
       },
       personalStats,
       companyStats, // Only for owners with companyId
@@ -362,7 +371,7 @@ export async function GET() {
     recordApiMetric('user#get', {
       durationMs: Math.round(performance.now() - startTime),
       cacheHit: personalCacheHit && (companyCacheHit ?? true),
-      meta: { role: user.role },
+      meta: { role: membership.role },
     });
 
     return NextResponse.json(responsePayload);
@@ -398,53 +407,40 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const validated = updateUserSchema.parse(body);
 
-    // Find user
-    const user = await User.findOne({ whopUserId: userId, companyId: companyId });
-    if (!user) {
+    if (!companyId) {
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
+    }
+
+    // Find user with company membership
+    const { getUserForCompany, updateCompanyMembership, getOrCreateCompany } = await import('@/lib/userHelpers');
+    const userResult = await getUserForCompany(userId, companyId);
+    if (!userResult || !userResult.membership) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    const { user, membership } = userResult;
 
-    // Update alias (all roles can update)
-    if (validated.alias !== undefined) {
-      user.alias = validated.alias;
+    // Get or create company
+    let company = await Company.findOne({ companyId });
+    if (!company && membership.role === 'companyOwner') {
+      const { company: newCompany } = await getOrCreateCompany(companyId, userId);
+      company = newCompany;
     }
 
-    // companyId is auto-set from Whop headers, cannot be manually updated
+    // Update membership fields (company-specific)
+    const membershipUpdates: Partial<typeof membership> = {};
+    
+    // Update alias (all roles can update)
+    if (validated.alias !== undefined) {
+      membershipUpdates.alias = validated.alias;
+    }
 
-    // Update companyName and companyDescription (only companyOwners can manually update)
-    // These are auto-fetched from Whop, but companyOwner can override them
-    if (user.role === 'companyOwner') {
-      if (validated.companyName !== undefined) {
-        user.companyName = validated.companyName || undefined;
-      }
-      if (validated.companyDescription !== undefined) {
-        user.companyDescription = validated.companyDescription || undefined;
-      }
-
-      // Only owners and companyOwners can opt out of leaderboard (default is opted in)
-      if (validated.optIn !== undefined) {
-        user.optIn = validated.optIn;
-      }
-
-      // Only owners can manage membership plans
-      if (validated.membershipPlans !== undefined) {
-        user.membershipPlans = validated.membershipPlans as MembershipPlan[];
-      }
-
-      // Only companyOwners can set hideLeaderboardFromMembers
-      if (validated.hideLeaderboardFromMembers !== undefined) {
-        user.hideLeaderboardFromMembers = validated.hideLeaderboardFromMembers;
-      }
-
-      // Only companyOwners can set hideCompanyStatsFromMembers
-      if (validated.hideCompanyStatsFromMembers !== undefined) {
-        user.hideCompanyStatsFromMembers = validated.hideCompanyStatsFromMembers;
-      }
-    } else {
-      // Admins cannot opt out or manage membership plans
-      if (validated.optIn !== undefined || validated.membershipPlans !== undefined) {
+    // Only owners and companyOwners can opt out of leaderboard (default is opted in)
+    if (validated.optIn !== undefined) {
+      if (membership.role === 'companyOwner' || membership.role === 'owner') {
+        membershipUpdates.optIn = validated.optIn;
+      } else {
         return NextResponse.json(
-          { error: 'Only owners and company owners can opt out of leaderboard and manage membership plans' },
+          { error: 'Only owners and company owners can opt out of leaderboard' },
           { status: 403 }
         );
       }
@@ -452,42 +448,105 @@ export async function PATCH(request: NextRequest) {
 
     // Update webhooks array (all roles can update)
     if (validated.webhooks !== undefined) {
-      user.webhooks = validated.webhooks as Webhook[];
+      membershipUpdates.webhooks = validated.webhooks as Webhook[];
     }
 
     if (validated.notifyOnSettlement !== undefined) {
-      user.notifyOnSettlement = validated.notifyOnSettlement;
+      membershipUpdates.notifyOnSettlement = validated.notifyOnSettlement;
     }
 
     if (validated.onlyNotifyWinningSettlements !== undefined) {
-      user.onlyNotifyWinningSettlements = validated.onlyNotifyWinningSettlements;
+      membershipUpdates.onlyNotifyWinningSettlements = validated.onlyNotifyWinningSettlements;
     }
 
-    // Update following webhooks (all roles can update - anyone with a Following page)
-    // Allow null to clear the webhook, undefined means no update
+    // Update follow offer settings (per company)
+    if (validated.followOfferEnabled !== undefined) {
+      membershipUpdates.followOfferEnabled = validated.followOfferEnabled;
+    }
+    if (validated.followOfferPriceCents !== undefined) {
+      membershipUpdates.followOfferPriceCents = validated.followOfferPriceCents;
+    }
+    if (validated.followOfferNumPlays !== undefined) {
+      membershipUpdates.followOfferNumPlays = validated.followOfferNumPlays;
+    }
+    if (validated.followOfferCheckoutUrl !== undefined) {
+      membershipUpdates.followOfferCheckoutUrl = validated.followOfferCheckoutUrl || undefined;
+    }
+
+    // Apply membership updates
+    if (Object.keys(membershipUpdates).length > 0) {
+      await updateCompanyMembership(userId, companyId, membershipUpdates);
+    }
+
+    // Update company-level settings (only companyOwners)
+    if (membership.role === 'companyOwner' && company) {
+      const companyUpdates: Partial<typeof company> = {};
+      
+      if (validated.companyName !== undefined) {
+        companyUpdates.companyName = validated.companyName || undefined;
+      }
+      if (validated.companyDescription !== undefined) {
+        companyUpdates.companyDescription = validated.companyDescription || undefined;
+      }
+      if (validated.membershipPlans !== undefined) {
+        companyUpdates.membershipPlans = validated.membershipPlans as MembershipPlan[];
+      }
+      if (validated.hideLeaderboardFromMembers !== undefined) {
+        companyUpdates.hideLeaderboardFromMembers = validated.hideLeaderboardFromMembers;
+      }
+      if (validated.hideCompanyStatsFromMembers !== undefined) {
+        companyUpdates.hideCompanyStatsFromMembers = validated.hideCompanyStatsFromMembers;
+      }
+
+      if (Object.keys(companyUpdates).length > 0) {
+        Object.assign(company, companyUpdates);
+        await company.save();
+      }
+    } else {
+      // Non-owners cannot update company settings
+      if (validated.companyName !== undefined || validated.companyDescription !== undefined || 
+          validated.membershipPlans !== undefined || validated.hideLeaderboardFromMembers !== undefined ||
+          validated.hideCompanyStatsFromMembers !== undefined) {
+        return NextResponse.json(
+          { error: 'Only company owners can update company settings' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Update person-level following webhooks (all roles can update)
+    const userUpdates: Partial<typeof user> = {};
     if (validated.followingDiscordWebhook !== undefined) {
-      user.followingDiscordWebhook = validated.followingDiscordWebhook || undefined;
+      userUpdates.followingDiscordWebhook = validated.followingDiscordWebhook || undefined;
     }
     if (validated.followingWhopWebhook !== undefined) {
-      user.followingWhopWebhook = validated.followingWhopWebhook || undefined;
+      userUpdates.followingWhopWebhook = validated.followingWhopWebhook || undefined;
     }
 
-    await user.save();
+    if (Object.keys(userUpdates).length > 0) {
+      Object.assign(user, userUpdates);
+      await user.save();
+    }
+
+    // Refresh data for response
+    const updatedResult = await getUserForCompany(userId, companyId);
+    const updatedMembership = updatedResult?.membership;
+    const updatedCompany = await Company.findOne({ companyId });
 
     return NextResponse.json({
       message: 'User updated successfully',
       user: {
-        alias: user.alias,
-        role: user.role,
-        companyId: user.companyId,
-        companyName: user.companyName,
-        companyDescription: user.companyDescription,
-        optIn: user.optIn,
-        membershipPlans: user.membershipPlans,
-        followOfferEnabled: user.followOfferEnabled ?? false,
-        followOfferPriceCents: user.followOfferPriceCents ?? 0,
-        followOfferNumPlays: user.followOfferNumPlays ?? 0,
-        followOfferCheckoutUrl: user.followOfferCheckoutUrl ?? null,
+        alias: updatedMembership?.alias || membership.alias,
+        role: updatedMembership?.role || membership.role,
+        companyId: companyId,
+        companyName: updatedCompany?.companyName,
+        companyDescription: updatedCompany?.companyDescription,
+        optIn: updatedMembership?.optIn ?? membership.optIn ?? true,
+        membershipPlans: updatedCompany?.membershipPlans || [],
+        followOfferEnabled: updatedMembership?.followOfferEnabled ?? false,
+        followOfferPriceCents: updatedMembership?.followOfferPriceCents ?? 0,
+        followOfferNumPlays: updatedMembership?.followOfferNumPlays ?? 0,
+        followOfferCheckoutUrl: updatedMembership?.followOfferCheckoutUrl ?? null,
       }
     });
   } catch (error) {

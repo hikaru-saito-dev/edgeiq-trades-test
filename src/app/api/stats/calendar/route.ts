@@ -34,31 +34,34 @@ export async function GET(request: NextRequest) {
     const startParam = searchParams.get('start'); // YYYY-MM-DD
     const endParam = searchParams.get('end'); // YYYY-MM-DD
 
-    const user = await User.findOne({ whopUserId: verifiedUserId, companyId: companyId });
-    if (!user) {
+    if (!companyId) {
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
+    }
+    const { getUserForCompany } = await import('@/lib/userHelpers');
+    const userResult = await getUserForCompany(verifiedUserId, companyId);
+    if (!userResult || !userResult.membership) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    const { user, membership } = userResult;
 
     let whopUserIds: string[] = [];
     if (scope === 'personal') {
       whopUserIds = [user.whopUserId];
     } else {
-      if (!user.companyId) {
+      if (!companyId) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
       
       // Check if user has permission to view company stats
-      const isOwnerOrCompanyOwner = user.role === 'owner' || user.role === 'companyOwner';
-      const isAdminOrMember = user.role === 'admin' || user.role === 'member';
+      const isOwnerOrCompanyOwner = membership.role === 'owner' || membership.role === 'companyOwner';
+      const isAdminOrMember = membership.role === 'admin' || membership.role === 'member';
       
       if (!isOwnerOrCompanyOwner && isAdminOrMember) {
         // For admins and members, check if company owner has hidden company stats
-        const companyOwner = await User.findOne({
-          companyId: user.companyId,
-          role: 'companyOwner',
-        }).lean();
+        const { Company } = await import('@/models/Company');
+        const company = await Company.findOne({ companyId });
         
-        if ((companyOwner as unknown as IUser)?.hideCompanyStatsFromMembers) {
+        if (company && company.hideCompanyStatsFromMembers) {
           return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
       } else if (!isOwnerOrCompanyOwner && !isAdminOrMember) {
@@ -66,12 +69,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
       
-      const companyUsers = await User.find({
-        companyId: user.companyId,
-        role: { $in: ['companyOwner', 'owner', 'admin'] },
-      }).select('whopUserId');
+      const { getUsersInCompanyByRole } = await import('@/lib/userHelpers');
+      const companyUsers = await getUsersInCompanyByRole(companyId, ['companyOwner', 'owner', 'admin']);
       whopUserIds = companyUsers
-        .map(u => u.whopUserId)
+        .map(u => u.user.whopUserId)
         .filter((id): id is string => Boolean(id));
     }
 

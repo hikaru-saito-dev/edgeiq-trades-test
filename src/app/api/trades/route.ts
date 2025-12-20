@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
+import mongoose from 'mongoose';
 import { Trade, ITrade } from '@/models/Trade';
 import { TradeFill } from '@/models/TradeFill';
-import { User } from '@/models/User';
 import { Log } from '@/models/Log';
 import { createTradeSchema, parseExpiryDate } from '@/utils/tradeValidation';
 import { isMarketOpen } from '@/utils/marketHours';
@@ -35,22 +35,28 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB();
     const headers = await import('next/headers').then(m => m.headers());
-    
+
     // Read userId and companyId from headers
     const userId = headers.get('x-user-id');
     const companyId = headers.get('x-company-id');
-    
+
     if (!userId) {
       metricMeta.status = 'unauthorized';
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Find user by whopUserId
-    const user = await User.findOne({ whopUserId: userId, companyId: companyId });
-    if (!user) {
+    // Find user with company membership
+    const { getUserForCompany } = await import('@/lib/userHelpers');
+    if (!companyId) {
+      metricMeta.status = 'user_not_found';
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
+    }
+    const userResult = await getUserForCompany(userId, companyId);
+    if (!userResult || !userResult.membership) {
       metricMeta.status = 'user_not_found';
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    const { user } = userResult;
 
     // All roles (companyOwner, owner, admin, member) can only view their OWN trades
     // The "My Trades" page shows personal trades only, not all company trades (matching betting-whop pattern)
@@ -64,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     // Build match query - ALL users see only their own trades (by whopUserId for cross-company)
     const matchQuery: Record<string, unknown> = {
-      whopUserId: user.whopUserId,
+      whopUserId: user.whopUserId, // Person-level, works across all companies
       side: 'BUY', // Only get BUY trades (the main trade entries)
     };
 
@@ -78,7 +84,7 @@ export async function GET(request: NextRequest) {
       const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       matchQuery.ticker = regex;
     }
-    
+
 
     const skip = (page - 1) * pageSize;
     const tradeFillCollection = TradeFill.collection.name;
@@ -159,22 +165,28 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB();
     const headers = await import('next/headers').then(m => m.headers());
-    
+
     // Read userId and companyId from headers
     const userId = headers.get('x-user-id');
     const companyId = headers.get('x-company-id');
-    
+
     if (!userId) {
       metricMeta = { status: 'unauthorized' };
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Find user by whopUserId
-    const user = await User.findOne({ whopUserId: userId, companyId: companyId });
-    if (!user) {
+    // Find user with company membership
+    const { getUserForCompany } = await import('@/lib/userHelpers');
+    if (!companyId) {
+      metricMeta = { status: 'user_not_found' };
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
+    }
+    const userResult = await getUserForCompany(userId, companyId);
+    if (!userResult || !userResult.membership) {
       metricMeta = { status: 'user_not_found' };
       return NextResponse.json({ error: 'User not found. Please set up your profile first.' }, { status: 404 });
     }
+    const { user, membership } = userResult;
 
     // Allow all roles (companyOwner, owner, admin, member) to create trades
     const limitResult = tradeWriteLimiter.tryConsume(userId);
@@ -202,7 +214,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    
+
     // Validate request data
     let validated;
     try {
@@ -295,8 +307,8 @@ export async function POST(request: NextRequest) {
     let normalizedSelectedWebhookIds: string[] | undefined = undefined;
     if (validated.selectedWebhookIds !== undefined) {
       if (validated.selectedWebhookIds.length > 0) {
-        // Validate that webhook IDs exist in user's webhooks
-        const userWebhooks = user.webhooks || [];
+        // Validate that webhook IDs exist in user's webhooks for this company
+        const userWebhooks = membership.webhooks || [];
         normalizedSelectedWebhookIds = validated.selectedWebhookIds.filter((id: string) => {
           return userWebhooks.some((webhook: { id: string; name: string; url: string; type: 'whop' | 'discord' }) => webhook.id === id);
         });
@@ -329,14 +341,14 @@ export async function POST(request: NextRequest) {
         // Use specific broker connection from request
         brokerConnection = await BrokerConnection.findOne({
           _id: validated.brokerConnectionId,
-          userId: user._id,
+          userId: user._id as Types.ObjectId,
           brokerType: 'snaptrade', // Only SnapTrade connections
           isActive: true,
         });
       } else {
         // Fallback: find first active SnapTrade connection
         brokerConnection = await BrokerConnection.findOne({
-          userId: user._id,
+          userId: user._id as Types.ObjectId,
           brokerType: 'snaptrade',
           isActive: true,
         });
@@ -350,14 +362,14 @@ export async function POST(request: NextRequest) {
 
       if (brokerConnection) {
         // Create a temporary trade object for broker sync
-      const tempTrade = {
-        ticker: validated.ticker,
-        strike: validated.strike,
-        optionType: validated.optionType,
-        expiryDate: expiryDate,
-        contracts: validated.contracts,
-        fillPrice: finalFillPrice,
-      } as ITrade;
+        const tempTrade = {
+          ticker: validated.ticker,
+          strike: validated.strike,
+          optionType: validated.optionType,
+          expiryDate: expiryDate,
+          contracts: validated.contracts,
+          fillPrice: finalFillPrice,
+        } as ITrade;
 
         const { createBroker } = await import('@/lib/brokers/factory');
         const broker = createBroker(brokerConnection.brokerType, brokerConnection);
@@ -393,105 +405,129 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Create trade
-    const trade = await Trade.create({
-      userId: user._id,
-      whopUserId: user.whopUserId,
-      side: 'BUY',
-      contracts: validated.contracts,
-      ticker: validated.ticker,
-      strike: validated.strike,
-      optionType: validated.optionType,
-      expiryDate: expiryDate,
-      fillPrice: finalFillPrice,
-      status: 'OPEN',
-      priceVerified: true,
-      optionContract: optionContractTicker || undefined,
-      refPrice: referencePrice || undefined,
-      refTimestamp,
-      remainingOpenContracts: validated.contracts,
-      totalBuyNotional: notional,
-      isMarketOrder: true, // Always market orders
-      ...(normalizedSelectedWebhookIds !== undefined && { selectedWebhookIds: normalizedSelectedWebhookIds }),
-      ...(brokerType && { brokerType }),
-      ...(brokerOrderId && { brokerOrderId }),
-      ...(brokerConnectionId && { brokerConnectionId }),
-      ...(brokerOrderDetails && { brokerOrderDetails }),
-      ...(brokerCostInfo && { brokerCostInfo }),
-    });
+    // Start database session for transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    // Track consumed plays for follow purchases
-    // Use atomic $inc operator to prevent race conditions
     try {
-      // Use atomic bulk update to increment plays for all active follows
-      // This prevents race conditions where multiple requests try to increment simultaneously
-      if (user.whopUserId) {
-        // Atomic update using aggregation pipeline to increment and update status in one operation
-        await FollowPurchase.updateMany(
-          {
-            capperWhopUserId: user.whopUserId,
-            status: 'active',
-            $expr: { $lt: ['$numPlaysConsumed', '$numPlaysPurchased'] },
-          },
-          [
-            {
-              $set: {
-                numPlaysConsumed: { $add: ['$numPlaysConsumed', 1] },
-                status: {
-                  $cond: {
-                    if: { $gte: [{ $add: ['$numPlaysConsumed', 1] }, '$numPlaysPurchased'] },
-                    then: 'completed',
-                    else: 'active',
-                  },
-                },
-              },
-            },
-          ]
-        );
-      }
-    } catch (followError) {
-      // Don't fail trade creation if follow tracking fails
-      console.error('Error tracking follow purchases:', followError);
-    }
-
-    // Log the action
-    await Log.create({
-      userId: user._id,
-      action: 'trade_created',
-      metadata: {
-        tradeId: trade._id,
+      // Create trade within transaction
+      const trade = await Trade.create([{
+        userId: user._id as Types.ObjectId,
+        whopUserId: user.whopUserId,
+        side: 'BUY',
+        contracts: validated.contracts,
         ticker: validated.ticker,
         strike: validated.strike,
         optionType: validated.optionType,
-        contracts: validated.contracts,
+        expiryDate: expiryDate,
         fillPrice: finalFillPrice,
-      },
-    });
+        status: 'OPEN',
+        priceVerified: true,
+        optionContract: optionContractTicker || undefined,
+        refPrice: referencePrice || undefined,
+        refTimestamp,
+        remainingOpenContracts: validated.contracts,
+        totalBuyNotional: notional,
+        isMarketOrder: true, // Always market orders
+        ...(normalizedSelectedWebhookIds !== undefined && { selectedWebhookIds: normalizedSelectedWebhookIds }),
+        ...(brokerType && { brokerType }),
+        ...(brokerOrderId && { brokerOrderId }),
+        ...(brokerConnectionId && { brokerConnectionId }),
+        ...(brokerOrderDetails && { brokerOrderDetails }),
+        ...(brokerCostInfo && { brokerCostInfo }),
+      }], { session });
 
-    // Send notification to creator's webhooks
-    await notifyTradeCreated(trade, user, companyId || undefined, normalizedSelectedWebhookIds);
+      // Track consumed plays for follow purchases (within transaction)
+      // Use atomic $inc operator to prevent race conditions
+      try {
+        // Use atomic bulk update to increment plays for all active follows
+        // This prevents race conditions where multiple requests try to increment simultaneously
+        if (user.whopUserId) {
+          // Atomic update using aggregation pipeline to increment and update status in one operation
+          await FollowPurchase.updateMany(
+            {
+              capperWhopUserId: user.whopUserId,
+              status: 'active',
+              $expr: { $lt: ['$numPlaysConsumed', '$numPlaysPurchased'] },
+            },
+            [
+              {
+                $set: {
+                  numPlaysConsumed: { $add: ['$numPlaysConsumed', 1] },
+                  status: {
+                    $cond: {
+                      if: { $gte: [{ $add: ['$numPlaysConsumed', 1] }, '$numPlaysPurchased'] },
+                      then: 'completed',
+                      else: 'active',
+                    },
+                  },
+                },
+              },
+            ],
+            { session }
+          );
+        }
+      } catch (followError) {
+        // Don't fail trade creation if follow tracking fails
+        console.error('Error tracking follow purchases:', followError);
+      }
 
-    // Notify all followers of this creator
-    try {
-      const { notifyFollowers } = await import('@/lib/tradeNotifications');
-      await notifyFollowers(trade, user);
-    } catch (followError) {
-      // Don't fail trade creation if follower notification fails
-      console.error('Error notifying followers:', followError);
+      // Log the action (within transaction)
+      await Log.create([{
+        userId: user._id as Types.ObjectId,
+        action: 'trade_created',
+        metadata: {
+          tradeId: trade[0]._id,
+          ticker: validated.ticker,
+          strike: validated.strike,
+          optionType: validated.optionType,
+          contracts: validated.contracts,
+          fillPrice: finalFillPrice,
+        },
+      }], { session });
+
+      // Commit transaction
+      await session.commitTransaction();
+      await session.endSession();
+
+      const tradeResult = trade[0];
+
+      // Send notification to creator's webhooks (outside transaction - fire and forget)
+      notifyTradeCreated(tradeResult, user, membership, companyId || undefined, normalizedSelectedWebhookIds).catch((err) => {
+        console.error('Error sending trade creation notification:', err);
+      });
+
+      // Notify all followers of this creator (outside transaction - fire and forget)
+      import('@/lib/tradeNotifications').then(({ notifyFollowers }) => {
+        notifyFollowers(tradeResult, user).catch((followError) => {
+          console.error('Error notifying followers:', followError);
+        });
+      }).catch((err) => {
+        console.error('Error importing notifyFollowers:', err);
+      });
+
+      invalidateLeaderboardCache();
+      if (companyId) {
+        invalidateCompanyStatsCache(companyId);
+      }
+      invalidatePersonalStatsCache(String(user._id));
+
+      const responsePayload = {
+        trade: tradeResult,
+        message: `Buy Order: ${validated.contracts}x ${validated.ticker} ${validated.strike}${validated.optionType} ${validated.expiryDate} @ $${finalFillPrice.toFixed(2)}`,
+      };
+
+      return NextResponse.json(responsePayload, { status: 201 });
+    } catch (transactionError) {
+      // Rollback transaction on any error
+      if (session.inTransaction()) {
+        await session.abortTransaction();
+      }
+      await session.endSession();
+
+      // Re-throw to be handled by outer catch
+      throw transactionError;
     }
-
-    invalidateLeaderboardCache();
-    if (companyId) {
-      invalidateCompanyStatsCache(companyId);
-    }
-    invalidatePersonalStatsCache(user._id.toString());
-
-    const responsePayload = { 
-      trade,
-      message: `Buy Order: ${validated.contracts}x ${validated.ticker} ${validated.strike}${validated.optionType} ${validated.expiryDate} @ $${finalFillPrice.toFixed(2)}`,
-    };
-
-    return NextResponse.json(responsePayload, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       metricMeta = { status: 'validation_error' };
@@ -525,22 +561,28 @@ export async function DELETE(request: NextRequest) {
   try {
     await connectDB();
     const headers = await import('next/headers').then(m => m.headers());
-    
+
     // Read userId and companyId from headers
     const userId = headers.get('x-user-id');
     const companyId = headers.get('x-company-id');
-    
+
     if (!userId) {
       metricMeta = { status: 'unauthorized' };
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Find user by whopUserId
-    const user = await User.findOne({ whopUserId: userId, companyId: companyId });
-    if (!user) {
+    // Find user with company membership
+    const { getUserForCompany } = await import('@/lib/userHelpers');
+    if (!companyId) {
+      metricMeta = { status: 'user_not_found' };
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
+    }
+    const userResult = await getUserForCompany(userId, companyId);
+    if (!userResult || !userResult.membership) {
       metricMeta = { status: 'user_not_found' };
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    const { user } = userResult;
 
     // Allow all roles (companyOwner, owner, admin, member) to delete their own trades
     const limitResult = tradeWriteLimiter.tryConsume(userId);
@@ -586,10 +628,10 @@ export async function DELETE(request: NextRequest) {
     // Save trade data before deletion for notification
     const tradeData = trade.toObject();
     const selectedWebhookIds = trade.selectedWebhookIds;
-    
+
     // Delete trade
     await trade.deleteOne();
-    
+
     await Log.create({
       userId: user._id,
       action: 'trade_deleted',
@@ -606,7 +648,7 @@ export async function DELETE(request: NextRequest) {
     if (companyId) {
       invalidateCompanyStatsCache(companyId);
     }
-    invalidatePersonalStatsCache(user._id.toString());
+    invalidatePersonalStatsCache(String(user._id));
 
     const responsePayload = { success: true };
 

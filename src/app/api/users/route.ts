@@ -27,14 +27,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Find current user by whopUserId (companyId is manually entered, not from Whop auth)
-    const currentUser = await User.findOne({ whopUserId: userId, companyId: companyId });
-    if (!currentUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!companyId) {
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
     }
 
+    // Find current user with company membership
+    const { getUserForCompany } = await import('@/lib/userHelpers');
+    const currentUserResult = await getUserForCompany(userId, companyId);
+    if (!currentUserResult || !currentUserResult.membership) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    const currentUser = currentUserResult.user;
+    const currentMembership = currentUserResult.membership;
+
     // Check if user is companyOwner or owner
-    if (currentUser.role !== 'companyOwner' && currentUser.role !== 'owner') {
+    if (currentMembership.role !== 'companyOwner' && currentMembership.role !== 'owner') {
       return NextResponse.json({ error: 'Forbidden: Only company owners and owners can view users' }, { status: 403 });
     }
 
@@ -46,7 +53,7 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * pageSize;
     const baseMatch: Record<string, unknown> = {
-      companyId,
+      'companyMemberships.companyId': companyId,
     };
 
 
@@ -54,12 +61,22 @@ export async function GET(request: NextRequest) {
       { $match: baseMatch },
     ];
 
+    // Unwind companyMemberships to work with individual memberships
+    pipeline.push({ $unwind: '$companyMemberships' });
+    
+    // Match only the specific company
+    pipeline.push({
+      $match: {
+        'companyMemberships.companyId': companyId,
+      },
+    });
+
     if (search) {
       const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       pipeline.push({
         $match: {
           $or: [
-            { alias: regex },
+            { 'companyMemberships.alias': regex },
             { whopUsername: regex },
             { whopDisplayName: regex },
           ],
@@ -73,10 +90,10 @@ export async function GET(request: NextRequest) {
           rolePriority: {
             $switch: {
               branches: [
-                { case: { $eq: ['$role', 'companyOwner'] }, then: 0 },
-                { case: { $eq: ['$role', 'owner'] }, then: 1 },
-                { case: { $eq: ['$role', 'admin'] }, then: 2 },
-                { case: { $eq: ['$role', 'member'] }, then: 3 },
+                { case: { $eq: ['$companyMemberships.role', 'companyOwner'] }, then: 0 },
+                { case: { $eq: ['$companyMemberships.role', 'owner'] }, then: 1 },
+                { case: { $eq: ['$companyMemberships.role', 'admin'] }, then: 2 },
+                { case: { $eq: ['$companyMemberships.role', 'member'] }, then: 3 },
               ],
               default: 99,
             },
@@ -92,8 +109,8 @@ export async function GET(request: NextRequest) {
             {
               $project: {
                 whopUserId: 1,
-                alias: 1,
-                role: 1,
+                alias: '$companyMemberships.alias',
+                role: '$companyMemberships.role',
                 whopUsername: 1,
                 whopDisplayName: 1,
                 whopAvatarUrl: 1,
@@ -149,14 +166,21 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Find current user by whopUserId (companyId is manually entered, not from Whop auth)
-    const currentUser = await User.findOne({ whopUserId: currentUserId, companyId: companyId });
-    if (!currentUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!companyId) {
+      return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
     }
 
+    // Find current user with company membership
+    const { getUserForCompany } = await import('@/lib/userHelpers');
+    const currentUserResult = await getUserForCompany(currentUserId, companyId);
+    if (!currentUserResult || !currentUserResult.membership) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    const currentUser = currentUserResult.user;
+    const currentMembership = currentUserResult.membership;
+
     // Check if user is companyOwner or owner
-    if (currentUser.role !== 'companyOwner' && currentUser.role !== 'owner') {
+    if (currentMembership.role !== 'companyOwner' && currentMembership.role !== 'owner') {
       return NextResponse.json({ error: 'Forbidden: Only company owners and owners can update roles' }, { status: 403 });
     }
 
@@ -168,33 +192,26 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Find target user - must be in same company
-    const targetUser = await User.findOne({
-      whopUserId: userId,
-      companyId: companyId, // Must be in same company
-    });
-
-    if (!targetUser) {
+    const targetUserResult = await getUserForCompany(userId, companyId);
+    if (!targetUserResult || !targetUserResult.membership) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    const targetUser = targetUserResult.user;
+    const targetMembership = targetUserResult.membership;
 
     // Prevent role changes based on permissions
     const newRole = role as 'companyOwner' | 'owner' | 'admin' | 'member';
+    const currentRole = currentMembership.role;
+    const targetRole = targetMembership.role;
     
     // CompanyOwner cannot grant companyOwner role
     if (newRole === 'companyOwner') {
       return NextResponse.json({ error: 'Cannot grant company owner role' }, { status: 400 });
     }
     
-    // CompanyOwner cannot remove companyOwner role from themselves or others
-    // Check if target is companyOwner and we're trying to change their role
-    if (targetUser.role === 'companyOwner') {
-      // Since we already checked newRole !== 'companyOwner' above, we know it's being changed
-      return NextResponse.json({ error: 'Cannot remove company owner role' }, { status: 400 });
-    }
-    
     // Owner cannot manage companyOwner or other owners
-    if (currentUser.role === 'owner') {
-      if (targetUser.role === 'companyOwner' || targetUser.role === 'owner') {
+    if (currentRole === 'owner') {
+      if (targetRole === 'companyOwner' || targetRole === 'owner') {
         return NextResponse.json({ error: 'Cannot manage company owner or owner roles' }, { status: 403 });
       }
       // Owner cannot grant owner role
@@ -202,18 +219,28 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'Cannot grant owner role' }, { status: 403 });
       }
     }
+    
+    // CompanyOwner cannot remove companyOwner role from themselves or others
+    // Check if target is companyOwner and we're trying to change their role
+    if (targetRole === 'companyOwner') {
+      // Since we already checked newRole !== 'companyOwner' above, we know it's being changed
+      return NextResponse.json({ error: 'Cannot remove company owner role' }, { status: 400 });
+    }
 
-    // CompanyId is already set from Whop, no need to assign manually
+    // Update role in company membership
+    const { updateCompanyMembership } = await import('@/lib/userHelpers');
+    await updateCompanyMembership(userId, companyId, { role: newRole });
 
-    targetUser.role = newRole;
-    await targetUser.save();
+    // Refresh to get updated data
+    const updatedResult = await getUserForCompany(userId, companyId);
+    const updatedMembership = updatedResult?.membership;
 
     return NextResponse.json({ 
       success: true, 
       user: {
         whopUserId: targetUser.whopUserId,
-        alias: targetUser.alias,
-        role: targetUser.role,
+        alias: updatedMembership?.alias || targetMembership.alias,
+        role: updatedMembership?.role || newRole,
       }
     });
   } catch (error) {
