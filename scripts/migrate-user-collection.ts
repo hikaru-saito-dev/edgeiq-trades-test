@@ -33,14 +33,39 @@ async function migrate() {
         await connectDB();
         console.log('Connected to database');
 
-        // Get all users grouped by whopUserId
+        // Get all users - separate old format (with companyId) from new format (with companyMemberships array)
         const allUsers = await User.find({}).lean();
-        console.log(`Found ${allUsers.length} user documents to migrate`);
+        console.log(`Found ${allUsers.length} user documents to process`);
 
-        // Group by whopUserId
-        const usersByWhopUserId = new Map<string, typeof allUsers>();
+        // Separate old format users from new format users
+        const oldFormatUsers: typeof allUsers = [];
+        const newFormatUsers: typeof allUsers = [];
+
         for (const user of allUsers) {
-            const whopUserId = (user as unknown as IUser).whopUserId;
+            const userDoc = user as any;
+            // Check if it's new format: has companyMemberships array (even if empty)
+            if (Array.isArray(userDoc.companyMemberships)) {
+                newFormatUsers.push(user);
+            } else if (userDoc.companyId) {
+                // Old format: has companyId field
+                oldFormatUsers.push(user);
+            } else {
+                console.warn('Skipping user with unknown format:', user._id);
+            }
+        }
+
+        console.log(`- Old format users: ${oldFormatUsers.length}`);
+        console.log(`- New format users: ${newFormatUsers.length}`);
+
+        if (oldFormatUsers.length === 0) {
+            console.log('No old format users to migrate. Migration complete!');
+            process.exit(0);
+        }
+
+        // Group old format users by whopUserId
+        const usersByWhopUserId = new Map<string, typeof allUsers>();
+        for (const user of oldFormatUsers) {
+            const whopUserId = (user as any).whopUserId;
             if (!whopUserId) {
                 console.warn('Skipping user without whopUserId:', user._id);
                 continue;
@@ -61,27 +86,41 @@ async function migrate() {
         for (const [whopUserId, userDocs] of usersByWhopUserId) {
             if (userDocs.length === 0) continue;
 
+            // Check if user already exists in new format
+            const existingUser = await User.findOne({ whopUserId });
+            const isNewUser = !existingUser;
+
             // Sort by creation date to get the first one
             userDocs.sort((a, b) => {
-                const aDate = (a as unknown as IUser).createdAt || new Date(0);
-                const bDate = (b as unknown as IUser).createdAt || new Date(0);
+                const aDate = (a as any).createdAt || new Date(0);
+                const bDate = (b as any).createdAt || new Date(0);
                 return aDate.getTime() - bDate.getTime();
             });
 
-            const firstUser = userDocs[0] as unknown as IUser;
-            const baseUser = {
+            const firstUser = userDocs[0] as any;
+
+            // Prepare base user data
+            const baseUserData: any = {
                 whopUserId,
-                whopUsername: firstUser.whopUsername,
-                whopDisplayName: firstUser.whopDisplayName,
-                whopAvatarUrl: firstUser.whopAvatarUrl,
-                followingDiscordWebhook: firstUser.followingDiscordWebhook,
-                followingWhopWebhook: firstUser.followingWhopWebhook,
-                companyMemberships: [] as IUser['companyMemberships'],
+                whopUsername: existingUser?.whopUsername || firstUser.whopUsername,
+                whopDisplayName: existingUser?.whopDisplayName || firstUser.whopDisplayName,
+                whopAvatarUrl: existingUser?.whopAvatarUrl || firstUser.whopAvatarUrl,
+                followingDiscordWebhook: existingUser?.followingDiscordWebhook || firstUser.followingDiscordWebhook,
+                followingWhopWebhook: existingUser?.followingWhopWebhook || firstUser.followingWhopWebhook,
+                companyMemberships: existingUser ? [...existingUser.companyMemberships] : [],
             };
+
+            // Track existing company IDs to avoid duplicates
+            const existingCompanyIds = new Set(
+                baseUserData.companyMemberships.map((m: any) => m.companyId)
+            );
+
+            // Find company owner for each company (user with role 'companyOwner' for that company)
+            const companyOwners = new Map<string, string>(); // companyId -> whopUserId
 
             // Process each company membership
             for (const userDoc of userDocs) {
-                const doc = userDoc as unknown as IUser & { companyId?: string; companyName?: string; companyDescription?: string; membershipPlans?: unknown[]; hideLeaderboardFromMembers?: boolean; hideCompanyStatsFromMembers?: boolean; alias?: string; role?: string; webhooks?: unknown[]; notifyOnSettlement?: boolean; onlyNotifyWinningSettlements?: boolean; optIn?: boolean; followOfferEnabled?: boolean; followOfferPriceCents?: number; followOfferNumPlays?: number; followOfferPlanId?: string; followOfferCheckoutUrl?: string };
+                const doc = userDoc as any;
                 const companyId = doc.companyId;
 
                 if (!companyId) {
@@ -89,22 +128,45 @@ async function migrate() {
                     continue;
                 }
 
+                // Skip if membership already exists
+                if (existingCompanyIds.has(companyId)) {
+                    console.warn(`Skipping duplicate membership for user ${whopUserId} in company ${companyId}`);
+                    continue;
+                }
+
+                // Track company owner
+                if (doc.role === 'companyOwner') {
+                    companyOwners.set(companyId, whopUserId);
+                }
+
                 // Create or get company
                 let company = await Company.findOne({ companyId });
                 if (!company) {
-                    // Determine company owner
-                    const companyOwnerWhopUserId = doc.role === 'companyOwner' ? whopUserId : firstUser.whopUserId;
+                    // Determine company owner - use tracked owner or first user
+                    const companyOwnerWhopUserId = companyOwners.get(companyId) || whopUserId;
 
-                    company = await Company.create({
-                        companyId,
-                        companyName: doc.companyName,
-                        companyDescription: doc.companyDescription,
-                        membershipPlans: doc.membershipPlans || [],
-                        hideLeaderboardFromMembers: doc.hideLeaderboardFromMembers ?? false,
-                        hideCompanyStatsFromMembers: doc.hideCompanyStatsFromMembers ?? false,
-                        companyOwnerWhopUserId,
-                    });
-                    companyCreatedCount++;
+                    try {
+                        company = await Company.create({
+                            companyId,
+                            companyName: doc.companyName,
+                            companyDescription: doc.companyDescription,
+                            membershipPlans: doc.membershipPlans || [],
+                            hideLeaderboardFromMembers: doc.hideLeaderboardFromMembers ?? false,
+                            hideCompanyStatsFromMembers: doc.hideCompanyStatsFromMembers ?? false,
+                            companyOwnerWhopUserId,
+                        });
+                        companyCreatedCount++;
+                    } catch (error: any) {
+                        // Company might have been created by another process, try to fetch it
+                        if (error.code === 11000) {
+                            company = await Company.findOne({ companyId });
+                            if (!company) {
+                                throw error;
+                            }
+                        } else {
+                            throw error;
+                        }
+                    }
                 }
 
                 // Create company membership
@@ -124,7 +186,7 @@ async function migrate() {
                     joinedAt: doc.createdAt || new Date(),
                 };
 
-                baseUser.companyMemberships.push(membership);
+                baseUserData.companyMemberships.push(membership);
             }
 
             // Delete old user documents
@@ -132,8 +194,15 @@ async function migrate() {
                 await User.deleteOne({ _id: userDoc._id });
             }
 
-            // Create new merged user document
-            await User.create(baseUser);
+            // Create or update user document
+            if (isNewUser) {
+                await User.create(baseUserData);
+            } else {
+                await User.updateOne(
+                    { whopUserId },
+                    { $set: baseUserData }
+                );
+            }
             migratedCount++;
 
             if (migratedCount % 10 === 0) {
@@ -144,7 +213,7 @@ async function migrate() {
         console.log(`\nMigration complete!`);
         console.log(`- Migrated ${migratedCount} users`);
         console.log(`- Created ${companyCreatedCount} companies`);
-        console.log(`- Deleted ${allUsers.length} old user documents`);
+        console.log(`- Deleted ${oldFormatUsers.length} old user documents`);
 
         process.exit(0);
     } catch (error) {

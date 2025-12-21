@@ -36,12 +36,29 @@ export async function GET() {
         }
         const { user } = userResult;
 
-        // Get all active connections
-        const connections = await BrokerConnection.find({
-            userId: user._id,
-            isActive: true,
-            brokerType: 'snaptrade',
-        });
+        // Check cache first for active broker connections
+        const { getActiveBrokerCacheByUserId, setActiveBrokerCacheByUserId } = await import('@/lib/cache/brokerCache');
+        const userIdStr = String(user._id);
+        const cachedConnection = getActiveBrokerCacheByUserId(userIdStr);
+
+        let connections;
+        if (cachedConnection) {
+            // Use cached connection (convert to array for consistency)
+            connections = cachedConnection ? [cachedConnection] : [];
+        } else {
+            // Cache miss - query database
+            connections = await BrokerConnection.find({
+                userId: user._id,
+                isActive: true,
+                brokerType: 'snaptrade',
+            });
+            // Cache the first active connection (most common case)
+            if (connections.length > 0) {
+                setActiveBrokerCacheByUserId(userIdStr, connections[0]);
+            } else {
+                setActiveBrokerCacheByUserId(userIdStr, null);
+            }
+        }
 
         // Always return at least the cached data, even if refresh fails
         const getCachedAccounts = () => connections.map(conn => ({

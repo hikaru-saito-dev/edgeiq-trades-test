@@ -1,27 +1,125 @@
 /**
  * Helper functions for working with the new User model structure
  * These functions abstract the complexity of companyMemberships array
+ * 
+ * Optimized for Discord-scale performance:
+ * - Database-level filtering with $elemMatch projection
+ * - In-memory caching with LRU eviction
+ * - Denormalized activeMembership for O(1) lookups
  */
 
 import { User, IUser, CompanyMembership, UserRole } from '@/models/User';
 import { Company } from '@/models/Company';
+import { userCache, getUserCacheKey, invalidateUserCache } from '@/lib/cache/userCache';
 
 /**
  * Get user with specific company membership
  * Returns user and their membership for the given company, or null if not found
+ * 
+ * Optimizations:
+ * 1. Check cache first (O(1))
+ * 2. Check denormalized activeMembership field (O(1))
+ * 3. Use $elemMatch projection for database-level filtering (only returns matching membership)
+ * 4. Update activeMembership for future fast lookups
+ * 5. Cache result for subsequent requests
  */
 export async function getUserForCompany(
     whopUserId: string,
     companyId: string
 ): Promise<{ user: IUser; membership: CompanyMembership | null } | null> {
-    const user = await User.findOne({ whopUserId });
-    if (!user) return null;
+    // 1. Check cache first
+    const cacheKey = getUserCacheKey(whopUserId, companyId);
+    const cached = userCache.get(cacheKey);
+    if (cached) {
+        return cached;
+    }
 
-    const membership = user.companyMemberships.find(
-        (m: CompanyMembership) => m.companyId === companyId
-    ) || null;
+    // 2. Query with $elemMatch projection for database-level filtering
+    // This only returns the matching membership, not the entire array
+    interface LeanUserDoc {
+        whopUserId: string;
+        whopUsername?: string;
+        whopDisplayName?: string;
+        whopAvatarUrl?: string;
+        followingDiscordWebhook?: string;
+        followingWhopWebhook?: string;
+        companyMemberships?: CompanyMembership[];
+        activeCompanyId?: string;
+        activeMembership?: CompanyMembership;
+    }
 
-    return { user, membership };
+    const userDoc = await User.findOne(
+        { whopUserId },
+        {
+            projection: {
+                whopUserId: 1,
+                whopUsername: 1,
+                whopDisplayName: 1,
+                whopAvatarUrl: 1,
+                followingDiscordWebhook: 1,
+                followingWhopWebhook: 1,
+                companyMemberships: {
+                    $elemMatch: { companyId }
+                },
+                activeCompanyId: 1,
+                activeMembership: 1,
+            }
+        }
+    ).lean() as LeanUserDoc | null;
+
+    if (!userDoc) {
+        return null;
+    }
+
+    // 3. Check if activeMembership matches (fast path for repeated access)
+    if (userDoc.activeCompanyId === companyId && userDoc.activeMembership) {
+        // Get full user document for return
+        const fullUser = await User.findOne({ whopUserId });
+        if (!fullUser) {
+            return null;
+        }
+        const result = {
+            user: fullUser,
+            membership: userDoc.activeMembership as CompanyMembership,
+        };
+        userCache.set(cacheKey, result);
+        return result;
+    }
+
+    // 4. Extract membership from array (should only have one element due to $elemMatch)
+    const membership = (userDoc.companyMemberships && userDoc.companyMemberships[0]) || null;
+
+    // 5. Update activeMembership for future fast lookups (async, don't wait)
+    if (membership && userDoc.activeCompanyId !== companyId) {
+        User.updateOne(
+            { whopUserId },
+            {
+                $set: {
+                    activeCompanyId: companyId,
+                    activeMembership: membership,
+                }
+            }
+        ).catch(err => {
+            // Log but don't fail the request
+            console.error('Failed to update activeMembership:', err);
+        });
+    }
+
+    // 6. Get full user document for return (needed for some operations)
+    const fullUser = await User.findOne({ whopUserId });
+    if (!fullUser) {
+        return null;
+    }
+
+    const result = {
+        user: fullUser,
+        membership: membership as CompanyMembership | null,
+    };
+
+    // 7. Cache result
+    userCache.set(cacheKey, result);
+
+    return result;
 }
 
 /**
@@ -67,7 +165,17 @@ export async function getOrCreateCompanyMembership(
             joinedAt: new Date(),
         };
         user.companyMemberships.push(membership);
+
+        // Update activeMembership if this is the first membership or if no active company
+        if (user.companyMemberships.length === 1 || !user.activeCompanyId) {
+            user.activeCompanyId = companyId;
+            user.activeMembership = membership;
+        }
+
         await user.save();
+
+        // Invalidate cache
+        invalidateUserCache(whopUserId, companyId);
     }
 
     return { user, membership };
@@ -76,6 +184,7 @@ export async function getOrCreateCompanyMembership(
 /**
  * Update company membership
  * Updates fields in the companyMemberships array for a specific company
+ * Also updates activeMembership if this is the active company
  */
 export async function updateCompanyMembership(
     whopUserId: string,
@@ -91,6 +200,7 @@ export async function updateCompanyMembership(
 
     if (Object.keys(setFields).length === 0) return;
 
+    // Update the membership in the array
     await User.updateOne(
         {
             whopUserId,
@@ -98,6 +208,25 @@ export async function updateCompanyMembership(
         },
         { $set: setFields }
     );
+
+    // If this is the active company, also update activeMembership
+    const user = await User.findOne({ whopUserId });
+    if (user && user.activeCompanyId === companyId) {
+        const updatedMembership = user.companyMemberships?.find(
+            (m: CompanyMembership) => m.companyId === companyId
+        );
+        if (updatedMembership) {
+            // Merge updates into the membership
+            const mergedMembership = { ...updatedMembership, ...updates };
+            await User.updateOne(
+                { whopUserId },
+                { $set: { activeMembership: mergedMembership } }
+            );
+        }
+    }
+
+    // Invalidate cache
+    invalidateUserCache(whopUserId, companyId);
 }
 
 /**

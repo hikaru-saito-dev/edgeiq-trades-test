@@ -51,9 +51,9 @@ const TradeSchema = new Schema<ITrade>({
   optionType: { type: String, enum: ['C', 'P'], required: true },
   expiryDate: { type: Date, required: true, index: true },
   fillPrice: { type: Number, required: true, min: 0 },
-  status: { 
-    type: String, 
-    enum: ['OPEN', 'CLOSED', 'REJECTED'], 
+  status: {
+    type: String,
+    enum: ['OPEN', 'CLOSED', 'REJECTED'],
     default: 'OPEN',
     index: true
   },
@@ -102,6 +102,7 @@ TradeSchema.index({ status: 1, priceVerified: 1 }); // For leaderboard filtering
 TradeSchema.index({ whopUserId: 1, createdAt: -1 });
 TradeSchema.index({ whopUserId: 1, status: 1 });
 TradeSchema.index({ whopUserId: 1, status: 1, createdAt: -1 }); // For cross-company stats aggregation
+TradeSchema.index({ whopUserId: 1, side: 1, status: 1, createdAt: -1 }); // For follow feed queries (Discord-scale optimization)
 
 export const Trade = (mongoose.models && mongoose.models.Trade) || mongoose.model<ITrade>('Trade', TradeSchema);
 

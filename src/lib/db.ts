@@ -32,11 +32,23 @@ async function connectDB() {
       bufferCommands: false,
     };
 
+    // High-performance connection pool configuration for Discord-scale traffic
+    const maxPoolSize = parseInt(process.env.MONGODB_MAX_POOL_SIZE || '50', 10);
+    const minPoolSize = parseInt(process.env.MONGODB_MIN_POOL_SIZE || '5', 10);
+    const readPreference = (process.env.MONGODB_READ_PREFERENCE || 'primary') as 'primary' | 'secondary' | 'secondaryPreferred';
+
     cached.promise = mongoose.connect(MONGODB_URI as string, {
       dbName: MONGODB_DB,
+      maxPoolSize,
+      minPoolSize,
+      readPreference,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
       ...opts,
     }).then((mongoose) => {
       console.log('✅ Connected to MongoDB');
+      console.log(`   Pool: ${minPoolSize}-${maxPoolSize} connections, Read: ${readPreference}`);
       return mongoose.connection;
     });
   }

@@ -335,23 +335,32 @@ export async function POST(request: NextRequest) {
       // Find active SnapTrade broker connection
       // brokerConnectionId is required from the frontend
       const { BrokerConnection } = await import('@/models/BrokerConnection');
-      let brokerConnection;
 
-      if (validated.brokerConnectionId) {
-        // Use specific broker connection from request
-        brokerConnection = await BrokerConnection.findOne({
-          _id: validated.brokerConnectionId,
-          userId: user._id as Types.ObjectId,
-          brokerType: 'snaptrade', // Only SnapTrade connections
-          isActive: true,
-        });
-      } else {
-        // Fallback: find first active SnapTrade connection
-        brokerConnection = await BrokerConnection.findOne({
-          userId: user._id as Types.ObjectId,
-          brokerType: 'snaptrade',
-          isActive: true,
-        });
+      // Check cache first for active broker connection
+      const { getActiveBrokerCacheByUserId, setActiveBrokerCacheByUserId } = await import('@/lib/cache/brokerCache');
+      const userIdStr = String(user._id);
+      let brokerConnection = getActiveBrokerCacheByUserId(userIdStr);
+
+      if (!brokerConnection) {
+        // Cache miss - query database
+        if (validated.brokerConnectionId) {
+          // Use specific broker connection from request
+          brokerConnection = await BrokerConnection.findOne({
+            _id: validated.brokerConnectionId,
+            userId: user._id as Types.ObjectId,
+            brokerType: 'snaptrade', // Only SnapTrade connections
+            isActive: true,
+          });
+        } else {
+          // Fallback: find first active SnapTrade connection
+          brokerConnection = await BrokerConnection.findOne({
+            userId: user._id as Types.ObjectId,
+            brokerType: 'snaptrade',
+            isActive: true,
+          });
+        }
+        // Cache result (even if null to prevent repeated queries)
+        setActiveBrokerCacheByUserId(userIdStr, brokerConnection ?? null);
       }
 
       if (!brokerConnection) {
@@ -387,7 +396,7 @@ export async function POST(request: NextRequest) {
 
         brokerType = brokerConnection.brokerType;
         brokerOrderId = result.orderId;
-        brokerConnectionId = brokerConnection._id;
+        brokerConnectionId = brokerConnection._id as Types.ObjectId;
 
         // Store detailed order information and cost breakdown
         brokerOrderDetails = result.orderDetails;
@@ -466,6 +475,13 @@ export async function POST(request: NextRequest) {
             ],
             { session }
           );
+
+          // Invalidate follow cache for all followers of this capper
+          // Note: We need to invalidate all followers' caches, but we don't know their IDs here
+          // So we'll invalidate on a per-follower basis when they query
+          // For now, we'll clear the entire cache (acceptable since plays are consumed infrequently)
+          const { clearFollowCache } = await import('@/lib/cache/followCache');
+          clearFollowCache();
         }
       } catch (followError) {
         // Don't fail trade creation if follow tracking fails

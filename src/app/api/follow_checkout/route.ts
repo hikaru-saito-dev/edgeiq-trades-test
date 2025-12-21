@@ -309,6 +309,10 @@ async function handlePaymentSucceeded(paymentData: WhopWebhookPayload['data']): 
       });
 
       await followPurchase.save();
+      
+      // Invalidate follow cache for the follower
+      const { invalidateFollowCache } = await import('@/lib/cache/followCache');
+      invalidateFollowCache(followerUser.whopUserId);
     } catch (saveError: unknown) {
       // Handle duplicate key error (race condition - another webhook processed this payment)
       if (saveError && typeof saveError === 'object' && 'code' in saveError && saveError.code === 11000) {

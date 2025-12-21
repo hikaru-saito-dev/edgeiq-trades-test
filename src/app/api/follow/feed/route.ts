@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import { User } from '@/models/User';
 import { Trade, ITrade } from '@/models/Trade';
-import { FollowPurchase } from '@/models/FollowPurchase';
+import { FollowPurchase, IFollowPurchase } from '@/models/FollowPurchase';
 import { FollowedTradeAction } from '@/models/FollowedTradeAction';
 import mongoose, { PipelineStage } from 'mongoose';
 
@@ -34,10 +34,10 @@ const logPerformance = (label: string, startTime: number) => {
  */
 export async function GET(request: NextRequest) {
   const overallStart = Date.now();
-  
+
   try {
     await connectDB();
-    
+
     const headers = await import('next/headers').then(m => m.headers());
     const userId = headers.get('x-user-id');
     const companyId = headers.get('x-company-id');
@@ -64,18 +64,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     const userDocTyped = { whopUserId: userResult.user.whopUserId };
-    
+
     const user = { whopUserId: userDocTyped.whopUserId };
     logPerformance('User lookup', userStart);
 
-    // Step 2: Get all follow purchases (single optimized query)
+    // Step 2: Get all follow purchases (single optimized query with cache)
     const followsStart = Date.now();
-    const allFollows = await FollowPurchase.find({
-      followerWhopUserId: user.whopUserId,
-      status: { $in: ['active', 'completed'] },
-    })
-      .select('capperWhopUserId capperUserId numPlaysPurchased numPlaysConsumed status createdAt')
-      .lean();
+    const { getActiveFollowsCache, setActiveFollowsCache } = await import('@/lib/cache/followCache');
+    let allFollows = getActiveFollowsCache(user.whopUserId);
+
+    if (!allFollows) {
+      // Cache miss - query database
+      const follows = await FollowPurchase.find({
+        followerWhopUserId: user.whopUserId,
+        status: { $in: ['active', 'completed'] },
+      })
+        .select('capperWhopUserId capperUserId numPlaysPurchased numPlaysConsumed status createdAt')
+        .lean();
+      allFollows = follows as unknown as IFollowPurchase[];
+      // Cache result
+      setActiveFollowsCache(user.whopUserId, allFollows);
+    }
 
     if (allFollows.length === 0) {
       return NextResponse.json({
@@ -104,11 +113,11 @@ export async function GET(request: NextRequest) {
 
     for (const follow of allFollows) {
       if (!follow.capperWhopUserId) continue;
-      
+
       allCapperWhopUserIds.add(follow.capperWhopUserId);
       const followId = String(follow._id);
       const remainingPlays = Math.max(0, follow.numPlaysPurchased - follow.numPlaysConsumed);
-      
+
       followMetadataByFollowId.set(followId, {
         followPurchaseId: followId,
         totalPlaysPurchased: follow.numPlaysPurchased,
@@ -116,13 +125,13 @@ export async function GET(request: NextRequest) {
         createdAt: follow.createdAt,
         capperWhopUserId: follow.capperWhopUserId,
       });
-      
+
       // Sum total plays per capper
       capperTotalPlays.set(
         follow.capperWhopUserId,
         (capperTotalPlays.get(follow.capperWhopUserId) || 0) + follow.numPlaysPurchased
       );
-      
+
       // Track earliest date per capper
       const existingDate = capperEarliestDate.get(follow.capperWhopUserId);
       if (!existingDate || follow.createdAt < existingDate) {
@@ -284,7 +293,7 @@ export async function GET(request: NextRequest) {
         if (!useAdvancedPipeline) {
           throw new Error('Too many cappers, using fallback');
         }
-        
+
         const result = await Trade.aggregate(tradePipeline).allowDiskUse(true);
         const facetResult = result[0] || { data: [], totalCount: [] };
         allTradesRaw = facetResult.data || [];
@@ -293,7 +302,7 @@ export async function GET(request: NextRequest) {
         // Fallback if $setWindowFields not supported (MongoDB < 5.0)
         // Use simpler grouping approach
         console.warn('$setWindowFields not supported, using fallback:', aggError);
-        
+
         const fallbackPipeline: PipelineStage[] = [
           {
             $match: searchMatchConditions,
@@ -315,14 +324,14 @@ export async function GET(request: NextRequest) {
         ];
 
         const groupedResults = await Trade.aggregate(fallbackPipeline).allowDiskUse(true);
-        
+
         // Apply limits and flatten (O(follows) not O(trades))
         const limitedTrades: TradeWithCapper[] = [];
         for (const group of groupedResults) {
           const limit = capperTotalPlays.get(group._id) || 0;
           limitedTrades.push(...(group.trades || []).slice(0, limit));
         }
-        
+
         limitedTrades.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         totalTrades = limitedTrades.length;
         allTradesRaw = limitedTrades.slice((page - 1) * pageSize, page * pageSize);
@@ -334,18 +343,18 @@ export async function GET(request: NextRequest) {
     const actionsStart = Date.now();
     const tradeIds = allTradesRaw.length > 0
       ? allTradesRaw.map(trade => {
-          const id = trade._id;
-          return id instanceof mongoose.Types.ObjectId ? id : new mongoose.Types.ObjectId(String(id));
-        })
+        const id = trade._id;
+        return id instanceof mongoose.Types.ObjectId ? id : new mongoose.Types.ObjectId(String(id));
+      })
       : [];
 
     const actions = tradeIds.length > 0
       ? await FollowedTradeAction.find({
-          followerWhopUserId: user.whopUserId,
-          originalTradeId: { $in: tradeIds },
-        })
-          .select('originalTradeId action followedTradeId')
-          .lean()
+        followerWhopUserId: user.whopUserId,
+        originalTradeId: { $in: tradeIds },
+      })
+        .select('originalTradeId action followedTradeId')
+        .lean()
       : [];
 
     // Build action map (single pass)
@@ -408,7 +417,7 @@ export async function GET(request: NextRequest) {
     const follows = allFollows.map((follow) => {
       const capperInfo = capperInfoMap.get(follow.capperWhopUserId || '') || {};
       const remainingPlays = Math.max(0, follow.numPlaysPurchased - follow.numPlaysConsumed);
-      
+
       return {
         followPurchaseId: String(follow._id),
         capper: {
@@ -441,7 +450,7 @@ export async function GET(request: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined,
       timestamp: new Date().toISOString(),
     });
-    
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -45,6 +45,10 @@ export async function DELETE(request: NextRequest) {
             _id: connectionId,
             userId: user._id,
         });
+        
+        // Invalidate broker cache
+        const { invalidateBrokerCache } = await import('@/lib/cache/brokerCache');
+        invalidateBrokerCache(user.whopUserId, String(user._id));
 
         return NextResponse.json({ success: true, message: 'Broker connection disconnected successfully' });
     } catch (error) {

@@ -148,6 +148,10 @@ export async function POST() {
         }
 
         const savedConnection = await connection.save();
+        
+        // Invalidate broker cache
+        const { invalidateBrokerCache } = await import('@/lib/cache/brokerCache');
+        invalidateBrokerCache(user.whopUserId, String(user._id));
 
         // Verify it was saved
         const verifyConnection = await BrokerConnection.findById(savedConnection._id);

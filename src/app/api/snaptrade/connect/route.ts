@@ -149,6 +149,10 @@ export async function POST() {
                 runValidators: true,
             }
         );
+        
+        // Invalidate broker cache
+        const { invalidateBrokerCache } = await import('@/lib/cache/brokerCache');
+        invalidateBrokerCache(user.whopUserId, String(user._id));
 
         // Get login redirect URI with trading permissions enabled
         // connectionType: 'trade' is REQUIRED to enable trading (default is 'read' which is read-only)

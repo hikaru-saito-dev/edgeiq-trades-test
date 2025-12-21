@@ -53,6 +53,11 @@ export interface IUser extends Document {
   // Company-specific memberships (array of company data)
   companyMemberships: CompanyMembership[];
 
+  // Denormalized for performance: most recently accessed membership
+  // This provides O(1) lookup for the common case (single company users)
+  activeCompanyId?: string;
+  activeMembership?: CompanyMembership;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -101,6 +106,8 @@ const UserSchema = new Schema<IUser>({
     type: [CompanyMembershipSchema],
     default: []
   },
+  activeCompanyId: { type: String, index: true },
+  activeMembership: { type: CompanyMembershipSchema, _id: false },
 }, {
   timestamps: true,
 });
