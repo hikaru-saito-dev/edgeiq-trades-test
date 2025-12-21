@@ -53,12 +53,21 @@ async function ensureUserExists(userId: string, companyId?: string): Promise<'co
     const defaultRole: 'companyOwner' | 'member' = isFirstUserInCompany ? 'companyOwner' : 'member';
     const defaultAlias = whopUserData?.name || whopUserData?.username || `User ${userId.slice(0, 8)}`;
 
-    const { user, membership } = await getOrCreateCompanyMembership(
-      userId,
-      companyId,
-      defaultRole,
-      defaultAlias
-    );
+    let user;
+    let membership;
+    try {
+      const result = await getOrCreateCompanyMembership(
+        userId,
+        companyId,
+        defaultRole,
+        defaultAlias
+      );
+      user = result.user;
+      membership = result.membership;
+    } catch (error) {
+      console.error('Error creating/getting company membership:', error);
+      return 'none';
+    }
 
     // Update person-level data from Whop
     const updates: {
@@ -92,7 +101,8 @@ async function ensureUserExists(userId: string, companyId?: string): Promise<'co
     }
 
     return membership.role;
-  } catch {
+  } catch (error) {
+    console.error('Error ensuring user exists:', error);
     return 'none';
   }
 }
@@ -122,7 +132,13 @@ export async function GET(request: NextRequest) {
     // Get user with company membership
     await connectDB();
     const { getUserForCompany } = await import('@/lib/userHelpers');
-    const userResult = await getUserForCompany(userId, companyId);
+    let userResult;
+    try {
+      userResult = await getUserForCompany(userId, companyId);
+    } catch (error) {
+      console.error('Error getting user for company:', error);
+      return NextResponse.json({ role: 'none', isAuthorized: false }, { status: 500 });
+    }
 
     if (!userResult || !userResult.membership) {
       return NextResponse.json({ role: 'none', isAuthorized: false }, { status: 404 });
@@ -141,7 +157,8 @@ export async function GET(request: NextRequest) {
           hideLeaderboardFromMembers = company.hideLeaderboardFromMembers ?? false;
           hideCompanyStatsFromMembers = company.hideCompanyStatsFromMembers ?? false;
         }
-      } catch {
+      } catch (error) {
+        console.error('Error fetching company settings:', error);
         // Use defaults if company lookup fails
       }
     }
@@ -154,7 +171,8 @@ export async function GET(request: NextRequest) {
       hideLeaderboardFromMembers: role === 'member' ? hideLeaderboardFromMembers : undefined,
       hideCompanyStatsFromMembers: (role === 'member' || role === 'admin') ? hideCompanyStatsFromMembers : undefined
     });
-  } catch {
+  } catch (error) {
+    console.error('Error in /api/auth/role:', error);
     return NextResponse.json({ role: 'none', isAuthorized: false }, { status: 500 });
   }
 }

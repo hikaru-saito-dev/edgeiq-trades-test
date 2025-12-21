@@ -161,7 +161,7 @@ let cachedSdk: WhopSdkShape | null = null;
 export function getWhopSdk(): WhopSdkShape {
   const apiKey = process.env.WHOP_API_KEY;
   const appId = process.env.NEXT_PUBLIC_WHOP_APP_ID;
-  
+
   if (!apiKey || !appId) {
     throw new Error('Missing WHOP credentials');
   }
@@ -175,14 +175,14 @@ export function getWhopSdk(): WhopSdkShape {
     appId,
     appApiKey: apiKey,
   };
-  
+
 
   // Initialize base SDK
   const baseSdk = WhopServerSdk(baseOptions) as unknown as WhopSdkShape;
 
   // Cache base SDK if no companyId
   if (cachedSdk) return cachedSdk;
-  
+
   cachedSdk = baseSdk;
   return baseSdk;
 }
@@ -199,14 +199,14 @@ export function getWhopSdk(): WhopSdkShape {
 async function getCompanyIdFromExperience(headers: Headers, requestUrl?: string): Promise<string | undefined> {
   try {
     let experienceId: string | undefined;
-    
+
     // Method 1: Try to get experienceId from direct headers (if Whop sends them)
-    experienceId = headers.get('x-whop-experience-id') || 
-                   headers.get('whop-experience-id') ||
-                   headers.get('x-experience-id') ||
-                   headers.get('experience-id') ||
-                   undefined;
-    
+    experienceId = headers.get('x-whop-experience-id') ||
+      headers.get('whop-experience-id') ||
+      headers.get('x-experience-id') ||
+      headers.get('experience-id') ||
+      undefined;
+
     // Method 2: Extract from URL query parameters and path (PRIMARY METHOD)
     // Your app is configured with: /?experience=[experienceId]
     // So we check the 'experience' query parameter first
@@ -215,22 +215,22 @@ async function getCompanyIdFromExperience(headers: Headers, requestUrl?: string)
       const origin = headers.get('origin') || '';
       // Use requestUrl if provided (for API routes), otherwise use referer/origin
       const url = requestUrl || referer || origin;
-      
+
       if (url) {
         try {
           const urlObj = new URL(url);
-          
+
           // Priority 1: Check 'experience' query parameter (your app config: /?experience=[experienceId])
           // This is the primary method based on your Whop app configuration
           experienceId = urlObj.searchParams.get('experience') || undefined;
-          
+
           // Priority 2: Check other query param variations (fallback)
           if (!experienceId) {
-            experienceId = urlObj.searchParams.get('experienceId') || 
-                          urlObj.searchParams.get('experience_id') ||
-                          undefined;
+            experienceId = urlObj.searchParams.get('experienceId') ||
+              urlObj.searchParams.get('experience_id') ||
+              undefined;
           }
-          
+
           // Priority 3: Check URL path for /experiences/[experienceId] pattern (template approach)
           if (!experienceId) {
             const pathParts = urlObj.pathname.split('/').filter(p => p);
@@ -239,7 +239,7 @@ async function getCompanyIdFromExperience(headers: Headers, requestUrl?: string)
               experienceId = pathParts[experiencesIndex + 1];
             }
           }
-          
+
           // Priority 4: Look for exp_ prefix anywhere in path (fallback)
           if (!experienceId) {
             const pathParts = urlObj.pathname.split('/').filter(p => p);
@@ -253,24 +253,24 @@ async function getCompanyIdFromExperience(headers: Headers, requestUrl?: string)
         }
       }
     }
-    
+
     if (!experienceId) {
       return undefined;
     }
-    
+
     // Retrieve experience using SDK (Whop lead dev approach)
     const whopSdk = getWhopSdk();
     const experienceResult = await whopSdk.experiences.getExperience({ experienceId });
-    
+
     if (experienceResult._error) {
       console.warn('Error retrieving experience:', experienceResult._error);
       return undefined;
     }
-    
+
     // Extract companyId from experience.company.id
     const experience = experienceResult.experience || experienceResult;
     const companyId = experience?.company?.id;
-    
+
     return companyId;
   } catch (error) {
     console.error('Error fetching company ID from experience:', error);
@@ -294,15 +294,15 @@ export async function verifyWhopUser(headers: Headers, requestUrl?: string): Pro
     const whopSdk = getWhopSdk();
     const result = await whopSdk.verifyUserToken(headers);
     if (!result || !result.userId) return null;
-    
-   let companyId: string | undefined;
-    
+
+    let companyId: string | undefined;
+
     // Method 3: Get experienceId from params/URL (template approach) and retrieve experience to get companyId
     // This follows the template pattern: extract experienceId from URL path like /experiences/[experienceId]
     if (!companyId) {
       companyId = await getCompanyIdFromExperience(headers, requestUrl);
     }
-    
+
     return {
       userId: result.userId,
       companyId,
@@ -320,17 +320,17 @@ export async function getWhopCompany(companyId: string): Promise<{ id: string; n
   try {
     const whopSdk = getWhopSdk();
     const result = await whopSdk.companies.getCompany({ companyId });
-    
+
     if (result._error) {
       console.error('Error fetching company:', result._error);
       return { id: companyId };
     }
-    
+
     const company = result.company;
     if (!company) {
       return { id: companyId };
     }
-    
+
     return {
       id: company.id,
       name: company.title || company.id,
@@ -350,18 +350,18 @@ export async function getWhopProducts(companyId: string): Promise<Array<{
 }>> {
   try {
     const whopSdk = getWhopSdk();
-    const result = await whopSdk.accessPasses.listAccessPasses({ 
+    const result = await whopSdk.accessPasses.listAccessPasses({
       companyId,
       first: 100
     });
-    
+
     if (result._error) {
       console.error('Error fetching products:', result._error);
       return [];
     }
-    
+
     const products = result.company?.accessPasses?.nodes || [];
-    
+
     return products
       .filter((product): product is NonNullable<typeof product> => product !== null)
       .map((product) => ({
@@ -404,16 +404,16 @@ export async function getWhopUser(userId: string): Promise<{
 export async function getWhopProductsCount(companyId: string): Promise<number> {
   try {
     const whopSdk = getWhopSdk();
-    const result = await whopSdk.accessPasses.listAccessPasses({ 
+    const result = await whopSdk.accessPasses.listAccessPasses({
       companyId,
       first: 1
     });
-    
+
     if (result._error) {
       console.error('Error fetching products count:', result._error);
       return 0;
     }
-    
+
     return result.company?.accessPasses?.totalCount || 0;
   } catch (error) {
     console.error('Error fetching Whop products count:', error);
@@ -433,24 +433,24 @@ export async function getWhopMembershipPlans(companyId: string): Promise<Array<{
 }>> {
   try {
     const whopSdk = getWhopSdk();
-    const result = await whopSdk.companies.listPlans({ 
+    const result = await whopSdk.companies.listPlans({
       companyId,
       first: 100
     });
-    
+
     if (result._error) {
       console.error('Error fetching plans:', result._error);
       return [];
     }
-    
+
     const plans = result.company?.plans?.nodes || [];
-    
+
     return plans
       .filter((plan): plan is NonNullable<typeof plan> => plan !== null)
       .map((plan) => {
         const isFree = plan.rawInitialPrice === 0 && plan.rawRenewalPrice === 0;
         const isPremium = !isFree;
-        
+
         let priceStr = plan.formattedPrice || 'Free';
         if (plan.rawInitialPrice > 0 && !priceStr.includes('$')) {
           priceStr = `$${plan.rawInitialPrice.toFixed(2)}`;
@@ -462,11 +462,11 @@ export async function getWhopMembershipPlans(companyId: string): Promise<Array<{
             }
           }
         }
-        
-        const checkoutUrl = plan.accessPass?.route 
+
+        const checkoutUrl = plan.accessPass?.route
           ? `https://whop.com/${plan.accessPass.route}`
           : `https://whop.com/checkout/${plan.id}`;
-        
+
         return {
           id: plan.id,
           name: plan.title || plan.id,
@@ -490,16 +490,16 @@ export async function getWhopMembershipPlans(companyId: string): Promise<Array<{
 export async function getWhopMemberCount(companyId: string): Promise<number> {
   try {
     const whopSdk = getWhopSdk();
-    const result = await whopSdk.companies.listMembers({ 
+    const result = await whopSdk.companies.listMembers({
       companyId,
       first: 1 // We only need the total count
     });
-    
+
     if (result._error) {
       console.error('Error fetching member count:', result._error);
       return 0;
     }
-    
+
     return result.company?.members?.totalCount || 0;
   } catch (error) {
     console.error('Error fetching Whop member count:', error);
@@ -535,7 +535,7 @@ export async function getWhopCompanyData(companyId: string): Promise<{
     getWhopMembershipPlans(companyId),
     getWhopMemberCount(companyId),
   ]);
-  
+
   return {
     company: company || { id: companyId },
     products,
@@ -553,10 +553,10 @@ export async function getUserRoleFromDB({ userId, companyId }: { userId: string;
     const { User } = await import('@/models/User');
     const connectDB = await import('@/lib/db').then(m => m.default);
     await connectDB();
-    
+
     const user = await User.findOne({ whopUserId: userId, companyId });
     if (!user) return 'none';
-    
+
     return user.role || 'member';
   } catch {
     return 'none';
