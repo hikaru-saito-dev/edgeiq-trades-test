@@ -34,7 +34,7 @@ export async function getUserForCompany(
         return cached;
     }
 
-    // 2. Query with $elemMatch projection for database-level filtering
+    // 2. Query with aggregation pipeline to filter companyMemberships at database level
     // This only returns the matching membership, not the entire array
     interface LeanUserDoc {
         whopUserId: string;
@@ -48,10 +48,10 @@ export async function getUserForCompany(
         activeMembership?: CompanyMembership;
     }
 
-    const userDoc = await User.findOne(
-        { whopUserId },
+    const userDocs = await User.aggregate([
+        { $match: { whopUserId } },
         {
-            projection: {
+            $project: {
                 whopUserId: 1,
                 whopUsername: 1,
                 whopDisplayName: 1,
@@ -59,13 +59,19 @@ export async function getUserForCompany(
                 followingDiscordWebhook: 1,
                 followingWhopWebhook: 1,
                 companyMemberships: {
-                    $elemMatch: { companyId }
+                    $filter: {
+                        input: '$companyMemberships',
+                        as: 'membership',
+                        cond: { $eq: ['$$membership.companyId', companyId] }
+                    }
                 },
                 activeCompanyId: 1,
                 activeMembership: 1,
             }
         }
-    ).lean() as LeanUserDoc | null;
+    ]).exec();
+
+    const userDoc = (userDocs && userDocs[0]) as LeanUserDoc | null;
 
     if (!userDoc) {
         return null;
