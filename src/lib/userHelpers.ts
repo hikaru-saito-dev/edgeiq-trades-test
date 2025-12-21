@@ -3,7 +3,7 @@
  * These functions abstract the complexity of companyMemberships array
  * 
  * Optimized for Discord-scale performance:
- * - Database-level filtering with $elemMatch projection
+ * - Database-level filtering with aggregation pipeline $filter
  * - In-memory caching with LRU eviction
  * - Denormalized activeMembership for O(1) lookups
  */
@@ -19,7 +19,7 @@ import { userCache, getUserCacheKey, invalidateUserCache } from '@/lib/cache/use
  * Optimizations:
  * 1. Check cache first (O(1))
  * 2. Check denormalized activeMembership field (O(1))
- * 3. Use $elemMatch projection for database-level filtering (only returns matching membership)
+ * 3. Use aggregation pipeline with $filter for database-level filtering (only returns matching membership)
  * 4. Update activeMembership for future fast lookups
  * 5. Cache result for subsequent requests
  */
@@ -92,7 +92,7 @@ export async function getUserForCompany(
         return result;
     }
 
-    // 4. Extract membership from array (should only have one element due to $elemMatch)
+    // 4. Extract membership from array (should only have one element due to $filter)
     const membership = (userDoc.companyMemberships && userDoc.companyMemberships[0]) || null;
 
     // 5. Update activeMembership for future fast lookups (async, don't wait)

@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
-    
+
     const headers = await import('next/headers').then(m => m.headers());
     const userId = headers.get('x-user-id');
     const companyId = headers.get('x-company-id');
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     // Get capperUserId from query params
     const { searchParams } = new URL(request.url);
     const capperUserId = searchParams.get('capperUserId');
@@ -42,17 +42,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     const followerUser = followerResult.user;
-    
+
     if (!followerUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Find capper (creator being followed)
-    const capperUser = await User.findById(capperUserId);
+    // Find capper (creator being followed) by whopUserId
+    // capperUserId is a Whop user ID string, not a MongoDB ObjectId
+    const capperUser = await User.findOne({ whopUserId: capperUserId });
     if (!capperUser) {
       return NextResponse.json({ error: 'Capper not found' }, { status: 404 });
     }
-    
+
     // Ensure both users have whopUserId for person-level tracking
     if (!followerUser.whopUserId || !capperUser.whopUserId) {
       return NextResponse.json({

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { waitUntil } from '@vercel/functions';
 import crypto from 'crypto';
 import connectDB from '@/lib/db';
-import { User } from '@/models/User';
+import { CompanyMembership, User } from '@/models/User';
 import { FollowPurchase } from '@/models/FollowPurchase';
 
 const WEBHOOK_SECRET = process.env.WHOP_WEBHOOK_SECRET;
@@ -263,15 +263,44 @@ async function handlePaymentSucceeded(paymentData: WhopWebhookPayload['data']): 
     }
 
     // Find the capper (content creator being followed)
-    const capperUser = await User.findById(capperUserId);
+    // capperUserId might be MongoDB ObjectId (from metadata) or whopUserId (from query params)
+    // Try ObjectId first, then fallback to whopUserId
+    let capperUser = null;
+    try {
+      // Try as ObjectId first (from metadata created in checkout)
+      const mongoose = await import('mongoose');
+      if (mongoose.Types.ObjectId.isValid(capperUserId as string)) {
+        capperUser = await User.findById(capperUserId);
+      }
+    } catch {
+      // Not a valid ObjectId, continue to whopUserId lookup
+    }
+
+    // If not found by ObjectId, try whopUserId
+    if (!capperUser) {
+      capperUser = await User.findOne({ whopUserId: capperUserId });
+    }
 
     if (!capperUser || !capperUser.whopUserId) {
       return;
     }
 
-    // Verify follow offer is still enabled
-    if (!capperUser.followOfferEnabled) {
-      return;
+    // Verify follow offer is still enabled - check in membership
+    // Need to find the membership that has followOfferEnabled
+    const { getUserForCompany } = await import('@/lib/userHelpers');
+    if (capperCompanyId && typeof capperCompanyId === 'string') {
+      const capperResult = await getUserForCompany(capperUser.whopUserId, capperCompanyId);
+      if (!capperResult?.membership?.followOfferEnabled) {
+        return;
+      }
+    } else {
+      // Fallback: check if any membership has followOfferEnabled
+      const hasFollowOffer = capperUser.companyMemberships?.some(
+        (m: CompanyMembership) => m.followOfferEnabled
+      );
+      if (!hasFollowOffer) {
+        return;
+      }
     }
 
     // Verify follower is not trying to follow themselves (by whopUserId - person level)
@@ -309,7 +338,7 @@ async function handlePaymentSucceeded(paymentData: WhopWebhookPayload['data']): 
       });
 
       await followPurchase.save();
-      
+
       // Invalidate follow cache for the follower
       const { invalidateFollowCache } = await import('@/lib/cache/followCache');
       invalidateFollowCache(followerUser.whopUserId);
