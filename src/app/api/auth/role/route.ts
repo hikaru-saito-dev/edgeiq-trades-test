@@ -12,13 +12,12 @@ export const runtime = 'nodejs';
  * First user in each company becomes companyOwner
  */
 async function ensureUserExists(userId: string, companyId?: string): Promise<'companyOwner' | 'owner' | 'admin' | 'member' | 'none'> {
+  if (!companyId) {
+    return 'none';
+  }
+
   try {
     await connectDB();
-
-    if (!companyId) {
-      // If no companyId, user can't be created/authenticated
-      return 'none';
-    }
 
     // Always try to fetch latest user data from Whop API
     let whopUserData = null;
@@ -32,13 +31,23 @@ async function ensureUserExists(userId: string, companyId?: string): Promise<'co
 
     // Get or create company
     if (whopCompanyData) {
-      await getOrCreateCompany(companyId, userId, whopCompanyData.name);
+      try {
+        await getOrCreateCompany(companyId, userId, whopCompanyData.name);
+      } catch {
+        // Continue even if company creation fails
+      }
     }
 
     // Check if this is the first user in this company
-    const { getUsersInCompanyByRole } = await import('@/lib/userHelpers');
-    const existingOwners = await getUsersInCompanyByRole(companyId, ['companyOwner', 'owner']);
-    const isFirstUserInCompany = existingOwners.length === 0;
+    let isFirstUserInCompany = false;
+    try {
+      const { getUsersInCompanyByRole } = await import('@/lib/userHelpers');
+      const existingOwners = await getUsersInCompanyByRole(companyId, ['companyOwner', 'owner']);
+      isFirstUserInCompany = existingOwners.length === 0;
+    } catch {
+      // Assume not first user if check fails
+      isFirstUserInCompany = false;
+    }
 
     // Get or create user membership
     const defaultRole: 'companyOwner' | 'member' = isFirstUserInCompany ? 'companyOwner' : 'member';
@@ -74,13 +83,16 @@ async function ensureUserExists(userId: string, companyId?: string): Promise<'co
 
     // Update user if there are changes
     if (Object.keys(updates).length > 0) {
-      Object.assign(user, updates);
-      await user.save();
+      try {
+        Object.assign(user, updates);
+        await user.save();
+      } catch {
+        // Continue even if save fails
+      }
     }
 
     return membership.role;
-  } catch (error) {
-    console.error('Error ensuring user exists:', error);
+  } catch {
     return 'none';
   }
 }
@@ -103,6 +115,10 @@ export async function GET(request: NextRequest) {
     // Ensure user exists (companyId is auto-set from Whop)
     const role = await ensureUserExists(userId, companyId);
 
+    if (role === 'none') {
+      return NextResponse.json({ role: 'none', isAuthorized: false }, { status: 401 });
+    }
+
     // Get user with company membership
     await connectDB();
     const { getUserForCompany } = await import('@/lib/userHelpers');
@@ -119,10 +135,14 @@ export async function GET(request: NextRequest) {
     let hideLeaderboardFromMembers = false;
     let hideCompanyStatsFromMembers = false;
     if (role === 'member' || role === 'admin') {
-      const company = await Company.findOne({ companyId });
-      if (company) {
-        hideLeaderboardFromMembers = company.hideLeaderboardFromMembers ?? false;
-        hideCompanyStatsFromMembers = company.hideCompanyStatsFromMembers ?? false;
+      try {
+        const company = await Company.findOne({ companyId });
+        if (company) {
+          hideLeaderboardFromMembers = company.hideLeaderboardFromMembers ?? false;
+          hideCompanyStatsFromMembers = company.hideCompanyStatsFromMembers ?? false;
+        }
+      } catch {
+        // Use defaults if company lookup fails
       }
     }
 

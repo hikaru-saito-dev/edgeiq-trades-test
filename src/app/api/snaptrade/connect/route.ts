@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
-import { User } from '@/models/User';
 import { BrokerConnection } from '@/models/BrokerConnection';
 import { Snaptrade } from 'snaptrade-typescript-sdk';
 import { encrypt, decrypt } from '@/lib/encryption';
