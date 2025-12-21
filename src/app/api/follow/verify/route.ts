@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import { User } from '@/models/User';
+import { Company } from '@/models/Company';
 import { FollowPurchase } from '@/models/FollowPurchase';
 
 export const runtime = 'nodejs';
@@ -11,6 +12,8 @@ export const runtime = 'nodejs';
  * Checks:
  * 1. User cannot follow themselves (by whopUserId - person level)
  * 2. User hasn't already followed this capper (by whopUserId - person level, across all companies)
+ * 
+ * Note: capperUserId parameter is actually a companyId (from leaderboard entry.userId)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -24,11 +27,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get capperUserId from query params
+    // Get capperUserId from query params (actually a companyId from leaderboard)
     const { searchParams } = new URL(request.url);
-    const capperUserId = searchParams.get('capperUserId');
+    const capperCompanyId = searchParams.get('capperUserId');
 
-    if (!capperUserId) {
+    if (!capperCompanyId) {
       return NextResponse.json({ error: 'Missing capperUserId parameter' }, { status: 400 });
     }
 
@@ -47,9 +50,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Find capper (creator being followed) by whopUserId
-    // capperUserId is a Whop user ID string, not a MongoDB ObjectId
-    const capperUser = await User.findOne({ whopUserId: capperUserId });
+    // Find the company being followed
+    const capperCompany = await Company.findOne({ companyId: capperCompanyId });
+    if (!capperCompany) {
+      return NextResponse.json({ error: 'Capper company not found' }, { status: 404 });
+    }
+
+    // Find capper (company owner) by whopUserId
+    const capperUser = await User.findOne({ whopUserId: capperCompany.companyOwnerWhopUserId });
     if (!capperUser) {
       return NextResponse.json({ error: 'Capper not found' }, { status: 404 });
     }
