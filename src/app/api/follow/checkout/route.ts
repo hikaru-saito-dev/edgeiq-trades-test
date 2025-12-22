@@ -20,7 +20,7 @@ const whopClient = new Whop({
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
-
+    
     const headers = await import('next/headers').then(m => m.headers());
     const userId = headers.get('x-user-id');
     const companyId = headers.get('x-company-id');
@@ -43,11 +43,11 @@ export async function POST(request: NextRequest) {
       validated = checkoutSchema.parse(body);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return NextResponse.json(
+      return NextResponse.json(
           { error: 'Validation error', details: error.errors },
-          { status: 400 }
-        );
-      }
+        { status: 400 }
+      );
+    }
       return NextResponse.json(
         { error: 'Invalid request data' },
         { status: 400 }
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       affiliate_code: capperUsername,
       metadata: {
         followPurchase: true,
-        project: 'Trade',
+        project: 'trade_follow',
         capperUserId: capperIdString,
         capperCompanyId: membership.companyId || companyId,
         numPlays,
@@ -123,10 +123,10 @@ export async function POST(request: NextRequest) {
     // Remove all existing query parameters, remove trailing slash, and add only ?a=username
     const url = new URL(purchaseUrl);
     url.search = ''; // Clear all existing query parameters (including session)
-
+    
     // Remove trailing slash from pathname
     url.pathname = url.pathname.replace(/\/$/, '');
-
+    
     // Add affiliate code
     url.searchParams.set('a', capperUsername);
     const finalCheckoutUrl = url.toString();

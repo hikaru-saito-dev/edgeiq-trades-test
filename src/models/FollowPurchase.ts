@@ -8,7 +8,7 @@ export interface IFollowPurchase extends Document {
   companyId: string; // Company ID (capper's company, for tracking/filtering follows by company)
   numPlaysPurchased: number; // Number of plays user paid for
   numPlaysConsumed: number; // Number of plays already delivered
-  status: 'active' | 'completed'; // active = still has plays remaining, completed = all plays delivered
+  status: 'active' | 'completed' | 'refunded'; // active = still has plays remaining, completed = all plays delivered, refunded = payment was refunded
   planId: string; // Whop plan ID used for this purchase
   paymentId: string; // Whop payment ID (from webhook)
   createdAt: Date;
@@ -57,7 +57,7 @@ const FollowPurchaseSchema = new Schema<IFollowPurchase>(
     },
     status: {
       type: String,
-      enum: ['active', 'completed'],
+      enum: ['active', 'completed', 'refunded'],
       required: true,
       default: 'active',
       index: true,

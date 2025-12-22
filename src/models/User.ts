@@ -50,6 +50,9 @@ export interface IUser extends Document {
   followingDiscordWebhook?: string;
   followingWhopWebhook?: string;
 
+  // AutoIQ subscription status
+  hasAutoIQ?: boolean;
+
   // Company-specific memberships (array of company data)
   companyMemberships: CompanyMembership[];
 
@@ -102,6 +105,7 @@ const UserSchema = new Schema<IUser>({
   whopAvatarUrl: { type: String, trim: true },
   followingDiscordWebhook: { type: String, trim: true },
   followingWhopWebhook: { type: String, trim: true },
+  hasAutoIQ: { type: Boolean, default: false },
   companyMemberships: {
     type: [CompanyMembershipSchema],
     default: []

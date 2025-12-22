@@ -132,7 +132,6 @@ export async function POST() {
             {
                 $set: {
                     whopUserId: user.whopUserId,
-                    companyId: companyId || undefined,
                     snaptradeUserId,
                     snaptradeUserSecret: encryptedSecret,
                     isActive: false, // Will be activated after OAuth completes
@@ -148,7 +147,7 @@ export async function POST() {
                 runValidators: true,
             }
         );
-        
+
         // Invalidate broker cache
         const { invalidateBrokerCache } = await import('@/lib/cache/brokerCache');
         invalidateBrokerCache(user.whopUserId, String(user._id));

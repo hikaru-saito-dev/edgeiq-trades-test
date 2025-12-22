@@ -18,17 +18,17 @@ async function ensureUserExists(userId: string, companyId?: string): Promise<'co
 
   try {
     await connectDB();
-
+    
     // Always try to fetch latest user data from Whop API
     let whopUserData = null;
     let whopCompanyData = null;
     try {
       whopUserData = await getWhopUser(userId);
-      whopCompanyData = await getWhopCompany(companyId);
+        whopCompanyData = await getWhopCompany(companyId);
     } catch {
       // Continue even if Whop API calls fail
     }
-
+    
     // Get or create company
     if (whopCompanyData) {
       try {
@@ -38,7 +38,7 @@ async function ensureUserExists(userId: string, companyId?: string): Promise<'co
       }
     }
 
-    // Check if this is the first user in this company
+      // Check if this is the first user in this company
     let isFirstUserInCompany = false;
     try {
       const { getUsersInCompanyByRole } = await import('@/lib/userHelpers');
@@ -67,31 +67,31 @@ async function ensureUserExists(userId: string, companyId?: string): Promise<'co
     } catch (error) {
       console.error('Error creating/getting company membership:', error);
       return 'none';
-    }
-
+      }
+      
     // Update person-level data from Whop
-    const updates: {
-      whopUsername?: string;
-      whopDisplayName?: string;
-      whopAvatarUrl?: string;
-    } = {};
-
-    if (whopUserData) {
-      if (whopUserData.username && whopUserData.username !== user.whopUsername) {
-        updates.whopUsername = whopUserData.username;
-      }
-      if (whopUserData.name && whopUserData.name !== user.whopDisplayName) {
-        updates.whopDisplayName = whopUserData.name;
-      }
-      if (whopUserData.profilePicture?.sourceUrl) {
-        if (whopUserData.profilePicture.sourceUrl !== user.whopAvatarUrl) {
-          updates.whopAvatarUrl = whopUserData.profilePicture.sourceUrl;
+      const updates: {
+        whopUsername?: string;
+        whopDisplayName?: string;
+        whopAvatarUrl?: string;
+      } = {};
+      
+      if (whopUserData) {
+        if (whopUserData.username && whopUserData.username !== user.whopUsername) {
+          updates.whopUsername = whopUserData.username;
+        }
+        if (whopUserData.name && whopUserData.name !== user.whopDisplayName) {
+          updates.whopDisplayName = whopUserData.name;
+        }
+        if (whopUserData.profilePicture?.sourceUrl) {
+          if (whopUserData.profilePicture.sourceUrl !== user.whopAvatarUrl) {
+            updates.whopAvatarUrl = whopUserData.profilePicture.sourceUrl;
+          }
         }
       }
-    }
-
+      
     // Update user if there are changes
-    if (Object.keys(updates).length > 0) {
+      if (Object.keys(updates).length > 0) {
       try {
         Object.assign(user, updates);
         await user.save();
@@ -99,7 +99,7 @@ async function ensureUserExists(userId: string, companyId?: string): Promise<'co
         // Continue even if save fails
       }
     }
-
+    
     return membership.role;
   } catch (error) {
     console.error('Error ensuring user exists:', error);
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
   try {
     const headers = await import('next/headers').then(m => m.headers());
     const authInfo = await verifyWhopUser(headers, request.url);
-
+    
     if (!authInfo) {
       return NextResponse.json({ role: 'none', isAuthorized: false }, { status: 401 });
     }
@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
 
     // Ensure user exists (companyId is auto-set from Whop)
     const role = await ensureUserExists(userId, companyId);
-
+    
     if (role === 'none') {
       return NextResponse.json({ role: 'none', isAuthorized: false }, { status: 401 });
     }
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
     if (!userResult || !userResult.membership) {
       return NextResponse.json({ role: 'none', isAuthorized: false }, { status: 404 });
     }
-
+    
     // Users are authorized if they're companyOwner/owner/admin/member (members can create trades and view profile)
     const isAuthorized = role === 'companyOwner' || role === 'owner' || role === 'admin' || role === 'member';
 
@@ -163,8 +163,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      role,
+    return NextResponse.json({ 
+      role, 
       userId,
       companyId: companyId || null,
       isAuthorized,

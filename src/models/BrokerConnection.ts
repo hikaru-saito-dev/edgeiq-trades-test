@@ -3,7 +3,6 @@ import mongoose, { Schema, Document, Types } from 'mongoose';
 export interface IBrokerConnection extends Document {
     userId: Types.ObjectId;
     whopUserId: string; // Whop user ID for person-level tracking
-    companyId?: string; // Company ID (optional)
     brokerType: 'snaptrade';
     isActive: boolean;
 
@@ -31,7 +30,6 @@ export interface IBrokerConnection extends Document {
 const BrokerConnectionSchema = new Schema<IBrokerConnection>({
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     whopUserId: { type: String, required: true, index: true },
-    companyId: { type: String, index: true },
     brokerType: { type: String, enum: ['snaptrade'], required: true, default: 'snaptrade' },
     isActive: { type: Boolean, default: true, index: true },
 
