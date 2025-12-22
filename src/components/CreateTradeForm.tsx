@@ -193,7 +193,7 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
     e.preventDefault();
 
     if (!marketOpen) {
-      toast.showError('Market is closed. Trades can only be created between 09:30–16:30 EST.');
+      toast.showError('Market is closed. Trades can only be created between 09:30–16:00 EST.');
       return;
     }
 

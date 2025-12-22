@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     if (!isMarketOpen(now)) {
       return NextResponse.json({
-        error: 'Market is closed. Trades can only be created/settled between 09:30–16:30 EST.',
+        error: 'Market is closed. Trades can only be created/settled between 09:30–16:00 EST.',
       }, { status: 400 });
     }
 

@@ -1,6 +1,6 @@
 /**
  * Market hours utility for US equity options trading
- * Market hours: 09:30 - 16:30 EST (Eastern Standard Time)
+ * Market hours: 09:30 - 16:00 EST (Eastern Standard Time)
  * Note: EST is UTC-5, EDT (daylight saving) is UTC-4
  */
 
@@ -35,7 +35,7 @@ export function convertToEST(utcTimestamp: Date): Date {
 }
 
 /**
- * Check if market is currently open (09:30 - 16:30 EST)
+ * Check if market is currently open (09:30 - 16:00 EST)
  * @param timestamp - Optional timestamp to check (defaults to now)
  * @returns true if market is open, false otherwise
  * 
@@ -67,11 +67,11 @@ export function isMarketOpen(timestamp?: Date): boolean {
     return false;
   }
 
-  // Market hours: 09:30 - 16:30 EST
+  // Market hours: 09:30 - 16:00 EST
   const marketOpenHour = 9;
   const marketOpenMinute = 30;
   const marketCloseHour = 16;
-  const marketCloseMinute = 30;
+  const marketCloseMinute = 0;
 
   // Check if before market open
   if (hour < marketOpenHour || (hour === marketOpenHour && minute < marketOpenMinute)) {
@@ -94,7 +94,7 @@ export function getMarketStatusMessage(): string {
   const now = new Date();
 
   if (isMarketOpen(now)) {
-    // Calculate minutes until close (16:30 EST)
+    // Calculate minutes until close (16:00 EST)
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/New_York',
       hour: '2-digit',
@@ -106,7 +106,7 @@ export function getMarketStatusMessage(): string {
     const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
 
     const currentMinutes = hour * 60 + minute;
-    const closeMinutes = 16 * 60 + 30; // 16:30
+    const closeMinutes = 16 * 60 + 0; // 16:00
     const minutesUntilClose = closeMinutes - currentMinutes;
 
     return `Market is open. Closes in ${minutesUntilClose} minutes.`;
@@ -120,17 +120,17 @@ export function getMarketStatusMessage(): string {
   const weekday = weekdayFormatter.format(now);
 
   if (weekday === 'Sat' || weekday === 'Sun') {
-    return 'Market is closed (weekend). Trades can only be created/settled between 09:30–16:30 EST on weekdays.';
+    return 'Market is closed (weekend). Trades can only be created/settled between 09:30–16:00 EST on weekdays.';
   }
 
   // Before or after market hours
-  return 'Market is closed. Trades can only be created/settled between 09:30–16:30 EST.';
+  return 'Market is closed. Trades can only be created/settled between 09:30–16:00 EST.';
 }
 
 /**
  * Get formatted market hours string
  */
 export function getMarketHoursString(): string {
-  return '09:30–16:30 EST';
+  return '09:30–16:00 EST';
 }
 
