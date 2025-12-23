@@ -359,26 +359,14 @@ export default function AutoIQPage() {
                                     },
                                 }}
                             >
-                                {loadingBrokers ? (
-                                    <MenuItem value="">
-                                        <em>Loading accounts...</em>
-                                    </MenuItem>
-                                ) : brokerAccounts.length === 0 ? (
-                                    <MenuItem value="">
-                                        <em>No broker accounts connected</em>
-                                    </MenuItem>
-                                ) : (
-                                    <>
+                                
                                         <MenuItem value="">None (use first available)</MenuItem>
-                                        {brokerAccounts.map((account) => (
+                                        {brokerAccounts.length > 0 && brokerAccounts.map((account) => (
                                             <MenuItem key={account.id} value={String(account.id)}>
                                                 {account.brokerName} - {account.accountName}
                                                 {account.accountNumber && ` (${account.accountNumber})`}
                                             </MenuItem>
                                         ))}
-                                    </>
-                                )}
-
                             </Select>
                         </FormControl>
                     </Box>
