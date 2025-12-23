@@ -1,7 +1,7 @@
 'use client';
 
 import { Container, Box, Typography, Paper, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel, Button, CircularProgress, Alert } from '@mui/material';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAccess } from '@/components/AccessProvider';
 import { useToast } from '@/components/ToastProvider';
 import { apiRequest } from '@/lib/apiClient';
@@ -12,14 +12,9 @@ export default function AutoIQPage() {
     const [autoTradeMode, setAutoTradeMode] = useState<'auto-trade' | 'notify-only'>('notify-only');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const upgradeUrl = process.env.NEXT_PUBLIC_WHOP_AUTOIQ_PLAN_ID ? `https://whop.com/checkout/${process.env.NEXT_PUBLIC_WHOP_AUTOIQ_PLAN_ID}` : 'https://whop.com/checkout/';
 
-    useEffect(() => {
-        if (!accessLoading && isAuthorized && userId && companyId) {
-            fetchSettings();
-        }
-    }, [accessLoading, isAuthorized, userId, companyId]);
-
-    const fetchSettings = async () => {
+    const fetchSettings = useCallback(async () => {
         if (!userId || !companyId) return;
         setLoading(true);
         try {
@@ -36,7 +31,17 @@ export default function AutoIQPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [userId, companyId, toast]);
+
+    useEffect(() => {
+        if (!accessLoading && isAuthorized && userId && companyId && hasAutoIQ) {
+            fetchSettings();
+        } else if (!hasAutoIQ) {
+            // Don't show loading for non-subscribers
+            setLoading(false);
+        }
+    }, [accessLoading, isAuthorized, userId, companyId, hasAutoIQ, fetchSettings]);
+
 
     const handleSave = async () => {
         if (!userId || !companyId) return;
@@ -83,16 +88,71 @@ export default function AutoIQPage() {
 
     if (!hasAutoIQ) {
         return (
-            <Container maxWidth="md" sx={{ py: 8 }}>
-                <Alert severity="info">
-                    <Typography variant="h6" gutterBottom>
-                        AutoIQ Subscription Required
+            <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
+                <Box sx={{ mb: 4 }}>
+                    <Typography
+                        variant="h4"
+                        component="h1"
+                        sx={{
+                            fontWeight: 700,
+                            mb: 1,
+                            background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
+                        }}
+                    >
+                        AutoIQ
                     </Typography>
-                    <Typography>
-                        You need an active AutoIQ subscription to access automated trading features.
-                        Please subscribe to AutoIQ to enable automatic trade execution.
+                    <Typography variant="body1" color="text.secondary">
+                        Automated trading for followed creators.
                     </Typography>
-                </Alert>
+                </Box>
+
+                <Paper
+                    sx={{
+                        p: 4,
+                        bgcolor: 'var(--surface-bg)',
+                        backdropFilter: 'blur(6px)',
+                        borderRadius: 2,
+                        border: '1px solid var(--surface-border)',
+                        textAlign: 'center',
+                    }}
+                >
+                    <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
+                        Upgrade to AutoIQ
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+                        Get access to automated trading features. Automatically mirror trades from followed creators
+                        to your connected broker with customizable risk settings.
+                    </Typography>
+                    <Button
+                        variant="contained"
+                        size="large"
+                        onClick={() => {
+                            // Manual upgrade - user will handle this
+                            window.open(upgradeUrl, '_blank');
+                        }}
+                        sx={{
+                            background: 'linear-gradient(135deg, #22c55e, #059669)',
+                            color: '#ffffff',
+                            px: 6,
+                            py: 1.5,
+                            fontWeight: 600,
+                            textTransform: 'none',
+                            borderRadius: 2,
+                            boxShadow: '0 4px 12px rgba(34, 197, 94, 0.3)',
+                            '&:hover': {
+                                background: 'linear-gradient(135deg, #16a34a, #047857)',
+                                boxShadow: '0 6px 16px rgba(34, 197, 94, 0.4)',
+                                transform: 'translateY(-1px)',
+                            },
+                            transition: 'all 0.2s ease',
+                        }}
+                    >
+                        Upgrade Now
+                    </Button>
+                </Paper>
             </Container>
         );
     }

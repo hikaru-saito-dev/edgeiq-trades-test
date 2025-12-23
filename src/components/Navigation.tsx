@@ -49,7 +49,7 @@ export default function Navigation() {
     ...(!loading && isAuthorized && !(role === 'member' && hideLeaderboardFromMembers)
       ? [{ label: 'Leaderboard', href: '/leaderboard' }]
       : []),
-    ...(isAuthorized && !loading && hasAutoIQ ? [{ label: 'AutoIQ', href: '/autoiq' }] : []),
+    ...(isAuthorized && !loading ? [{ label: 'AutoIQ', href: '/autoiq' }] : []),
     ...(isAuthorized && !loading ? [{ label: 'Profile', href: '/profile' }] : []),
     ...((role === 'companyOwner' || role === 'owner') && !loading ? [{ label: 'Users', href: '/users' }] : []),
   ];
@@ -218,7 +218,7 @@ export default function Navigation() {
             Leaderboard
           </Button>
             )}
-            {!loading && isAuthorized && hasAutoIQ && (
+            {!loading && isAuthorized && (
               <Button
                 component={Link}
                 href="/autoiq"
