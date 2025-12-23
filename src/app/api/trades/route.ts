@@ -88,6 +88,8 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * pageSize;
     const tradeFillCollection = TradeFill.collection.name;
+    const { FollowedTradeAction } = await import('@/models/FollowedTradeAction');
+    const followedTradeActionCollection = FollowedTradeAction.collection.name;
 
     const pipeline: PipelineStage[] = [
       { $match: matchQuery },
@@ -106,6 +108,27 @@ export async function GET(request: NextRequest) {
                   { $sort: { createdAt: -1 } },
                 ],
                 as: 'fills',
+              },
+            },
+            {
+              $lookup: {
+                from: followedTradeActionCollection,
+                let: { tradeId: '$_id' },
+                pipeline: [
+                  { $match: { $expr: { $eq: ['$followedTradeId', '$$tradeId'] } } },
+                  { $limit: 1 },
+                ],
+                as: 'followedTradeAction',
+              },
+            },
+            {
+              $addFields: {
+                isFollowedTrade: { $gt: [{ $size: '$followedTradeAction' }, 0] },
+              },
+            },
+            {
+              $project: {
+                followedTradeAction: 0, // Remove the lookup result, keep only the flag
               },
             },
           ],
@@ -520,6 +543,15 @@ export async function POST(request: NextRequest) {
         });
       }).catch((err) => {
         console.error('Error importing notifyFollowers:', err);
+      });
+
+      // Auto-trade for followers with AutoIQ enabled (outside transaction - fire and forget)
+      import('@/lib/autoiq').then(({ autoTradeForFollowers }) => {
+        autoTradeForFollowers(tradeResult, user).catch((autoTradeError) => {
+          console.error('Error auto-trading for followers:', autoTradeError);
+        });
+      }).catch((err) => {
+        console.error('Error importing autoTradeForFollowers:', err);
       });
 
       invalidateLeaderboardCache();

@@ -249,6 +249,7 @@ const updateUserSchema = z.object({
   followOfferNumPlays: z.number().int().min(1).optional(),
   followOfferCheckoutUrl: z.string().url().optional().nullable(),
   autoTradeMode: z.enum(['auto-trade', 'notify-only']).optional(),
+  defaultBrokerConnectionId: z.string().optional().nullable(),
 });
 
 /**
@@ -366,6 +367,7 @@ export async function GET() {
         followOfferCheckoutUrl: membership.followOfferCheckoutUrl ?? null,
         hasAutoIQ: user.hasAutoIQ ?? false,
         autoTradeMode: user.autoTradeMode ?? 'notify-only',
+        defaultBrokerConnectionId: user.defaultBrokerConnectionId ? String(user.defaultBrokerConnectionId) : null,
       },
       personalStats,
       companyStats, // Only for owners with companyId
@@ -534,6 +536,33 @@ export async function PATCH(request: NextRequest) {
         );
       }
       userUpdates.autoTradeMode = validated.autoTradeMode;
+    }
+    // Update default broker connection for AutoIQ (only if user has AutoIQ subscription)
+    if (validated.defaultBrokerConnectionId !== undefined) {
+      if (!user.hasAutoIQ) {
+        return NextResponse.json(
+          { error: 'AutoIQ subscription required to set default broker connection' },
+          { status: 403 }
+        );
+      }
+      // Validate that the broker connection exists and belongs to the user
+      if (validated.defaultBrokerConnectionId) {
+        const { BrokerConnection } = await import('@/models/BrokerConnection');
+        const brokerConnection = await BrokerConnection.findOne({
+          _id: validated.defaultBrokerConnectionId,
+          whopUserId: user.whopUserId,
+          isActive: true,
+        });
+        if (!brokerConnection) {
+          return NextResponse.json(
+            { error: 'Broker connection not found or not active' },
+            { status: 404 }
+          );
+        }
+        userUpdates.defaultBrokerConnectionId = brokerConnection._id;
+      } else {
+        userUpdates.defaultBrokerConnectionId = undefined;
+      }
     }
 
     if (Object.keys(userUpdates).length > 0) {

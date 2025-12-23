@@ -54,6 +54,8 @@ export interface IUser extends Document {
   hasAutoIQ?: boolean;
   // AutoIQ mode: 'auto-trade' (mirror trades automatically) or 'notify-only' (manual execution)
   autoTradeMode?: 'auto-trade' | 'notify-only';
+  // Default broker connection to use for AutoIQ auto-trading
+  defaultBrokerConnectionId?: mongoose.Types.ObjectId;
 
   // Company-specific memberships (array of company data)
   companyMemberships: CompanyMembership[];
@@ -109,6 +111,7 @@ const UserSchema = new Schema<IUser>({
   followingWhopWebhook: { type: String, trim: true },
   hasAutoIQ: { type: Boolean, default: false },
   autoTradeMode: { type: String, enum: ['auto-trade', 'notify-only'], default: 'notify-only' },
+  defaultBrokerConnectionId: { type: Schema.Types.ObjectId, ref: 'BrokerConnection' },
   companyMemberships: {
     type: [CompanyMembershipSchema],
     default: []

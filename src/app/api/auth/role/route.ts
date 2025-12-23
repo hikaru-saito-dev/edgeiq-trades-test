@@ -163,8 +163,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get hasAutoIQ from user
+    // Get hasAutoIQ and autoTradeMode from user
     const hasAutoIQ = userResult.user.hasAutoIQ ?? false;
+    const autoTradeMode = userResult.user.autoTradeMode || 'notify-only';
 
     return NextResponse.json({
       role,
@@ -172,6 +173,7 @@ export async function GET(request: NextRequest) {
       companyId: companyId || null,
       isAuthorized,
       hasAutoIQ,
+      autoTradeMode,
       hideLeaderboardFromMembers: role === 'member' ? hideLeaderboardFromMembers : undefined,
       hideCompanyStatsFromMembers: (role === 'member' || role === 'admin') ? hideCompanyStatsFromMembers : undefined
     });

@@ -1,15 +1,26 @@
 'use client';
 
-import { Container, Box, Typography, Paper, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel, Button, CircularProgress, Alert } from '@mui/material';
+import { Container, Box, Typography, Paper, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel, Button, CircularProgress, Alert, Select, MenuItem, InputLabel } from '@mui/material';
 import { useState, useEffect, useCallback } from 'react';
 import { useAccess } from '@/components/AccessProvider';
 import { useToast } from '@/components/ToastProvider';
 import { apiRequest } from '@/lib/apiClient';
 
+interface BrokerAccount {
+    id: string;
+    brokerName: string;
+    accountName: string;
+    accountNumber?: string;
+    buyingPower?: number;
+}
+
 export default function AutoIQPage() {
     const { isAuthorized, userId, companyId, hasAutoIQ, loading: accessLoading } = useAccess();
     const toast = useToast();
     const [autoTradeMode, setAutoTradeMode] = useState<'auto-trade' | 'notify-only'>('notify-only');
+    const [defaultBrokerConnectionId, setDefaultBrokerConnectionId] = useState<string>('');
+    const [brokerAccounts, setBrokerAccounts] = useState<BrokerAccount[]>([]);
+    const [loadingBrokers, setLoadingBrokers] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [upgradeUrl, setUpgradeUrl] = useState<string>('https://whop.com/checkout/');
@@ -27,6 +38,28 @@ export default function AutoIQPage() {
         }
     }, [userId, companyId]);
 
+    const loadBrokerAccounts = useCallback(async () => {
+        if (!userId || !companyId) return;
+        setLoadingBrokers(true);
+        try {
+            const response = await apiRequest('/api/snaptrade/accounts', {
+                method: 'GET',
+                userId,
+                companyId,
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.accounts) {
+                    setBrokerAccounts(data.accounts);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading broker accounts:', error);
+        } finally {
+            setLoadingBrokers(false);
+        }
+    }, [userId, companyId]);
+
     const fetchSettings = useCallback(async () => {
         if (!userId || !companyId) return;
         setLoading(true);
@@ -35,6 +68,7 @@ export default function AutoIQPage() {
             if (response.ok) {
                 const data = await response.json();
                 setAutoTradeMode(data.user.autoTradeMode || 'notify-only');
+                setDefaultBrokerConnectionId(data.user.defaultBrokerConnectionId || '');
             } else {
                 toast.showError('Failed to load AutoIQ settings');
             }
@@ -52,13 +86,14 @@ export default function AutoIQPage() {
             fetchCheckoutUrl();
 
             if (hasAutoIQ && userId && companyId) {
+                loadBrokerAccounts();
                 fetchSettings();
             } else if (!hasAutoIQ) {
                 // Don't show loading for non-subscribers
                 setLoading(false);
             }
         }
-    }, [accessLoading, isAuthorized, userId, companyId, hasAutoIQ, fetchSettings, fetchCheckoutUrl]);
+    }, [accessLoading, isAuthorized, userId, companyId, hasAutoIQ, fetchSettings, fetchCheckoutUrl, loadBrokerAccounts]);
 
 
     const handleSave = async () => {
@@ -67,7 +102,10 @@ export default function AutoIQPage() {
         try {
             const response = await apiRequest('/api/user', {
                 method: 'PATCH',
-                body: JSON.stringify({ autoTradeMode }),
+                body: JSON.stringify({
+                    autoTradeMode,
+                    defaultBrokerConnectionId: defaultBrokerConnectionId || null,
+                }),
                 userId,
                 companyId,
             });
@@ -294,6 +332,62 @@ export default function AutoIQPage() {
                         />
                     </RadioGroup>
                 </FormControl>
+
+                {autoTradeMode === 'auto-trade' && (
+                    <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid var(--surface-border)' }}>
+                        <FormControl fullWidth sx={{ mb: 2 }}>
+                            <InputLabel id="default-broker-label" sx={{ color: 'var(--app-text)' }}>
+                                Default Broker Account
+                            </InputLabel>
+                            <Select
+                                labelId="default-broker-label"
+                                id="default-broker-select"
+                                value={defaultBrokerConnectionId}
+                                onChange={(e) => setDefaultBrokerConnectionId(e.target.value)}
+                                label="Default Broker Account"
+                                disabled={loadingBrokers || brokerAccounts.length === 0}
+                                sx={{
+                                    color: 'var(--app-text)',
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: 'var(--surface-border)',
+                                    },
+                                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#22c55e',
+                                    },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#22c55e',
+                                    },
+                                }}
+                            >
+                                {loadingBrokers ? (
+                                    <MenuItem disabled>Loading accounts...</MenuItem>
+                                ) : brokerAccounts.length === 0 ? (
+                                    <MenuItem disabled>No broker accounts connected</MenuItem>
+                                ) : (
+                                    <>
+                                        <MenuItem value="">
+                                            <em>None (use first available)</em>
+                                        </MenuItem>
+                                        {brokerAccounts.map((account) => (
+                                            <MenuItem key={account.id} value={account.id}>
+                                                {account.brokerName} - {account.accountName}
+                                                {account.accountNumber && ` (${account.accountNumber})`}
+                                            </MenuItem>
+                                        ))}
+                                    </>
+                                )}
+                            </Select>
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                Select the default broker account to use for auto-trading. If not set, the first available account will be used.
+                            </Typography>
+                            {brokerAccounts.length === 0 && !loadingBrokers && (
+                                <Alert severity="warning" sx={{ mt: 2 }}>
+                                    No broker accounts connected. Please connect a broker account in your Profile settings to enable auto-trading.
+                                </Alert>
+                            )}
+                        </FormControl>
+                    </Box>
+                )}
 
                 <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid var(--surface-border)' }}>
                     <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: 'var(--text-muted)' }}>

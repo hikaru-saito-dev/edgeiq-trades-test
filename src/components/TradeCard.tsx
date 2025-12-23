@@ -64,6 +64,7 @@ interface TradeCardProps {
       action: 'follow' | 'fade';
       followedTradeId?: string;
     } | null;
+    isFollowedTrade?: boolean; // True if this trade was created via following (auto-trade or manual)
   };
   onUpdate?: () => void;
   disableDelete?: boolean;
@@ -77,7 +78,7 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
   const [settleContracts, setSettleContracts] = useState<number>(1);
   const [fillsExpanded, setFillsExpanded] = useState(false);
   const [downloadingSnapshot, setDownloadingSnapshot] = useState(false);
-  const { userId, companyId } = useAccess();
+  const { userId, companyId, hasAutoIQ, autoTradeMode } = useAccess();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const statBg = alpha(theme.palette.primary.main, isDark ? 0.25 : 0.12);
@@ -134,7 +135,7 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
       // Fetch current user data to get profile picture and alias
       let profilePictureUrl: string | undefined;
       let alias: string | undefined;
-      
+
       try {
         const userResponse = await apiRequest('/api/user', { userId, companyId, method: 'GET' });
         if (userResponse.ok) {
@@ -247,22 +248,22 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
 
   const buyNotional = trade.totalBuyNotional || trade.contracts * trade.fillPrice * 100;
   const sellNotional = trade.totalSellNotional || 0;
-  const currentPnl = trade.status === 'CLOSED' && trade.netPnl !== undefined 
-    ? trade.netPnl 
+  const currentPnl = trade.status === 'CLOSED' && trade.netPnl !== undefined
+    ? trade.netPnl
     : sellNotional - buyNotional;
 
   return (
     <>
-      <Card 
-        sx={{ 
+      <Card
+        sx={{
           mb: 2,
           backgroundColor: theme.palette.background.paper,
           color: theme.palette.text.primary,
-          border: trade.status === 'REJECTED' 
+          border: trade.status === 'REJECTED'
             ? `2px solid ${alpha(theme.palette.error.main, 0.6)}`
             : trade.status === 'CLOSED'
-            ? `2px solid ${alpha(theme.palette.success.main, 0.5)}`
-            : `1px solid ${alpha(theme.palette.primary.main, 0.25)}`,
+              ? `2px solid ${alpha(theme.palette.success.main, 0.5)}`
+              : `1px solid ${alpha(theme.palette.primary.main, 0.25)}`,
           borderRadius: 3,
           boxShadow: isDark
             ? '0 20px 40px rgba(0, 0, 0, 0.45)'
@@ -273,29 +274,29 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
               ? '0 24px 48px rgba(0, 0, 0, 0.5)'
               : '0 12px 40px rgba(34, 197, 94, 0.25)',
             transform: 'translateY(-4px)',
-            borderColor: trade.status === 'REJECTED' 
+            borderColor: trade.status === 'REJECTED'
               ? alpha(theme.palette.error.main, 0.8)
               : trade.status === 'CLOSED'
-              ? alpha(theme.palette.success.main, 0.7)
-              : alpha(theme.palette.primary.main, 0.5),
+                ? alpha(theme.palette.success.main, 0.7)
+                : alpha(theme.palette.primary.main, 0.5),
           }
         }}
       >
         <CardContent>
-          <Box 
-            display="flex" 
+          <Box
+            display="flex"
             flexDirection={{ xs: 'column', sm: 'row' }}
-            justifyContent="space-between" 
+            justifyContent="space-between"
             alignItems={{ xs: 'flex-start', sm: 'start' }}
             gap={{ xs: 1, sm: 0 }}
             mb={2}
           >
             <Box flex={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-              <Typography 
-                variant="h6" 
-                component="div" 
-                fontWeight={600} 
-                mb={0.5} 
+              <Typography
+                variant="h6"
+                component="div"
+                fontWeight={600}
+                mb={0.5}
                 sx={{
                   color: 'text.primary',
                   fontSize: { xs: '1rem', sm: '1.25rem' },
@@ -304,17 +305,17 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
               >
                 {formatTradeLabel()}
               </Typography>
-              <Box 
-                display="flex" 
+              <Box
+                display="flex"
                 flexWrap="wrap"
-                alignItems="center" 
-                gap={1} 
+                alignItems="center"
+                gap={1}
                 mb={1}
               >
                 <EventIcon fontSize="small" color="primary" />
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
+                <Typography
+                  variant="body2"
+                  sx={{
                     color: 'text.secondary',
                     fontSize: { xs: '0.75rem', sm: '0.875rem' },
                   }}
@@ -322,9 +323,9 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
                   {new Date(trade.createdAt).toLocaleString()}
                 </Typography>
                 {!trade.priceVerified && (
-                  <Chip 
-                    label="Unverified" 
-                    size="small" 
+                  <Chip
+                    label="Unverified"
+                    size="small"
                     color="warning"
                     sx={{ ml: { xs: 0, sm: 1 } }}
                   />
@@ -336,7 +337,7 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
               color={getStatusColor()}
               size="medium"
               icon={getStatusIcon()}
-              sx={{ 
+              sx={{
                 fontWeight: 600,
                 alignSelf: { xs: 'flex-start', sm: 'auto' },
               }}
@@ -344,9 +345,9 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
           </Box>
 
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-            <Box 
-              sx={{ 
-                p: 1.5, 
+            <Box
+              sx={{
+                p: 1.5,
                 backgroundColor: statBg,
                 borderRadius: 2,
                 textAlign: 'center',
@@ -363,9 +364,9 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
                 {trade.contracts}
               </Typography>
             </Box>
-            <Box 
-              sx={{ 
-                p: 1.5, 
+            <Box
+              sx={{
+                p: 1.5,
                 backgroundColor: statBg,
                 borderRadius: 2,
                 textAlign: 'center',
@@ -382,9 +383,9 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
                 ${trade.fillPrice.toFixed(2)}
               </Typography>
             </Box>
-            <Box 
-              sx={{ 
-                p: 1.5, 
+            <Box
+              sx={{
+                p: 1.5,
                 backgroundColor: statBg,
                 borderRadius: 2,
                 textAlign: 'center',
@@ -401,9 +402,9 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
                 {formatNotional(buyNotional)}
               </Typography>
             </Box>
-            <Box 
-              sx={{ 
-                p: 1.5, 
+            <Box
+              sx={{
+                p: 1.5,
                 backgroundColor:
                   currentPnl >= 0
                     ? alpha(theme.palette.success.main, isDark ? 0.25 : 0.12)
@@ -441,8 +442,8 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
                 <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
                   Remaining Contracts:{' '}
                   <Box component="strong" sx={{ color: 'text.primary' }}>{trade.remainingOpenContracts}</Box>
-              </Typography>
-              {trade.fills && trade.fills.length > 0 && (
+                </Typography>
+                {trade.fills && trade.fills.length > 0 && (
                   <Button
                     size="small"
                     variant="text"
@@ -501,16 +502,17 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
             </Box>
           )}
 
-          <Box 
-            display="flex" 
-            gap={1} 
+          <Box
+            display="flex"
+            gap={1}
             justifyContent="flex-end"
             flexDirection={{ xs: 'column', sm: 'row' }}
             sx={{ width: { xs: '100%', sm: 'auto' } }}
             flexWrap="wrap"
           >
             {/* Follow/Fade buttons - shown when trade is from following feed and no action taken yet */}
-            {trade.actionStatus !== undefined && trade.status === 'OPEN' && (
+            {/* Hide both Follow and Fade buttons if AutoIQ auto-trade is enabled */}
+            {trade.actionStatus !== undefined && trade.status === 'OPEN' && !(hasAutoIQ && autoTradeMode === 'auto-trade') && (
               <>
                 {trade.actionStatus === null ? (
                   // No action taken yet - show Follow and Fade buttons
@@ -583,7 +585,7 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
             >
               {downloadingSnapshot ? 'Generating...' : 'Download Snapshot'}
             </Button>
-            {!disableDelete && trade.status === 'OPEN' && (
+            {!disableDelete && trade.status === 'OPEN' && !trade.isFollowedTrade && (
               <Button
                 variant="contained"
                 color="primary"
@@ -599,7 +601,7 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
                 Settle
               </Button>
             )}
-            {!disableDelete && trade.status === 'OPEN' && (
+            {!disableDelete && trade.status === 'OPEN' && !trade.isFollowedTrade && (
               <Button
                 variant="outlined"
                 color="error"
@@ -616,10 +618,10 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
       </Card>
 
       {/* Settle Dialog */}
-      <Dialog 
-        open={settleOpen} 
-        onClose={() => setSettleOpen(false)} 
-        maxWidth="sm" 
+      <Dialog
+        open={settleOpen}
+        onClose={() => setSettleOpen(false)}
+        maxWidth="sm"
         fullWidth
         PaperProps={{
           sx: {
@@ -667,8 +669,8 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button 
-            onClick={() => setSettleOpen(false)} 
+          <Button
+            onClick={() => setSettleOpen(false)}
             disabled={loading}
             sx={{
               color: 'text.secondary',
@@ -679,8 +681,8 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
           >
             Cancel
           </Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             onClick={handleSettle}
             disabled={loading}
             sx={{

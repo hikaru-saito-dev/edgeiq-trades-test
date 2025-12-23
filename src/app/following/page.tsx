@@ -99,11 +99,11 @@ export default function FollowingPage() {
         page: String(page),
         pageSize: String(pageSize),
       });
-      
+
       if (debouncedSearch.trim()) {
         params.set('search', debouncedSearch.trim());
       }
-      
+
       const response = await apiRequest(`/api/follow/feed?${params.toString()}`, { userId, companyId });
       if (!response.ok) {
         throw new Error('Failed to fetch following feed');
@@ -123,14 +123,14 @@ export default function FollowingPage() {
 
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const previousSearchRef = useRef(search);
-  
+
   useEffect(() => {
     if (!isAuthorized || accessLoading) {
       setDebouncedSearch(search);
       previousSearchRef.current = search;
       return;
     }
-    
+
     const timeoutId = setTimeout(() => {
       const previousSearch = previousSearchRef.current;
       setDebouncedSearch(search);
@@ -191,11 +191,11 @@ export default function FollowingPage() {
     selectedFollowId === 'all'
       ? trades
       : trades.filter(
-          (trade) => trade.followInfo?.followPurchaseId === selectedFollowId
-        );
-  
-  const filteredTotal = selectedFollowId === 'all' 
-    ? total 
+        (trade) => trade.followInfo?.followPurchaseId === selectedFollowId
+      );
+
+  const filteredTotal = selectedFollowId === 'all'
+    ? total
     : filteredTrades.length;
 
   return (
@@ -261,8 +261,8 @@ export default function FollowingPage() {
                     }}
                   >
                     <Box display="flex" alignItems="center" gap={2} mb={1}>
-                      <Avatar 
-                        src={follow.capper.avatarUrl} 
+                      <Avatar
+                        src={follow.capper.avatarUrl}
                         sx={{ width: 40, height: 40 }}
                       >
                         {follow.capper.alias && follow.capper.alias.length > 0
@@ -429,8 +429,8 @@ export default function FollowingPage() {
               {selectedFollowId !== 'all'
                 ? "This creator doesn't have any trades matching your search criteria on this page."
                 : follows.length === 0
-                ? "You're not following anyone yet. Follow creators on the leaderboard to see their trades here."
-                : "The creators you're following haven't posted any trades yet."}
+                  ? "You're not following anyone yet. Follow creators on the leaderboard to see their trades here."
+                  : "The creators you're following haven't posted any trades yet."}
             </Typography>
           </Paper>
         ) : (
@@ -442,9 +442,9 @@ export default function FollowingPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <TradeCard 
-                  trade={trade} 
-                  onUpdate={fetchFollowingFeed} 
+                <TradeCard
+                  trade={trade}
+                  onUpdate={fetchFollowingFeed}
                   disableDelete={true}
                   onAction={async (tradeId: string, action: 'follow' | 'fade') => {
                     try {
@@ -454,7 +454,7 @@ export default function FollowingPage() {
                         userId,
                         companyId,
                       });
-                      
+
                       if (!res.ok) {
                         let errorMessage = `Failed to ${action} trade`;
                         try {
@@ -465,7 +465,7 @@ export default function FollowingPage() {
                         }
                         throw new Error(errorMessage);
                       }
-                      
+
                       let successMessage = `Trade ${action === 'follow' ? 'followed' : 'faded'} successfully`;
                       try {
                         const data = await res.json();
@@ -474,7 +474,7 @@ export default function FollowingPage() {
                         // If response is not JSON, use default success message
                       }
                       toast.showSuccess(successMessage);
-                      
+
                       await fetchFollowingFeed();
                     } catch (error) {
                       if (error instanceof Error) {
