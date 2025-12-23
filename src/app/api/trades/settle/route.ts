@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     if (!userResult || !userResult.membership) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-    const { user, membership } = userResult;
+    const { user } = userResult;
 
     // Check market hours
     const now = new Date();

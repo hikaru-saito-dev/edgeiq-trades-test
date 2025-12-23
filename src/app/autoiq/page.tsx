@@ -340,15 +340,13 @@ export default function AutoIQPage() {
                                 Default Broker Account
                             </InputLabel>
                             <Select
-                                labelId="default-broker-label"
-                                id="default-broker-select"
-                                value={defaultBrokerConnectionId || ''}
+                                value={defaultBrokerConnectionId ? String(defaultBrokerConnectionId) : ''}
                                 onChange={(e) => {
                                     const value = e.target.value;
-                                    setDefaultBrokerConnectionId(value === '' ? null : value);
+                                    const newValue = value === '' ? null : String(value);
+                                    setDefaultBrokerConnectionId(newValue);
                                 }}
                                 label="Default Broker Account"
-                                displayEmpty
                                 disabled={loadingBrokers || brokerAccounts.length === 0}
                                 sx={{
                                     color: 'var(--app-text)',
@@ -377,7 +375,7 @@ export default function AutoIQPage() {
                                             <em>None (use first available)</em>
                                         </MenuItem>
                                         {brokerAccounts.map((account) => (
-                                            <MenuItem key={account.id} value={account.id}>
+                                            <MenuItem key={account.id} value={String(account.id)}>
                                                 {account.brokerName} - {account.accountName}
                                                 {account.accountNumber && ` (${account.accountNumber})`}
                                             </MenuItem>
