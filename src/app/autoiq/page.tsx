@@ -18,7 +18,7 @@ export default function AutoIQPage() {
     const { isAuthorized, userId, companyId, hasAutoIQ, loading: accessLoading } = useAccess();
     const toast = useToast();
     const [autoTradeMode, setAutoTradeMode] = useState<'auto-trade' | 'notify-only'>('notify-only');
-    const [defaultBrokerConnectionId, setDefaultBrokerConnectionId] = useState<string>('');
+    const [defaultBrokerConnectionId, setDefaultBrokerConnectionId] = useState<string | null>(null);
     const [brokerAccounts, setBrokerAccounts] = useState<BrokerAccount[]>([]);
     const [loadingBrokers, setLoadingBrokers] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -68,7 +68,7 @@ export default function AutoIQPage() {
             if (response.ok) {
                 const data = await response.json();
                 setAutoTradeMode(data.user.autoTradeMode || 'notify-only');
-                setDefaultBrokerConnectionId(data.user.defaultBrokerConnectionId ? String(data.user.defaultBrokerConnectionId) : '');
+                setDefaultBrokerConnectionId(data.user.defaultBrokerConnectionId || null);
             } else {
                 toast.showError('Failed to load AutoIQ settings');
             }
@@ -104,7 +104,7 @@ export default function AutoIQPage() {
                 method: 'PATCH',
                 body: JSON.stringify({
                     autoTradeMode,
-                    defaultBrokerConnectionId: defaultBrokerConnectionId || null,
+                    defaultBrokerConnectionId: defaultBrokerConnectionId,
                 }),
                 userId,
                 companyId,
@@ -343,20 +343,13 @@ export default function AutoIQPage() {
                                 labelId="default-broker-label"
                                 id="default-broker-select"
                                 value={defaultBrokerConnectionId || ''}
-                                onChange={(e) => setDefaultBrokerConnectionId(e.target.value)}
-                                label="Default Broker Account"
-                                disabled={loadingBrokers || brokerAccounts.length === 0}
-                                displayEmpty
-                                renderValue={(selected) => {
-                                    if (!selected || selected === '') {
-                                        return <em>None (use first available)</em>;
-                                    }
-                                    const account = brokerAccounts.find(acc => acc.id === selected);
-                                    if (account) {
-                                        return `${account.brokerName} - ${account.accountName}${account.accountNumber ? ` (${account.accountNumber})` : ''}`;
-                                    }
-                                    return selected;
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setDefaultBrokerConnectionId(value === '' ? null : value);
                                 }}
+                                label="Default Broker Account"
+                                displayEmpty
+                                disabled={loadingBrokers || brokerAccounts.length === 0}
                                 sx={{
                                     color: 'var(--app-text)',
                                     '& .MuiOutlinedInput-notchedOutline': {
@@ -371,9 +364,13 @@ export default function AutoIQPage() {
                                 }}
                             >
                                 {loadingBrokers ? (
-                                    <MenuItem disabled>Loading accounts...</MenuItem>
+                                    <MenuItem disabled value="">
+                                        Loading accounts...
+                                    </MenuItem>
                                 ) : brokerAccounts.length === 0 ? (
-                                    <MenuItem disabled>No broker accounts connected</MenuItem>
+                                    <MenuItem disabled value="">
+                                        No broker accounts connected
+                                    </MenuItem>
                                 ) : (
                                     <>
                                         <MenuItem value="">

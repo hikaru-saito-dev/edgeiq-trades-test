@@ -52,8 +52,8 @@ export function setExperienceId(experienceId: string | null) {
  * Fetch access role and auth info from API
  * This calls verifyWhopUser ONCE on the server side
  */
-async function fetchAccessRole(experienceId?: string | null): Promise<{
-  role: AccessRole;
+async function fetchAccessRole(experienceId?: string | null): Promise<{ 
+  role: AccessRole; 
   isAuthorized: boolean;
   userId: string | null;
   companyId: string | null;
@@ -89,7 +89,7 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     const autoTradeMode = data.autoTradeMode || 'notify-only';
     const hideLeaderboardFromMembers = data.hideLeaderboardFromMembers ?? false;
     const hideCompanyStatsFromMembers = data.hideCompanyStatsFromMembers ?? false;
-
+    
     if (role === 'companyOwner' || role === 'owner' || role === 'admin' || role === 'member' || role === 'none') {
       return { role, isAuthorized, userId, companyId, hasAutoIQ, autoTradeMode, hideLeaderboardFromMembers, hideCompanyStatsFromMembers };
     }
@@ -121,7 +121,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     experienceIdListeners.add(listener);
     // Set initial value
     setExperienceIdState(globalExperienceId);
-
+    
     return () => {
       experienceIdListeners.delete(listener);
     };
