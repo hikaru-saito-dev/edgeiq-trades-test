@@ -359,36 +359,10 @@ export default function AutoIQPage() {
                                     },
                                 }}
                             >
-                                {loadingBrokers ? (
-                                    <MenuItem disabled value="">
-                                        Loading accounts...
-                                    </MenuItem>
-                                ) : brokerAccounts.length === 0 ? (
-                                    <MenuItem disabled value="">
-                                        No broker accounts connected
-                                    </MenuItem>
-                                ) : (
-                                    <>
-                                        <MenuItem value="">
-                                            <em>None (use first available)</em>
-                                        </MenuItem>
-                                        {brokerAccounts.map((account) => (
-                                            <MenuItem key={account.id} value={String(account.id)}>
-                                                {account.brokerName} - {account.accountName}
-                                                {account.accountNumber && ` (${account.accountNumber})`}
-                                            </MenuItem>
-                                        ))}
-                                    </>
-                                )}
+                                <MenuItem value="1">hi there</MenuItem>
+                                <MenuItem value="2">hi there</MenuItem>
+                                <MenuItem value="3">hi there</MenuItem>
                             </Select>
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                Select the default broker account to use for auto-trading. If not set, the first available account will be used.
-                            </Typography>
-                            {brokerAccounts.length === 0 && !loadingBrokers && (
-                                <Alert severity="warning" sx={{ mt: 2 }}>
-                                    No broker accounts connected. Please connect a broker account in your Profile settings to enable auto-trading.
-                                </Alert>
-                            )}
                         </FormControl>
                     </Box>
                 )}
