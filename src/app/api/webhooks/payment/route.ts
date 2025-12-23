@@ -172,7 +172,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     // Return 200 OK quickly to prevent webhook retries
     // Return JSON response for compatibility
-    return Response.json({ success: webhookPayload }, { status: 200 });
+    return Response.json({ success: true }, { status: 200 });
   } catch {
     return new Response('Internal server error', { status: 500 });
   }
