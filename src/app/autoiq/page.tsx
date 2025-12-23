@@ -12,7 +12,7 @@ export default function AutoIQPage() {
     const [autoTradeMode, setAutoTradeMode] = useState<'auto-trade' | 'notify-only'>('notify-only');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const upgradeUrl = process.env.NEXT_PUBLIC_WHOP_AUTOIQ_PLAN_ID ? `https://whop.com/checkout/${process.env.NEXT_PUBLIC_WHOP_AUTOIQ_PLAN_ID}` : 'https://whop.com/checkout/';
+    const upgradeUrl = process.env.WHOP_AUTOIQ_PLAN_ID ? `https://whop.com/checkout/${process.env.WHOP_AUTOIQ_PLAN_ID}` : 'https://whop.com/checkout/';
 
     const fetchSettings = useCallback(async () => {
         if (!userId || !companyId) return;
