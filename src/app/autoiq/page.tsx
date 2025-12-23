@@ -12,9 +12,20 @@ export default function AutoIQPage() {
     const [autoTradeMode, setAutoTradeMode] = useState<'auto-trade' | 'notify-only'>('notify-only');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    console.log(process.env.WHOP_AUTOIQ_PLAN_ID);
-    
-    const upgradeUrl = process.env.WHOP_AUTOIQ_PLAN_ID ? `https://whop.com/checkout/${process.env.WHOP_AUTOIQ_PLAN_ID}` : 'https://whop.com/checkout/';
+    const [upgradeUrl, setUpgradeUrl] = useState<string>('https://whop.com/checkout/');
+
+    const fetchCheckoutUrl = useCallback(async () => {
+        try {
+            const response = await apiRequest('/api/autoiq/checkout', { userId, companyId });
+            if (response.ok) {
+                const data = await response.json();
+                setUpgradeUrl(data.checkoutUrl || 'https://whop.com/checkout/');
+            }
+        } catch (error) {
+            console.error('Error fetching checkout URL:', error);
+            // Use default URL on error
+        }
+    }, [userId, companyId]);
 
     const fetchSettings = useCallback(async () => {
         if (!userId || !companyId) return;
@@ -36,13 +47,18 @@ export default function AutoIQPage() {
     }, [userId, companyId, toast]);
 
     useEffect(() => {
-        if (!accessLoading && isAuthorized && userId && companyId && hasAutoIQ) {
-            fetchSettings();
-        } else if (!hasAutoIQ) {
-            // Don't show loading for non-subscribers
-            setLoading(false);
+        if (!accessLoading && isAuthorized) {
+            // Always fetch checkout URL (for upgrade button)
+            fetchCheckoutUrl();
+
+            if (hasAutoIQ && userId && companyId) {
+                fetchSettings();
+            } else if (!hasAutoIQ) {
+                // Don't show loading for non-subscribers
+                setLoading(false);
+            }
         }
-    }, [accessLoading, isAuthorized, userId, companyId, hasAutoIQ, fetchSettings]);
+    }, [accessLoading, isAuthorized, userId, companyId, hasAutoIQ, fetchSettings, fetchCheckoutUrl]);
 
 
     const handleSave = async () => {
