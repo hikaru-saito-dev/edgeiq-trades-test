@@ -336,7 +336,7 @@ export default function AutoIQPage() {
                 {autoTradeMode === 'auto-trade' && (
                     <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid var(--surface-border)' }}>
                         <FormControl fullWidth sx={{ mb: 2 }}>
-                            <InputLabel id="default-broker-label" sx={{ color: 'var(--app-text)' }}>
+                            <InputLabel  sx={{ color: 'var(--app-text)' }}>
                                 Default Broker Account
                             </InputLabel>
                             <Select
