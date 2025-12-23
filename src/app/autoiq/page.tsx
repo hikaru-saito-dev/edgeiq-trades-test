@@ -68,7 +68,7 @@ export default function AutoIQPage() {
             if (response.ok) {
                 const data = await response.json();
                 setAutoTradeMode(data.user.autoTradeMode || 'notify-only');
-                setDefaultBrokerConnectionId(data.user.defaultBrokerConnectionId || '');
+                setDefaultBrokerConnectionId(data.user.defaultBrokerConnectionId ? String(data.user.defaultBrokerConnectionId) : '');
             } else {
                 toast.showError('Failed to load AutoIQ settings');
             }
@@ -342,10 +342,21 @@ export default function AutoIQPage() {
                             <Select
                                 labelId="default-broker-label"
                                 id="default-broker-select"
-                                value={defaultBrokerConnectionId}
+                                value={defaultBrokerConnectionId || ''}
                                 onChange={(e) => setDefaultBrokerConnectionId(e.target.value)}
                                 label="Default Broker Account"
                                 disabled={loadingBrokers || brokerAccounts.length === 0}
+                                displayEmpty
+                                renderValue={(selected) => {
+                                    if (!selected || selected === '') {
+                                        return <em>None (use first available)</em>;
+                                    }
+                                    const account = brokerAccounts.find(acc => acc.id === selected);
+                                    if (account) {
+                                        return `${account.brokerName} - ${account.accountName}${account.accountNumber ? ` (${account.accountNumber})` : ''}`;
+                                    }
+                                    return selected;
+                                }}
                                 sx={{
                                     color: 'var(--app-text)',
                                     '& .MuiOutlinedInput-notchedOutline': {
