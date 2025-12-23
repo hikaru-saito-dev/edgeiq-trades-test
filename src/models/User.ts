@@ -52,6 +52,8 @@ export interface IUser extends Document {
 
   // AutoIQ subscription status
   hasAutoIQ?: boolean;
+  // AutoIQ mode: 'auto-trade' (mirror trades automatically) or 'notify-only' (manual execution)
+  autoTradeMode?: 'auto-trade' | 'notify-only';
 
   // Company-specific memberships (array of company data)
   companyMemberships: CompanyMembership[];
@@ -106,6 +108,7 @@ const UserSchema = new Schema<IUser>({
   followingDiscordWebhook: { type: String, trim: true },
   followingWhopWebhook: { type: String, trim: true },
   hasAutoIQ: { type: Boolean, default: false },
+  autoTradeMode: { type: String, enum: ['auto-trade', 'notify-only'], default: 'notify-only' },
   companyMemberships: {
     type: [CompanyMembershipSchema],
     default: []

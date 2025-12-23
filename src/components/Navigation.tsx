@@ -22,7 +22,7 @@ import Logo from './Logo';
 import { alpha } from '@mui/material/styles';
 
 export default function Navigation() {
-  const { isAuthorized, role, loading, hideLeaderboardFromMembers } = useAccess();
+  const { isAuthorized, role, loading, hideLeaderboardFromMembers, hasAutoIQ } = useAccess();
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -49,6 +49,7 @@ export default function Navigation() {
     ...(!loading && isAuthorized && !(role === 'member' && hideLeaderboardFromMembers)
       ? [{ label: 'Leaderboard', href: '/leaderboard' }]
       : []),
+    ...(isAuthorized && !loading && hasAutoIQ ? [{ label: 'AutoIQ', href: '/autoiq' }] : []),
     ...(isAuthorized && !loading ? [{ label: 'Profile', href: '/profile' }] : []),
     ...((role === 'companyOwner' || role === 'owner') && !loading ? [{ label: 'Users', href: '/users' }] : []),
   ];
@@ -111,17 +112,17 @@ export default function Navigation() {
 
   return (
     <>
-    <AppBar 
-      position="static" 
-      elevation={0}
-      sx={{
+      <AppBar
+        position="static"
+        elevation={0}
+        sx={{
           background: navGradient,
-        backdropFilter: 'blur(20px)',
+          backdropFilter: 'blur(20px)',
           borderBottom: `1px solid ${alpha('#FFFFFF', 0.08)}`,
           color: navTextColor,
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-      }}
-    >
+        }}
+      >
         <Toolbar sx={{ py: 2, px: { xs: 2, sm: 3 } }}>
           <Box sx={{ flexGrow: 1 }}>
             <Logo />
@@ -129,33 +130,11 @@ export default function Navigation() {
 
           {/* Desktop Navigation */}
           <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 1 }}>
-          {!loading && isAuthorized && (
-            <Button 
-              component={Link} 
-              href="/trades"
-              sx={{
-                  color: navTextColor,
-                  fontWeight: 500,
-                  textTransform: 'none',
-                  fontSize: '0.95rem',
-                  px: 2,
-                  borderRadius: 1,
-                  transition: 'all 0.2s ease',
-                '&:hover': {
-                    color: navTextColor,
-                    background: navHoverBg,
-                    transform: 'translateY(-1px)',
-                },
-              }}
-            >
-              Trades
-            </Button>
-          )}
-          {!loading && isAuthorized && (
-            <Button 
-              component={Link} 
-              href="/stats"
-              sx={{
+            {!loading && isAuthorized && (
+              <Button
+                component={Link}
+                href="/trades"
+                sx={{
                   color: navTextColor,
                   fontWeight: 500,
                   textTransform: 'none',
@@ -169,10 +148,32 @@ export default function Navigation() {
                     transform: 'translateY(-1px)',
                   },
                 }}
-            >
-              Stats
-            </Button>
-          )}
+              >
+                Trades
+              </Button>
+            )}
+            {!loading && isAuthorized && (
+              <Button
+                component={Link}
+                href="/stats"
+                sx={{
+                  color: navTextColor,
+                  fontWeight: 500,
+                  textTransform: 'none',
+                  fontSize: '0.95rem',
+                  px: 2,
+                  borderRadius: 1,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    color: navTextColor,
+                    background: navHoverBg,
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
+                Stats
+              </Button>
+            )}
             {!loading && isAuthorized && (
               <Button
                 component={Link}
@@ -196,32 +197,32 @@ export default function Navigation() {
               </Button>
             )}
             {!loading && isAuthorized && !(role === 'member' && hideLeaderboardFromMembers) && (
-          <Button 
-            component={Link} 
-            href="/leaderboard"
-            sx={{
+              <Button
+                component={Link}
+                href="/leaderboard"
+                sx={{
                   color: navTextColor,
-              fontWeight: 600,
+                  fontWeight: 600,
                   textTransform: 'none',
                   fontSize: '0.95rem',
                   px: 2,
                   borderRadius: 1,
                   transition: 'all 0.2s ease',
-              '&:hover': {
+                  '&:hover': {
                     color: navTextColor,
                     background: navHoverBg,
                     transform: 'translateY(-1px)',
-              },
-            }}
-          >
-            Leaderboard
-          </Button>
+                  },
+                }}
+              >
+                Leaderboard
+              </Button>
             )}
-          {!loading && isAuthorized && (
-            <Button 
-              component={Link} 
-              href="/profile"
-              sx={{
+            {!loading && isAuthorized && hasAutoIQ && (
+              <Button
+                component={Link}
+                href="/autoiq"
+                sx={{
                   color: navTextColor,
                   fontWeight: 500,
                   textTransform: 'none',
@@ -229,21 +230,21 @@ export default function Navigation() {
                   px: 2,
                   borderRadius: 1,
                   transition: 'all 0.2s ease',
-                '&:hover': {
+                  '&:hover': {
                     color: navTextColor,
                     background: navHoverBg,
                     transform: 'translateY(-1px)',
-                },
-              }}
-            >
-              Profile
-            </Button>
-          )}
-          {!loading && (role === 'companyOwner' || role === 'owner') && (
-            <Button 
-              component={Link} 
-              href="/users"
-              sx={{
+                  },
+                }}
+              >
+                AutoIQ
+              </Button>
+            )}
+            {!loading && isAuthorized && (
+              <Button
+                component={Link}
+                href="/profile"
+                sx={{
                   color: navTextColor,
                   fontWeight: 500,
                   textTransform: 'none',
@@ -251,17 +252,39 @@ export default function Navigation() {
                   px: 2,
                   borderRadius: 1,
                   transition: 'all 0.2s ease',
-                '&:hover': {
+                  '&:hover': {
                     color: navTextColor,
                     background: navHoverBg,
                     transform: 'translateY(-1px)',
-                },
-              }}
-            >
-              Users
-            </Button>
-          )}
-        </Box>
+                  },
+                }}
+              >
+                Profile
+              </Button>
+            )}
+            {!loading && (role === 'companyOwner' || role === 'owner') && (
+              <Button
+                component={Link}
+                href="/users"
+                sx={{
+                  color: navTextColor,
+                  fontWeight: 500,
+                  textTransform: 'none',
+                  fontSize: '0.95rem',
+                  px: 2,
+                  borderRadius: 1,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    color: navTextColor,
+                    background: navHoverBg,
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
+                Users
+              </Button>
+            )}
+          </Box>
 
           {/* Mobile Menu Button */}
           <IconButton
@@ -276,8 +299,8 @@ export default function Navigation() {
           >
             <MenuIcon />
           </IconButton>
-      </Toolbar>
-    </AppBar>
+        </Toolbar>
+      </AppBar>
 
       {/* Mobile Drawer */}
       <Drawer

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
-import { User, MembershipPlan, Webhook, IUser } from '@/models/User';
+import { MembershipPlan, Webhook } from '@/models/User';
 import { Company } from '@/models/Company';
 import { Trade } from '@/models/Trade';
 import { getUserForCompany, getUsersInCompanyByRole } from '@/lib/userHelpers';
@@ -248,6 +248,7 @@ const updateUserSchema = z.object({
   followOfferPriceCents: z.number().int().min(0).optional(),
   followOfferNumPlays: z.number().int().min(1).optional(),
   followOfferCheckoutUrl: z.string().url().optional().nullable(),
+  autoTradeMode: z.enum(['auto-trade', 'notify-only']).optional(),
 });
 
 /**
@@ -294,7 +295,7 @@ export async function GET() {
 
     // Get company data
     const company = await Company.findOne({ companyId });
-    
+
     // Auto-fetch company name from Whop if not set
     if (company && !company.companyName) {
       try {
@@ -308,12 +309,12 @@ export async function GET() {
         // Ignore errors
       }
     }
-    
+
     let hideCompanyStatsFromMembers = true;
     if (membership.role !== 'companyOwner' && membership.role !== 'owner') {
       hideCompanyStatsFromMembers = company?.hideCompanyStatsFromMembers ?? false;
     }
-    
+
     // For owners and companyOwners: also get company stats (aggregated from all company trades)
     let companyStats = null;
     if ((membership.role === 'owner' || membership.role === 'companyOwner' || ((membership.role === 'member' || membership.role === 'admin') && !hideCompanyStatsFromMembers)) && companyId) {
@@ -363,6 +364,8 @@ export async function GET() {
         followOfferPriceCents: membership.followOfferPriceCents ?? 0,
         followOfferNumPlays: membership.followOfferNumPlays ?? 0,
         followOfferCheckoutUrl: membership.followOfferCheckoutUrl ?? null,
+        hasAutoIQ: user.hasAutoIQ ?? false,
+        autoTradeMode: user.autoTradeMode ?? 'notify-only',
       },
       personalStats,
       companyStats, // Only for owners with companyId
@@ -428,7 +431,7 @@ export async function PATCH(request: NextRequest) {
 
     // Update membership fields (company-specific)
     const membershipUpdates: Partial<typeof membership> = {};
-    
+
     // Update alias (all roles can update)
     if (validated.alias !== undefined) {
       membershipUpdates.alias = validated.alias;
@@ -481,7 +484,7 @@ export async function PATCH(request: NextRequest) {
     // Update company-level settings (only companyOwners)
     if (membership.role === 'companyOwner' && company) {
       const companyUpdates: Partial<typeof company> = {};
-      
+
       if (validated.companyName !== undefined) {
         companyUpdates.companyName = validated.companyName || undefined;
       }
@@ -504,9 +507,9 @@ export async function PATCH(request: NextRequest) {
       }
     } else {
       // Non-owners cannot update company settings
-      if (validated.companyName !== undefined || validated.companyDescription !== undefined || 
-          validated.membershipPlans !== undefined || validated.hideLeaderboardFromMembers !== undefined ||
-          validated.hideCompanyStatsFromMembers !== undefined) {
+      if (validated.companyName !== undefined || validated.companyDescription !== undefined ||
+        validated.membershipPlans !== undefined || validated.hideLeaderboardFromMembers !== undefined ||
+        validated.hideCompanyStatsFromMembers !== undefined) {
         return NextResponse.json(
           { error: 'Only company owners can update company settings' },
           { status: 403 }
@@ -521,6 +524,16 @@ export async function PATCH(request: NextRequest) {
     }
     if (validated.followingWhopWebhook !== undefined) {
       userUpdates.followingWhopWebhook = validated.followingWhopWebhook || undefined;
+    }
+    // Update AutoIQ mode (only if user has AutoIQ subscription)
+    if (validated.autoTradeMode !== undefined) {
+      if (!user.hasAutoIQ) {
+        return NextResponse.json(
+          { error: 'AutoIQ subscription required to change auto-trade mode' },
+          { status: 403 }
+        );
+      }
+      userUpdates.autoTradeMode = validated.autoTradeMode;
     }
 
     if (Object.keys(userUpdates).length > 0) {

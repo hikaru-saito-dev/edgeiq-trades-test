@@ -10,6 +10,7 @@ type AccessContextValue = {
   loading: boolean;
   userId: string | null;
   companyId: string | null;
+  hasAutoIQ?: boolean;
   hideLeaderboardFromMembers?: boolean;
   hideCompanyStatsFromMembers?: boolean;
   refresh: () => Promise<void>;
@@ -21,9 +22,10 @@ const AccessContext = createContext<AccessContextValue>({
   loading: true,
   userId: null,
   companyId: null,
+  hasAutoIQ: false,
   hideLeaderboardFromMembers: false,
   hideCompanyStatsFromMembers: false,
-  refresh: async () => {},
+  refresh: async () => { },
 });
 
 // Global experienceId state (set from page.tsx)
@@ -48,11 +50,12 @@ export function setExperienceId(experienceId: string | null) {
  * Fetch access role and auth info from API
  * This calls verifyWhopUser ONCE on the server side
  */
-async function fetchAccessRole(experienceId?: string | null): Promise<{ 
-  role: AccessRole; 
+async function fetchAccessRole(experienceId?: string | null): Promise<{
+  role: AccessRole;
   isAuthorized: boolean;
   userId: string | null;
   companyId: string | null;
+  hasAutoIQ?: boolean;
   hideLeaderboardFromMembers?: boolean;
   hideCompanyStatsFromMembers?: boolean;
 }> {
@@ -62,7 +65,7 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     if (experienceId) {
       url += `?experience=${encodeURIComponent(experienceId)}`;
     } else {
-      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
+      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
     }
 
     const response = await fetch(url, {
@@ -71,7 +74,7 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     });
 
     if (!response.ok) {
-      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
+      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
     }
 
     const data = await response.json();
@@ -79,17 +82,18 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     const isAuthorized = Boolean(data.isAuthorized);
     const userId = data.userId || null;
     const companyId = data.companyId || null;
+    const hasAutoIQ = data.hasAutoIQ ?? false;
     const hideLeaderboardFromMembers = data.hideLeaderboardFromMembers ?? false;
     const hideCompanyStatsFromMembers = data.hideCompanyStatsFromMembers ?? false;
-    
+
     if (role === 'companyOwner' || role === 'owner' || role === 'admin' || role === 'member' || role === 'none') {
-      return { role, isAuthorized, userId, companyId, hideLeaderboardFromMembers, hideCompanyStatsFromMembers };
+      return { role, isAuthorized, userId, companyId, hasAutoIQ, hideLeaderboardFromMembers, hideCompanyStatsFromMembers };
     }
 
-    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
+    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
   } catch (error) {
     console.error('Failed to load access role', error);
-    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
+    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
   }
 }
 
@@ -99,6 +103,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [hasAutoIQ, setHasAutoIQ] = useState(false);
   const [hideLeaderboardFromMembers, setHideLeaderboardFromMembers] = useState(false);
   const [hideCompanyStatsFromMembers, setHideCompanyStatsFromMembers] = useState(false);
   const [experienceId, setExperienceIdState] = useState<string | null>(null);
@@ -111,7 +116,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     experienceIdListeners.add(listener);
     // Set initial value
     setExperienceIdState(globalExperienceId);
-    
+
     return () => {
       experienceIdListeners.delete(listener);
     };
@@ -126,6 +131,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     setIsAuthorized(result.isAuthorized);
     setUserId(result.userId);
     setCompanyId(result.companyId);
+    setHasAutoIQ(result.hasAutoIQ ?? false);
     setHideLeaderboardFromMembers(result.hideLeaderboardFromMembers ?? false);
     setHideCompanyStatsFromMembers(result.hideCompanyStatsFromMembers ?? false);
     setLoading(false);
@@ -142,11 +148,12 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       loading,
       userId,
       companyId,
+      hasAutoIQ,
       hideLeaderboardFromMembers,
       hideCompanyStatsFromMembers,
       refresh,
     }),
-    [role, isAuthorized, loading, userId, companyId, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, refresh],
+    [role, isAuthorized, loading, userId, companyId, hasAutoIQ, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, refresh],
   );
 
   return (

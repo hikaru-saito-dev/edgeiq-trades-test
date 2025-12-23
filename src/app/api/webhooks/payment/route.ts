@@ -46,11 +46,17 @@ function verifyWhopSignature(
     const signaturePart = parts.find((p) => p.startsWith('v1='));
 
     if (!timestampPart || !signaturePart) {
+      console.error('Webhook signature: Missing timestamp or v1 part', { signature });
       return false;
     }
 
     const timestamp = timestampPart.split('=')[1];
     const receivedSignature = signaturePart.split('=')[1];
+
+    if (!timestamp || !receivedSignature) {
+      console.error('Webhook signature: Empty timestamp or signature', { timestamp, receivedSignature });
+      return false;
+    }
 
     // Create signed payload: timestamp.payload
     const signedPayload = `${timestamp}.${payload}`;
@@ -61,11 +67,22 @@ function verifyWhopSignature(
     const computedSignature = hmac.digest('hex');
 
     // Compare signatures using timing-safe comparison
-    return crypto.timingSafeEqual(
+    const isValid = crypto.timingSafeEqual(
       Buffer.from(receivedSignature, 'hex'),
       Buffer.from(computedSignature, 'hex')
     );
-  } catch {
+
+    if (!isValid) {
+      console.error('Webhook signature mismatch', {
+        receivedLength: receivedSignature.length,
+        computedLength: computedSignature.length,
+        timestamp,
+      });
+    }
+
+    return isValid;
+  } catch (error) {
+    console.error('Webhook signature verification error:', error);
     return false;
   }
 }
@@ -92,6 +109,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const signature = request.headers.get('x-whop-signature');
 
     if (!signature) {
+      console.error('Webhook: Missing x-whop-signature header');
       return new Response('Missing x-whop-signature header', { status: 401 });
     }
 
@@ -101,6 +119,11 @@ export async function POST(request: NextRequest): Promise<Response> {
       ? WEBHOOK_SECRET.slice(6)
       : WEBHOOK_SECRET || '';
 
+    if (!secret) {
+      console.error('Webhook: WHOP_WEBHOOK_SECRET is not configured');
+      return new Response('Server misconfigured', { status: 500 });
+    }
+
     const isValidSignature = verifyWhopSignature(
       requestBodyText,
       signature,
@@ -108,6 +131,11 @@ export async function POST(request: NextRequest): Promise<Response> {
     );
 
     if (!isValidSignature) {
+      console.error('Webhook: Invalid signature', {
+        hasSecret: !!WEBHOOK_SECRET,
+        signatureLength: signature.length,
+        payloadLength: requestBodyText.length,
+      });
       return new Response('Invalid webhook signature', { status: 401 });
     }
 
