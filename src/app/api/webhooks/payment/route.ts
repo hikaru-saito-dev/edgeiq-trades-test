@@ -182,8 +182,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     } else if (
       webhookPayload.action === 'payment.refunded' ||
       webhookPayload.action === 'refund.created' ||
-      webhookPayload.action === 'app_payment.refunded' ||
-      webhookPayload.action === 'refund.updated'
+      webhookPayload.action === 'app_payment.refunded'
     ) {
       // Handle refund as separate webhook event
       waitUntil(handlePaymentRefunded(webhookPayload.data));
@@ -191,7 +190,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     // Return 200 OK quickly to prevent webhook retries
     // Return JSON response for compatibility
-    return Response.json({ success: webhookPayload }, { status: 200 });
+    return Response.json({ success: true }, { status: 200 });
   } catch {
     return new Response('Internal server error', { status: 500 });
   }
