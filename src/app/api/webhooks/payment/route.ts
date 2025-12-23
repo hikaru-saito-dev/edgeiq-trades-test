@@ -182,7 +182,8 @@ export async function POST(request: NextRequest): Promise<Response> {
     } else if (
       webhookPayload.action === 'payment.refunded' ||
       webhookPayload.action === 'refund.created' ||
-      webhookPayload.action === 'app_payment.refunded'
+      webhookPayload.action === 'app_payment.refunded' ||
+      webhookPayload.action === 'refund.updated'
     ) {
       // Handle refund as separate webhook event
       waitUntil(handlePaymentRefunded(webhookPayload.data));
@@ -190,7 +191,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     // Return 200 OK quickly to prevent webhook retries
     // Return JSON response for compatibility
-    return Response.json({ success: true }, { status: 200 });
+    return Response.json({ success: webhookPayload.action }, { status: 200 });
   } catch {
     return new Response('Internal server error', { status: 500 });
   }
@@ -564,6 +565,14 @@ async function handlePaymentRefunded(paymentData: WhopWebhookPayload['data']): P
 
     // For refund webhooks, payment_id is in data.payment_id (not data.id which is the refund ID)
     // Also check data.payment.id as fallback
+    const refundStatus = paymentData.status;
+    if (refundStatus !== 'succeeded') {
+      console.error('[Refund] Refund not succeeded, skipping', {
+        refundId: paymentData.id,
+        status: refundStatus,
+      });
+      return;
+    }
     const paymentId = paymentData.payment_id || paymentData.payment?.id || paymentData.id;
     const followerWhopUserId = paymentData.payment?.user_id || paymentData.user_id;
     const planId = paymentData.payment?.plan_id || paymentData.plan_id;
@@ -649,7 +658,7 @@ async function handlePaymentRefunded(paymentData: WhopWebhookPayload['data']): P
 
     if (project === 'trade_follow') {
       // Handle follow purchase refund
-      
+
       const existingPurchase = await FollowPurchase.findOne({
         $or: [
           { paymentId: paymentId },
