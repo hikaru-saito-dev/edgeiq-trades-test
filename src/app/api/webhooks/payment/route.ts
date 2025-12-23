@@ -13,11 +13,29 @@ export const runtime = 'nodejs';
 
 interface WhopWebhookPayload {
   data: {
-    id: string;
-    user_id: string;
-    plan_id: string;
-    company_id: string;
-    status: string;
+    id: string; // Payment ID for payment webhooks, Refund ID for refund webhooks
+    user_id?: string;
+    plan_id?: string;
+    company_id?: string;
+    status?: string;
+    payment_id?: string; // For refund webhooks, this is the original payment ID
+    payment?: {
+      id: string;
+      plan_id?: string;
+      company_id?: string;
+      user_id?: string;
+      status?: string;
+      metadata?: {
+        followPurchase?: boolean;
+        capperUserId?: string;
+        capperCompanyId?: string;
+        numPlays?: number | string;
+        project?: string;
+      };
+      checkout_configuration?: {
+        metadata?: Record<string, unknown>;
+      };
+    };
     metadata?: {
       followPurchase?: boolean;
       capperUserId?: string;
@@ -544,15 +562,26 @@ async function handlePaymentRefunded(paymentData: WhopWebhookPayload['data']): P
   try {
     await connectDB();
 
-    const planId = paymentData.plan_id;
-    const paymentId = paymentData.id;
-    const followerWhopUserId = paymentData.user_id;
+    // For refund webhooks, payment_id is in data.payment_id (not data.id which is the refund ID)
+    // Also check data.payment.id as fallback
+    const paymentId = paymentData.payment_id || paymentData.payment?.id || paymentData.id;
+    const followerWhopUserId = paymentData.payment?.user_id || paymentData.user_id;
+    const planId = paymentData.payment?.plan_id || paymentData.plan_id;
+    const companyId = paymentData.payment?.company_id || paymentData.company_id;
 
     if (!paymentId || !followerWhopUserId) {
+      console.error('[Refund] Missing paymentId or followerWhopUserId', {
+        paymentId,
+        followerWhopUserId,
+        refundId: paymentData.id,
+        hasPayment: !!paymentData.payment,
+        hasPaymentId: !!paymentData.payment_id,
+      });
       return;
     }
 
     // Extract metadata from payment data
+    // For refund webhooks, metadata might be in data.payment.metadata
     let metadata: Record<string, unknown> = {};
 
     // Try direct metadata first
@@ -560,20 +589,29 @@ async function handlePaymentRefunded(paymentData: WhopWebhookPayload['data']): P
       metadata = paymentData.metadata as Record<string, unknown>;
     }
 
-    // If empty, try nested locations
-    if (!metadata || Object.keys(metadata).length === 0) {
-      const paymentObj = paymentData as unknown as {
-        checkout_configuration?: {
-          metadata?: Record<string, unknown>;
-        };
-        plan?: {
-          metadata?: Record<string, unknown>;
-        };
-      };
+    // Try payment.metadata (for refund webhooks)
+    if ((!metadata || Object.keys(metadata).length === 0) && paymentData.payment?.metadata) {
+      metadata = paymentData.payment.metadata as Record<string, unknown>;
+    }
 
-      metadata = paymentObj.checkout_configuration?.metadata ||
-        paymentObj.plan?.metadata ||
-        {};
+    // If empty, try nested locations (checkout_configuration)
+    if (!metadata || Object.keys(metadata).length === 0) {
+      if (paymentData.payment?.checkout_configuration?.metadata) {
+        metadata = paymentData.payment.checkout_configuration.metadata as Record<string, unknown>;
+      } else {
+        const paymentObj = paymentData as unknown as {
+          checkout_configuration?: {
+            metadata?: Record<string, unknown>;
+          };
+          plan?: {
+            metadata?: Record<string, unknown>;
+          };
+        };
+
+        metadata = paymentObj.checkout_configuration?.metadata ||
+          paymentObj.plan?.metadata ||
+          {};
+      }
     }
 
     // Fallback: If metadata is still empty, check plan_id to determine payment type
@@ -596,7 +634,7 @@ async function handlePaymentRefunded(paymentData: WhopWebhookPayload['data']): P
               followPurchase: true,
               project: 'trade_follow',
               capperUserId: String(capperResult.user._id),
-              capperCompanyId: capperResult.membership.companyId || paymentData.company_id,
+              capperCompanyId: capperResult.membership.companyId || companyId,
               numPlays: capperResult.membership.followOfferNumPlays || 10,
             };
           }
@@ -611,8 +649,12 @@ async function handlePaymentRefunded(paymentData: WhopWebhookPayload['data']): P
 
     if (project === 'trade_follow') {
       // Handle follow purchase refund
+      
       const existingPurchase = await FollowPurchase.findOne({
-        paymentId: paymentId,
+        $or: [
+          { paymentId: paymentId },
+          { followerWhopUserId: followerWhopUserId, planId: planId },
+        ],
       });
 
       if (existingPurchase && existingPurchase.status !== 'refunded') {
