@@ -342,9 +342,7 @@ export default function AutoIQPage() {
                             <Select
                                 value={defaultBrokerConnectionId ? String(defaultBrokerConnectionId) : ''}
                                 onChange={(e) => {
-                                    const value = e.target.value;
-                                    const newValue = value === '' ? null : String(value);
-                                    setDefaultBrokerConnectionId(newValue);
+                                    setDefaultBrokerConnectionId((e.target.value).toString());
                                 }}
                                 label="Default Broker Account"
                                 disabled={loadingBrokers || brokerAccounts.length === 0}
