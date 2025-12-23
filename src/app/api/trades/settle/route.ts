@@ -68,55 +68,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Atomically find and update trade to prevent race conditions
-    // This ensures only one settlement can proceed if multiple requests arrive simultaneously
-    const trade = await Trade.findOneAndUpdate(
-      {
-        _id: validated.tradeId,
-        userId: user._id,
-        whopUserId: user.whopUserId,
-        side: 'BUY', // Only settle BUY trades
-        status: 'OPEN', // Only allow settlement of OPEN trades
-        remainingOpenContracts: { $gte: validated.contracts }, // Ensure enough contracts available
-      },
-      {
-        $inc: { remainingOpenContracts: -validated.contracts }, // Atomically decrement
-      },
-      {
-        new: false, // Return original document before update
-        runValidators: true,
-      }
-    );
+    // First, find and validate the trade (without updating yet)
+    // We'll update remainingOpenContracts inside the transaction so it can be rolled back on error
+    const trade = await Trade.findOne({
+      _id: validated.tradeId,
+      userId: user._id,
+      whopUserId: user.whopUserId,
+      side: 'BUY', // Only settle BUY trades
+      status: 'OPEN', // Only allow settlement of OPEN trades
+    });
 
     if (!trade) {
-      // Trade not found, not OPEN, or insufficient contracts
-      // Check which condition failed for better error message
-      const tradeCheck = await Trade.findOne({
-        _id: validated.tradeId,
-        userId: user._id,
-        whopUserId: user.whopUserId,
-        side: 'BUY',
-      });
+      return NextResponse.json({ error: 'Trade not found' }, { status: 404 });
+    }
 
-      if (!tradeCheck) {
-        return NextResponse.json({ error: 'Trade not found' }, { status: 404 });
-      }
-
-      if (tradeCheck.status !== 'OPEN') {
-        return NextResponse.json({
-          error: 'Cannot settle trade that is not OPEN.',
-        }, { status: 400 });
-      }
-
-      if (validated.contracts > tradeCheck.remainingOpenContracts) {
-        return NextResponse.json({
-          error: `Cannot sell ${validated.contracts} contracts. Only ${tradeCheck.remainingOpenContracts} contracts remaining.`,
-        }, { status: 400 });
-      }
-
-      // Fallback error (shouldn't happen)
+    if (trade.status !== 'OPEN') {
       return NextResponse.json({
-        error: 'Unable to settle trade. Please try again.',
+        error: 'Cannot settle trade that is not OPEN.',
+      }, { status: 400 });
+    }
+
+    if (validated.contracts > trade.remainingOpenContracts) {
+      return NextResponse.json({
+        error: `Cannot sell ${validated.contracts} contracts. Only ${trade.remainingOpenContracts} contracts remaining.`,
       }, { status: 400 });
     }
 
@@ -182,7 +156,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const finalFillPrice = marketFillPrice;
+    let finalFillPrice = marketFillPrice;
     const referencePrice = snapshot.last_quote?.midpoint ?? snapshot.last_trade?.price ?? marketFillPrice;
     const refTimestamp = new Date();
 
@@ -192,19 +166,45 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate notional for this SELL fill
-    const sellNotional = validated.contracts * finalFillPrice * 100;
-
-    // Calculate new remaining contracts (already decremented atomically)
-    const newRemainingContracts = trade.remainingOpenContracts - validated.contracts;
+    let sellNotional = validated.contracts * finalFillPrice * 100;
 
     // Start database session for transaction
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-      // Sync settlement to broker BEFORE updating database
+      // Atomically decrement remainingOpenContracts within transaction
+      // This ensures it can be rolled back if settlement fails
+      const updatedTrade = await Trade.findByIdAndUpdate(
+        trade._id,
+        {
+          $inc: { remainingOpenContracts: -validated.contracts },
+        },
+        {
+          new: true,
+          runValidators: true,
+          session,
+        }
+      );
+
+      if (!updatedTrade) {
+        await session.abortTransaction();
+        await session.endSession();
+        return NextResponse.json(
+          { error: 'Failed to update trade. Please try again.' },
+          { status: 500 }
+        );
+      }
+
+      // Calculate new remaining contracts (using the updated trade from the transaction)
+      const newRemainingContracts = updatedTrade.remainingOpenContracts;
+
+      // Sync settlement to broker AFTER decrementing (but still in transaction)
       // Only sync if the trade was actually placed with the broker (has valid brokerOrderId)
-      // If broker sync fails, the transaction will rollback
+      // If broker sync fails, the transaction will rollback and remainingOpenContracts will be restored
+      let brokerExecutionPrice: number | null | undefined;
+      let priceSource: 'broker' | 'market_data' = 'market_data';
+
       if (trade.brokerOrderId && trade.brokerOrderId !== 'unknown' && trade.brokerConnectionId) {
         try {
           const { BrokerConnection } = await import('@/models/BrokerConnection');
@@ -231,6 +231,17 @@ export async function POST(request: NextRequest) {
               return NextResponse.json({
                 error: result.error || 'Failed to place sell order with broker',
               }, { status: 400 });
+            }
+
+            // Extract execution price and price source from broker response
+            brokerExecutionPrice = result.executionPrice;
+            priceSource = result.priceSource || 'market_data';
+
+            // If broker provided execution price, use it instead of market data price
+            if (brokerExecutionPrice !== null && brokerExecutionPrice !== undefined) {
+              finalFillPrice = brokerExecutionPrice;
+              // Recalculate sell notional with broker execution price
+              sellNotional = validated.contracts * finalFillPrice * 100;
             }
           }
         } catch (brokerError) {
@@ -288,12 +299,10 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Atomically update trade with totals and status (within transaction)
-      const updatedTrade = await Trade.findByIdAndUpdate(
-        trade._id,
-        updateData,
-        { new: true, runValidators: true, session }
-      );
+      // Update trade with totals and status (within transaction)
+      // updatedTrade already has the decremented remainingOpenContracts
+      Object.assign(updatedTrade, updateData);
+      await updatedTrade.save({ session });
 
       if (!updatedTrade) {
         await session.abortTransaction();
@@ -349,6 +358,12 @@ export async function POST(request: NextRequest) {
         message,
         remainingContracts: newRemainingContracts,
         isClosed: newRemainingContracts === 0,
+        priceInfo: {
+          fillPrice: finalFillPrice,
+          priceSource: priceSource,
+          brokerExecutionPrice: brokerExecutionPrice ?? null,
+          marketDataPrice: marketFillPrice,
+        },
       }, { status: 201 });
     } catch (transactionError) {
       // Rollback transaction on any error

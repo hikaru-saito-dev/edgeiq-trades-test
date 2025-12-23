@@ -12,6 +12,8 @@ export interface BrokerOrderResult {
         estimatedFees: Record<string, number>;
         totalCost: number;
     };
+    executionPrice?: number | null; // Actual fill price from broker (if available)
+    priceSource?: 'broker' | 'market_data'; // Source of the price used
 }
 
 export interface IBroker {

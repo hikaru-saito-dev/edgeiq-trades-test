@@ -316,13 +316,13 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const finalFillPrice = marketFillPrice;
+    let finalFillPrice = marketFillPrice;
     const optionContractTicker = snapshot.details?.ticker || snapshot.ticker || null;
     const referencePrice = snapshot.last_quote?.midpoint ?? snapshot.last_trade?.price ?? marketFillPrice;
     const refTimestamp = new Date();
 
     // Calculate notional
-    const notional = validated.contracts * finalFillPrice * 100;
+    let notional = validated.contracts * finalFillPrice * 100;
 
     // Normalize selectedWebhookIds if provided
     // If selectedWebhookIds is provided (even if empty array), validate and use it
@@ -353,6 +353,8 @@ export async function POST(request: NextRequest) {
       estimatedFees: Record<string, number>;
       totalCost: number;
     } | undefined;
+    let brokerExecutionPrice: number | null | undefined;
+    let priceSource: 'broker' | 'market_data' = 'market_data';
 
     try {
       // Find active SnapTrade broker connection
@@ -424,6 +426,17 @@ export async function POST(request: NextRequest) {
         // Store detailed order information and cost breakdown
         brokerOrderDetails = result.orderDetails;
         brokerCostInfo = result.costInfo;
+
+        // Extract execution price and price source from broker response
+        brokerExecutionPrice = result.executionPrice;
+        priceSource = result.priceSource || 'market_data';
+
+        // If broker provided execution price, use it instead of market data price
+        if (brokerExecutionPrice !== null && brokerExecutionPrice !== undefined) {
+          finalFillPrice = brokerExecutionPrice;
+          // Recalculate notional with broker execution price
+          notional = validated.contracts * finalFillPrice * 100;
+        }
       }
     } catch (brokerError) {
       // The broker.placeOptionOrder already returns a detailed error message
@@ -563,6 +576,12 @@ export async function POST(request: NextRequest) {
       const responsePayload = {
         trade: tradeResult,
         message: `Buy Order: ${validated.contracts}x ${validated.ticker} ${validated.strike}${validated.optionType} ${validated.expiryDate} @ $${finalFillPrice.toFixed(2)}`,
+        priceInfo: {
+          fillPrice: finalFillPrice,
+          priceSource: priceSource,
+          brokerExecutionPrice: brokerExecutionPrice ?? null,
+          marketDataPrice: marketFillPrice,
+        },
       };
 
       return NextResponse.json(responsePayload, { status: 201 });

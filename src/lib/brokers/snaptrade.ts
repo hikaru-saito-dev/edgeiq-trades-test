@@ -95,7 +95,15 @@ export class SnapTradeBroker implements IBroker {
       }
 
       // SnapTrade SDK uses snake_case: 'brokerage_order_id' not 'brokerageOrderId'
-      const data = orderData as { brokerage_order_id?: string; brokerageOrderId?: string; id?: string };
+      const data = orderData as {
+        brokerage_order_id?: string;
+        brokerageOrderId?: string;
+        id?: string;
+        orders?: Array<{
+          execution_price?: number | null;
+          [key: string]: unknown;
+        }>;
+      };
       const orderId = data.brokerage_order_id || data.brokerageOrderId || data.id;
 
       if (!orderId) {
@@ -105,12 +113,30 @@ export class SnapTradeBroker implements IBroker {
         };
       }
 
-      const grossCost = trade.fillPrice * contracts * 100;
+      // Extract execution_price from the orders array if available
+      // MlegOrderResponse contains an 'orders' array with AccountOrderRecord objects
+      let executionPrice: number | null = null;
+      let priceSource: 'broker' | 'market_data' = 'market_data';
+
+      if (data.orders && Array.isArray(data.orders) && data.orders.length > 0) {
+        // Get execution_price from the first order (for single-leg orders, there's only one)
+        const firstOrder = data.orders[0];
+        if (firstOrder.execution_price !== undefined && firstOrder.execution_price !== null) {
+          executionPrice = firstOrder.execution_price;
+          priceSource = 'broker';
+        }
+      }
+
+      // Use execution price from broker if available, otherwise use the market data price we sent
+      const fillPrice = executionPrice !== null ? executionPrice : trade.fillPrice;
+      const grossCost = fillPrice * contracts * 100;
 
       return {
         success: true,
         orderId,
         orderDetails: orderData as unknown as Record<string, unknown>,
+        executionPrice,
+        priceSource,
         costInfo: {
           grossCost,
           commission: 0,

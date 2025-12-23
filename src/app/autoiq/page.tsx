@@ -359,14 +359,14 @@ export default function AutoIQPage() {
                                     },
                                 }}
                             >
-                                
-                                        <MenuItem value="">None (use first available)</MenuItem>
-                                        {brokerAccounts.length > 0 && brokerAccounts.map((account) => (
-                                            <MenuItem key={account.id} value={String(account.id)}>
-                                                {account.brokerName} - {account.accountName}
-                                                {account.accountNumber && ` (${account.accountNumber})`}
-                                            </MenuItem>
-                                        ))}
+
+                                <MenuItem value="">None (use first available)</MenuItem>
+                                {brokerAccounts.length > 0 && brokerAccounts.map((account) => (
+                                    <MenuItem key={account.id} value={String(account.id)}>
+                                        {account.brokerName} - {account.accountName}
+                                        {account.accountNumber && ` (${account.accountNumber})`}
+                                    </MenuItem>
+                                ))}
                             </Select>
                         </FormControl>
                     </Box>
