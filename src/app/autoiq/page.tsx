@@ -336,7 +336,7 @@ export default function AutoIQPage() {
                 {autoTradeMode === 'auto-trade' && (
                     <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid var(--surface-border)' }}>
                         <FormControl fullWidth sx={{ mb: 2 }}>
-                            <InputLabel  sx={{ color: 'var(--app-text)' }}>
+                            <InputLabel sx={{ color: 'var(--app-text)' }}>
                                 Default Broker Account
                             </InputLabel>
                             <Select
@@ -359,9 +359,26 @@ export default function AutoIQPage() {
                                     },
                                 }}
                             >
-                                <MenuItem value="1">hi there</MenuItem>
-                                <MenuItem value="2">hi there</MenuItem>
-                                <MenuItem value="3">hi there</MenuItem>
+                                {loadingBrokers ? (
+                                    <MenuItem value="">
+                                        <em>Loading accounts...</em>
+                                    </MenuItem>
+                                ) : brokerAccounts.length === 0 ? (
+                                    <MenuItem value="">
+                                        <em>No broker accounts connected</em>
+                                    </MenuItem>
+                                ) : (
+                                    <>
+                                        <MenuItem value="">None (use first available)</MenuItem>
+                                        {brokerAccounts.map((account) => (
+                                            <MenuItem key={account.id} value={String(account.id)}>
+                                                {account.brokerName} - {account.accountName}
+                                                {account.accountNumber && ` (${account.accountNumber})`}
+                                            </MenuItem>
+                                        ))}
+                                    </>
+                                )}
+
                             </Select>
                         </FormControl>
                     </Box>
