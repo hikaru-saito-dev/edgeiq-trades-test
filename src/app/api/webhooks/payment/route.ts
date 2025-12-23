@@ -161,11 +161,18 @@ export async function POST(request: NextRequest): Promise<Response> {
     ) {
       // Process async
       waitUntil(handlePaymentFailed(webhookPayload.data));
+    } else if (
+      webhookPayload.action === 'payment.refunded' ||
+      webhookPayload.action === 'refund.created' ||
+      webhookPayload.action === 'app_payment.refunded'
+    ) {
+      // Handle refund as separate webhook event
+      waitUntil(handlePaymentRefunded(webhookPayload.data));
     }
 
     // Return 200 OK quickly to prevent webhook retries
     // Return JSON response for compatibility
-    return Response.json({ success: true }, { status: 200 });
+    return Response.json({ success: webhookPayload }, { status: 200 });
   } catch {
     return new Response('Internal server error', { status: 500 });
   }
@@ -184,50 +191,19 @@ async function handlePaymentSucceeded(paymentData: WhopWebhookPayload['data']): 
       return;
     }
 
-    // Check for refund status first (refunds can come as payment.succeeded with refund status)
+    // Fallback: Check for refund status (in case refunds still come as payment.succeeded with refund status)
+    // This is a backwards compatibility check - refunds should come as separate webhook events
     if (
       paymentData.status === 'refunded' ||
       paymentData.status === 'partially_refunded' ||
       paymentData.status === 'auto_refunded'
     ) {
-      // Extract metadata for refund handler
-      let metadata: Record<string, unknown> = {};
-      if (paymentData.metadata && typeof paymentData.metadata === 'object') {
-        metadata = paymentData.metadata as Record<string, unknown>;
-      }
-      if (!metadata || Object.keys(metadata).length === 0) {
-        const paymentObj = paymentData as unknown as {
-          checkout_configuration?: { metadata?: Record<string, unknown> };
-          plan?: { metadata?: Record<string, unknown> };
-        };
-        metadata = paymentObj.checkout_configuration?.metadata ||
-          paymentObj.plan?.metadata ||
-          {};
-      }
-      // Fallback lookup if needed
-      if ((!metadata || Object.keys(metadata).length === 0) && planId) {
-        try {
-          const { getUserByFollowOfferPlanId } = await import('@/lib/userHelpers');
-          const capperResult = await getUserByFollowOfferPlanId(planId);
-          if (capperResult && capperResult.user && capperResult.membership) {
-            metadata = {
-              followPurchase: true,
-              project: 'trade_follow',
-              capperUserId: String(capperResult.user._id),
-              capperCompanyId: capperResult.membership.companyId || paymentData.company_id,
-              numPlays: capperResult.membership.followOfferNumPlays || 10,
-            };
-          }
-        } catch {
-          // Ignore lookup errors
-        }
-      }
       // Route to refund handler (already in waitUntil context)
       await handlePaymentRefunded(paymentData);
       return;
     }
 
-    // Only process paid payments
+    // Only process paid payments (refunds are handled separately via refund webhook events)
     if (paymentData.status !== 'paid') {
       return;
     }
