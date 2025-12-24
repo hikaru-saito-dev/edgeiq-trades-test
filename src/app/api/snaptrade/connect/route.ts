@@ -158,7 +158,6 @@ export async function POST() {
             userId: snaptradeUserId,
             userSecret,
             connectionType: 'trade', // Enable trading permissions (not just read-only)
-            reconnect: existingConnection?.authorizationId || undefined, // Reconnect if existing connection
         });
 
         if (!loginResponse.data || !('redirectURI' in loginResponse.data)) {
