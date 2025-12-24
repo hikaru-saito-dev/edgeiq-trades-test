@@ -61,22 +61,24 @@ export async function POST() {
             clientId: SNAPTRADE_CLIENT_ID,
         });
 
-        // Check if connection already exists for this user and brokerType
-        // We can only have ONE connection per user per brokerType (due to unique index)
+        // Find any existing connection to reuse SnapTrade user credentials
+        // SnapTrade allows multiple broker authorizations per user, so we reuse the same user ID
         const existingConnection = await BrokerConnection.findOne({
             userId: user._id,
             brokerType: 'snaptrade',
-        });
+            isActive: true, // Prefer active connections
+        }).sort({ createdAt: -1 }); // Get most recent
 
         let snaptradeUserId: string;
         let userSecret: string;
         let encryptedSecret: string;
 
         if (existingConnection && existingConnection.snaptradeUserId) {
-            // Reuse existing connection and SnapTrade user
+            // Reuse existing SnapTrade user ID and secret for all connections
+            // This allows multiple broker accounts under the same SnapTrade user
             snaptradeUserId = existingConnection.snaptradeUserId;
 
-            // Try to decrypt existing secret, if it fails, we'll need to re-register
+            // Try to decrypt existing secret
             try {
                 const existingSecret = decrypt(existingConnection.snaptradeUserSecret);
                 userSecret = existingSecret;
@@ -122,31 +124,18 @@ export async function POST() {
             encryptedSecret = encrypt(userSecret);
         }
 
-        // Use findOneAndUpdate with upsert to avoid duplicate key errors
-        // This will update if exists, create if not
-        const connection = await BrokerConnection.findOneAndUpdate(
-            {
-                userId: user._id,
-                brokerType: 'snaptrade',
-            },
-            {
-                $set: {
-                    whopUserId: user.whopUserId,
-                    snaptradeUserId,
-                    snaptradeUserSecret: encryptedSecret,
-                    isActive: false, // Will be activated after OAuth completes
-                    lastSyncedAt: new Date(),
-                },
-                $setOnInsert: {
-                    connectedAt: new Date(),
-                },
-            },
-            {
-                upsert: true,
-                new: true,
-                runValidators: true,
-            }
-        );
+        // Always create a NEW connection record (don't update existing ones)
+        // This allows users to have multiple broker connections simultaneously
+        const connection = await BrokerConnection.create({
+            userId: user._id,
+            whopUserId: user.whopUserId,
+            brokerType: 'snaptrade',
+            snaptradeUserId,
+            snaptradeUserSecret: encryptedSecret,
+            isActive: false, // Will be activated after OAuth completes
+            connectedAt: new Date(),
+            lastSyncedAt: new Date(),
+        });
 
         // Invalidate broker cache
         const { invalidateBrokerCache } = await import('@/lib/cache/brokerCache');

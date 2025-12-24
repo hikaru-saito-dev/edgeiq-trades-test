@@ -1120,7 +1120,7 @@ export default function ProfileForm() {
                     },
                   }}
                 >
-                  + Connect Another Broker
+                  Connect Another Broker
                 </Button>
               </Box>
             )}
