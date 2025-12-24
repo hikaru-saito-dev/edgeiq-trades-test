@@ -118,7 +118,7 @@ async function loadPoppinsFont(): Promise<void> {
       // Wait for fonts to be ready before resolving
       document.fonts.ready.then(() => {
         // Small delay to ensure font is fully available
-        setTimeout(() => resolve(), 100);
+        setTimeout(() => resolve(), 500);
       }).catch(() => resolve());
     }).catch(() => {
       // Fallback if font fails to load
@@ -248,7 +248,6 @@ export async function generateTradeSnapshot(trade: TradeSnapshotData): Promise<B
   // Colors
   const greenColor = '#22c55e';
   const whiteColor = '#ffffff';
-  const darkGrayColor = '#1a1a1a';
 
   // Normalize numbers
   const pnl = Number.isFinite(trade.pnl) ? (trade.pnl as number) : 0;
@@ -351,7 +350,7 @@ export async function generateTradeSnapshot(trade: TradeSnapshotData): Promise<B
           ctx.restore();
           profileImageLoaded = true;
         }
-      } catch (error) {
+      } catch {
         // Image failed to load, will use placeholder
       }
     }
@@ -448,7 +447,7 @@ export async function generateStatsSnapshot(stats: StatsSnapshotData): Promise<B
   // Main stats cards (2x2 grid)
   const statsPositions = [
     { label: 'Win Rate', value: `${winRate.toFixed(1)}%`, x: 600, labelY: 640, valueY: 710, color: greenColor },
-    { label: 'ROI', value: `${roi >= 0 ? '+' : ''}${roi.toFixed(2)}%`, x: 970, labelY: 640, valueY: 710, color: roi >= 0 ? greenColor : '#ef4444' },
+    { label: 'ROI', value: `${roi >= 0 ? '+' : ''}${roi.toFixed(2)}%`, x: 970, labelY: 640, valueY: 710, color: greenColor  },
     { label: 'Wins', value: `${wins}`, x: 600, labelY: 815, valueY: 885, color: greenColor },
     { label: 'Total Trades', value: `${totalTrades}`, x: 970, labelY: 815, valueY: 885, color: greenColor },
   ];
@@ -492,7 +491,7 @@ export async function generateStatsSnapshot(stats: StatsSnapshotData): Promise<B
           ctx.restore();
           profileImageLoaded = true;
         }
-      } catch (error) {
+      } catch {
         // Image failed to load, will use placeholder
       }
     }

@@ -54,6 +54,8 @@ const BrokerConnectionSchema = new Schema<IBrokerConnection>({
 });
 
 // Compound indexes
+// Note: userId + brokerType is NOT unique to allow multiple broker connections per user
+BrokerConnectionSchema.index({ userId: 1, brokerType: 1 }); // Non-unique to allow multiple connections
 BrokerConnectionSchema.index({ userId: 1, isActive: 1 });
 BrokerConnectionSchema.index({ whopUserId: 1, isActive: 1 });
 BrokerConnectionSchema.index({ brokerType: 1, isActive: 1 });
