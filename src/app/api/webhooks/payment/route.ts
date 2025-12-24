@@ -190,6 +190,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     // Return 200 OK quickly to prevent webhook retries
     // Return JSON response for compatibility
+    console.error('Webhook processed successfully', { webhookPayload });
     return Response.json({ success: true }, { status: 200 });
   } catch {
     return new Response('Internal server error', { status: 500 });
@@ -208,19 +209,6 @@ async function handlePaymentSucceeded(paymentData: WhopWebhookPayload['data']): 
     if (!planId) {
       return;
     }
-
-    // Fallback: Check for refund status (in case refunds still come as payment.succeeded with refund status)
-    // This is a backwards compatibility check - refunds should come as separate webhook events
-    if (
-      paymentData.status === 'refunded' ||
-      paymentData.status === 'partially_refunded' ||
-      paymentData.status === 'auto_refunded'
-    ) {
-      // Route to refund handler (already in waitUntil context)
-      await handlePaymentRefunded(paymentData);
-      return;
-    }
-
     // Only process paid payments (refunds are handled separately via refund webhook events)
     if (paymentData.status !== 'paid') {
       return;

@@ -85,13 +85,25 @@ export async function POST(request: NextRequest) {
     // Create (or recreate) a Whop plan for this capper's follow offer.
     // Then create a checkout configuration with metadata so webhooks can
     // identify which project/capper this payment is for.
+    // Whop API requires title to be max 30 characters
+    const maxTitleLength = 30;
+    // Build title: "Follow {username} - {numPlays} plays"
+    // If too long, truncate username while keeping the rest
+    const suffix = ` - ${numPlays} plays`;
+    const prefix = 'Follow ';
+    const availableLength = maxTitleLength - prefix.length - suffix.length;
+    const truncatedUsername = capperUsername.length > availableLength
+      ? capperUsername.substring(0, Math.max(1, availableLength - 3)) + '...'
+      : capperUsername;
+    const planTitle = `${prefix}${truncatedUsername}${suffix}`.substring(0, maxTitleLength);
+
     const plan = await whopClient.plans.create({
       company_id: EDGEIQ_COMPANY_ID,
       product_id: WHOP_FOLLOW_PRODUCT_ID,
       initial_price: priceCents,
       plan_type: 'one_time',
       currency: 'usd',
-      title: `Follow ${capperUsername} - ${numPlays} plays`,
+      title: planTitle,
     });
 
     const planId = plan.id;
