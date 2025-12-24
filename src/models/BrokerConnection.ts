@@ -59,7 +59,7 @@ BrokerConnectionSchema.index({ userId: 1, brokerType: 1 }); // Non-unique to all
 BrokerConnectionSchema.index({ userId: 1, isActive: 1 });
 BrokerConnectionSchema.index({ whopUserId: 1, isActive: 1 });
 BrokerConnectionSchema.index({ brokerType: 1, isActive: 1 });
-BrokerConnectionSchema.index({ snaptradeUserId: 1 }, { unique: true, sparse: true });
+BrokerConnectionSchema.index({ snaptradeUserId: 1 }); // Non-unique to allow multiple connections per SnapTrade user
 
 export const BrokerConnection = (mongoose.models && mongoose.models.BrokerConnection) ||
     mongoose.model<IBrokerConnection>('BrokerConnection', BrokerConnectionSchema);

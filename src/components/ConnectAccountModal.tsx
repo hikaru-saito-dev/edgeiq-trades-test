@@ -38,10 +38,16 @@ export default function ConnectAccountModal({
     const intervalsRef = useRef<{ popup: NodeJS.Timeout | null; success: NodeJS.Timeout | null }>({ popup: null, success: null });
     const isCompletedRef = useRef(false);
     const messageHandlerRef = useRef<((event: MessageEvent) => void) | null>(null);
+    const wasManuallyClosedRef = useRef(false); // Track if modal was manually closed (not via successful completion)
 
     // Cleanup on modal close
     useEffect(() => {
         if (!open) {
+            // If modal was manually closed (not via successful completion), mark it
+            if (!isCompletedRef.current && redirectUri) {
+                wasManuallyClosedRef.current = true;
+            }
+
             setError(null);
             setRedirectUri(null);
             isCompletedRef.current = false;
@@ -71,8 +77,11 @@ export default function ConnectAccountModal({
                 window.removeEventListener('message', messageHandlerRef.current);
                 messageHandlerRef.current = null;
             }
+        } else {
+            // Reset manual close flag when modal opens
+            wasManuallyClosedRef.current = false;
         }
-    }, [open]);
+    }, [open, redirectUri]);
 
     const handleConnect = async () => {
         if (!userId || !companyId) {
@@ -136,6 +145,12 @@ export default function ConnectAccountModal({
                 // Helper function to clean up and close everything
                 const completeConnection = async () => {
                     if (isCompletedRef.current) return;
+
+                    // Don't complete if modal was manually closed
+                    if (wasManuallyClosedRef.current) {
+                        return;
+                    }
+
                     isCompletedRef.current = true;
 
                     // Remove message listener if it exists
@@ -194,8 +209,9 @@ export default function ConnectAccountModal({
                 intervalsRef.current.popup = setInterval(() => {
                     // Check if popup was closed (user clicked "Done" on connection complete page)
                     if (popup.closed) {
-                        // Popup closed - complete connection and close modal
-                        if (!isCompletedRef.current) {
+                        // Popup closed - only complete connection if modal wasn't manually closed
+                        // If modal was manually closed, don't trigger completion (connection might be incomplete)
+                        if (!isCompletedRef.current && !wasManuallyClosedRef.current) {
                             completeConnection();
                         }
                         return;

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
-import { User } from '@/models/User';
 import { BrokerConnection } from '@/models/BrokerConnection';
 import { Snaptrade } from 'snaptrade-typescript-sdk';
 import { decrypt } from '@/lib/encryption';
@@ -148,7 +147,7 @@ export async function POST() {
         }
 
         const savedConnection = await connection.save();
-        
+
         // Invalidate broker cache
         const { invalidateBrokerCache } = await import('@/lib/cache/brokerCache');
         invalidateBrokerCache(user.whopUserId, String(user._id));
