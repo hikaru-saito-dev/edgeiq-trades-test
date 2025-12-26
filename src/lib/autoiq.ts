@@ -184,7 +184,8 @@ async function autoTradeForSingleFollower(
         brokerConnectionId: brokerConnection._id as Types.ObjectId,
     };
 
-    // Execute the trade on the follower's broker account
+    // Execute the trade on the follower's broker account FIRST
+    // Only create the trade in database if broker order succeeds
     let brokerOrderId: string | undefined;
     let brokerOrderDetails: Record<string, unknown> | undefined;
     let brokerCostInfo: {
@@ -203,32 +204,63 @@ async function autoTradeForSingleFollower(
         );
 
         if (!result.success) {
-            // Broker execution failed - still create the trade record but mark it as failed
-            console.error(`Broker execution failed for follower ${follower.whopUserId}:`, result.error);
-            brokerOrderId = 'unknown';
-        } else {
-            brokerOrderId = result.orderId;
-            brokerOrderDetails = result.orderDetails as Record<string, unknown>;
-            brokerCostInfo = result.costInfo;
+            // Broker execution failed - DO NOT create the trade
+            console.error(`Broker execution failed for follower ${follower.whopUserId}:`, {
+                error: result.error,
+                trade: {
+                    ticker: creatorTrade.ticker,
+                    strike: creatorTrade.strike,
+                    optionType: creatorTrade.optionType,
+                    expiryDate: creatorTrade.expiryDate,
+                    contracts: followerTradeData.contracts,
+                },
+                brokerConnection: {
+                    id: brokerConnection._id,
+                    accountId: brokerConnection.accountId,
+                    authorizationId: brokerConnection.authorizationId,
+                    brokerName: brokerConnection.brokerName,
+                },
+            });
+            return; // Exit without creating trade
         }
+
+        // Broker order succeeded - store the results
+        brokerOrderId = result.orderId;
+        brokerOrderDetails = result.orderDetails as Record<string, unknown>;
+        brokerCostInfo = result.costInfo;
     } catch (brokerError) {
-        // Broker execution failed - still create the trade record but mark it as failed
-        console.error(`Broker execution error for follower ${follower.whopUserId}:`, brokerError);
-        brokerOrderId = 'unknown';
+        // Broker execution failed - DO NOT create the trade
+        console.error(`Broker execution error for follower ${follower.whopUserId}:`, {
+            error: brokerError instanceof Error ? brokerError.message : String(brokerError),
+            stack: brokerError instanceof Error ? brokerError.stack : undefined,
+            trade: {
+                ticker: creatorTrade.ticker,
+                strike: creatorTrade.strike,
+                optionType: creatorTrade.optionType,
+                expiryDate: creatorTrade.expiryDate,
+                contracts: followerTradeData.contracts,
+            },
+            brokerConnection: {
+                id: brokerConnection._id,
+                accountId: brokerConnection.accountId,
+                authorizationId: brokerConnection.authorizationId,
+                brokerName: brokerConnection.brokerName,
+            },
+        });
+        return; // Exit without creating trade
     }
 
+    // Only reach here if broker order succeeded
     // Add broker info to trade data
-    if (brokerOrderId) {
-        followerTradeData.brokerOrderId = brokerOrderId;
-        if (brokerOrderDetails) {
-            followerTradeData.brokerOrderDetails = brokerOrderDetails;
-        }
-        if (brokerCostInfo) {
-            followerTradeData.brokerCostInfo = brokerCostInfo;
-        }
+    followerTradeData.brokerOrderId = brokerOrderId!;
+    if (brokerOrderDetails) {
+        followerTradeData.brokerOrderDetails = brokerOrderDetails;
+    }
+    if (brokerCostInfo) {
+        followerTradeData.brokerCostInfo = brokerCostInfo;
     }
 
-    // Create the follower's trade in database
+    // Create the follower's trade in database (only after successful broker order)
     const followerTrade = new Trade(followerTradeData);
     await followerTrade.save();
 

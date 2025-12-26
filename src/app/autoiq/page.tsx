@@ -39,7 +39,7 @@ export default function AutoIQPage() {
     }, [userId, companyId]);
 
     const loadBrokerAccounts = useCallback(async () => {
-        if (!userId || !companyId) return;
+        if (!userId || !companyId) return Promise.resolve();
         setLoadingBrokers(true);
         try {
             const response = await apiRequest('/api/snaptrade/accounts', {
@@ -68,7 +68,11 @@ export default function AutoIQPage() {
             if (response.ok) {
                 const data = await response.json();
                 setAutoTradeMode(data.user.autoTradeMode || 'notify-only');
-                setDefaultBrokerConnectionId(data.user.defaultBrokerConnectionId || null);
+                // Convert to string to match Select component value format
+                const savedBrokerId = data.user.defaultBrokerConnectionId
+                    ? String(data.user.defaultBrokerConnectionId)
+                    : null;
+                setDefaultBrokerConnectionId(savedBrokerId);
             } else {
                 toast.showError('Failed to load AutoIQ settings');
             }
@@ -86,14 +90,30 @@ export default function AutoIQPage() {
             fetchCheckoutUrl();
 
             if (hasAutoIQ && userId && companyId) {
-                loadBrokerAccounts();
-                fetchSettings();
+                // Load broker accounts first, then fetch settings
+                // This ensures the Select component has options when the value is set
+                loadBrokerAccounts().then(() => {
+                    fetchSettings();
+                });
             } else if (!hasAutoIQ) {
                 // Don't show loading for non-subscribers
                 setLoading(false);
             }
         }
     }, [accessLoading, isAuthorized, userId, companyId, hasAutoIQ, fetchSettings, fetchCheckoutUrl, loadBrokerAccounts]);
+
+    // Ensure defaultBrokerConnectionId is valid when broker accounts are loaded
+    useEffect(() => {
+        if (defaultBrokerConnectionId && brokerAccounts.length > 0) {
+            // Verify the saved broker connection ID exists in the loaded accounts
+            const accountExists = brokerAccounts.some(acc => String(acc.id) === String(defaultBrokerConnectionId));
+            if (!accountExists) {
+                // If the saved account doesn't exist in the loaded accounts, reset to null
+                console.warn('Saved default broker connection not found in loaded accounts, resetting to null');
+                setDefaultBrokerConnectionId(null);
+            }
+        }
+    }, [defaultBrokerConnectionId, brokerAccounts]);
 
 
     const handleSave = async () => {
@@ -340,12 +360,24 @@ export default function AutoIQPage() {
                                 Default Broker Account
                             </InputLabel>
                             <Select
-                                value={defaultBrokerConnectionId ? String(defaultBrokerConnectionId) : ''}
+                                value={defaultBrokerConnectionId || ''}
                                 onChange={(e) => {
-                                    setDefaultBrokerConnectionId((e.target.value).toString());
+                                    const value = e.target.value;
+                                    setDefaultBrokerConnectionId(value === '' ? null : String(value));
                                 }}
                                 label="Default Broker Account"
                                 disabled={loadingBrokers || brokerAccounts.length === 0}
+                                displayEmpty
+                                renderValue={(selected) => {
+                                    if (!selected || selected === '') {
+                                        return <em style={{ color: 'var(--text-muted)' }}>None (use first available)</em>;
+                                    }
+                                    const account = brokerAccounts.find(acc => String(acc.id) === String(selected));
+                                    if (account) {
+                                        return `${account.brokerName} - ${account.accountName}${account.accountNumber ? ` (${account.accountNumber})` : ''}`;
+                                    }
+                                    return selected;
+                                }}
                                 sx={{
                                     color: 'var(--app-text)',
                                     '& .MuiOutlinedInput-notchedOutline': {
