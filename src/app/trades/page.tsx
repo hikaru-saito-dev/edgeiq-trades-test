@@ -99,7 +99,7 @@ export default function TradesPage() {
     fetchTrades();
     fetchUserProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, isAuthorized]);
+  }, [page, pageSize, isAuthorized, selectedStatus, search]);
 
   // Check market hours
   useEffect(() => {
