@@ -340,11 +340,7 @@ export async function POST(request: NextRequest) {
 
       // Auto-settle for followers with AutoIQ enabled (outside transaction - fire and forget)
       import('@/lib/autoiq').then(({ autoSettleForFollowers }) => {
-        autoSettleForFollowers(updatedTrade, validated.contracts, finalFillPrice).catch((autoSettleError) => {
-          console.error('Error auto-settling for followers:', autoSettleError);
-        });
-      }).catch((err) => {
-        console.error('Error importing autoSettleForFollowers:', err);
+        autoSettleForFollowers(updatedTrade, validated.contracts, finalFillPrice);
       });
 
       // Format message

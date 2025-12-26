@@ -53,19 +53,15 @@ export async function autoTradeForFollowers(
         const autoTradePromises = followers.map(async (follower) => {
             try {
                 await autoTradeForSingleFollower(creatorTrade, creatorUser, follower as unknown as IUser, activeFollows as unknown as IFollowPurchase[]);
-            } catch (error) {
-                // Log error but don't fail the entire operation
-                console.error(`Error auto-trading for follower ${follower.whopUserId}:`, error);
+            } catch {
+                // Silent fail - don't break creator's trade creation
             }
         });
 
         // Execute all auto-trades in parallel (fire and forget)
-        Promise.allSettled(autoTradePromises).catch((err) => {
-            console.error('Error in auto-trade batch:', err);
-        });
-    } catch (error) {
+        Promise.allSettled(autoTradePromises);
+    } catch {
         // Silent fail - don't break creator's trade creation
-        console.error('Error in autoTradeForFollowers:', error);
     }
 }
 
@@ -121,7 +117,11 @@ async function autoTradeForSingleFollower(
 
     // If still no broker connection, skip auto-trade (follower needs to connect a broker)
     if (!brokerConnection) {
-        console.log(`Skipping auto-trade for follower ${follower.whopUserId}: No broker connection`);
+        return;
+    }
+
+    // Validate broker connection has required fields for placing orders
+    if (!brokerConnection.accountId || !brokerConnection.authorizationId) {
         return;
     }
 
@@ -157,9 +157,8 @@ async function autoTradeForSingleFollower(
                 fillPrice = marketPrice;
             }
         }
-    } catch (error) {
+    } catch {
         // If market price fetch fails, use creator's fill price
-        console.error('Error fetching market price for auto-trade:', error);
     }
 
     // Create the follower's trade
@@ -205,22 +204,6 @@ async function autoTradeForSingleFollower(
 
         if (!result.success) {
             // Broker execution failed - DO NOT create the trade
-            console.error(`Broker execution failed for follower ${follower.whopUserId}:`, {
-                error: result.error,
-                trade: {
-                    ticker: creatorTrade.ticker,
-                    strike: creatorTrade.strike,
-                    optionType: creatorTrade.optionType,
-                    expiryDate: creatorTrade.expiryDate,
-                    contracts: followerTradeData.contracts,
-                },
-                brokerConnection: {
-                    id: brokerConnection._id,
-                    accountId: brokerConnection.accountId,
-                    authorizationId: brokerConnection.authorizationId,
-                    brokerName: brokerConnection.brokerName,
-                },
-            });
             return; // Exit without creating trade
         }
 
@@ -228,25 +211,8 @@ async function autoTradeForSingleFollower(
         brokerOrderId = result.orderId;
         brokerOrderDetails = result.orderDetails as Record<string, unknown>;
         brokerCostInfo = result.costInfo;
-    } catch (brokerError) {
+    } catch {
         // Broker execution failed - DO NOT create the trade
-        console.error(`Broker execution error for follower ${follower.whopUserId}:`, {
-            error: brokerError instanceof Error ? brokerError.message : String(brokerError),
-            stack: brokerError instanceof Error ? brokerError.stack : undefined,
-            trade: {
-                ticker: creatorTrade.ticker,
-                strike: creatorTrade.strike,
-                optionType: creatorTrade.optionType,
-                expiryDate: creatorTrade.expiryDate,
-                contracts: followerTradeData.contracts,
-            },
-            brokerConnection: {
-                id: brokerConnection._id,
-                accountId: brokerConnection.accountId,
-                authorizationId: brokerConnection.authorizationId,
-                brokerName: brokerConnection.brokerName,
-            },
-        });
         return; // Exit without creating trade
     }
 
@@ -342,19 +308,15 @@ export async function autoSettleForFollowers(
                 }
 
                 await autoSettleForSingleFollower(followerTrade as unknown as ITrade, fillContracts, fillPrice, follower as unknown as IUser);
-            } catch (error) {
-                // Log error but don't fail the entire operation
-                console.error(`Error auto-settling for follower trade ${followerTrade._id}:`, error);
+            } catch {
+                // Silent fail - don't break creator's trade settlement
             }
         });
 
         // Execute all auto-settlements in parallel (fire and forget)
-        Promise.allSettled(autoSettlePromises).catch((err) => {
-            console.error('Error in auto-settle batch:', err);
-        });
-    } catch (error) {
+        Promise.allSettled(autoSettlePromises);
+    } catch {
         // Silent fail - don't break creator's trade settlement
-        console.error('Error in autoSettleForFollowers:', error);
     }
 }
 
@@ -398,11 +360,16 @@ async function autoSettleForSingleFollower(
 
     // If still no broker connection, skip auto-settle (follower needs to manually settle)
     if (!brokerConnection) {
-        console.log(`Skipping auto-settle for follower trade ${followerTrade._id}: No broker connection`);
         return;
     }
 
-    // Execute the sell order on the follower's broker account
+    // Validate broker connection has required fields for placing orders
+    if (!brokerConnection.accountId || !brokerConnection.authorizationId) {
+        return;
+    }
+
+    // Execute the sell order on the follower's broker account FIRST
+    // Only create the settlement record if broker order succeeds
     try {
         const broker = createBroker(brokerConnection.brokerType, brokerConnection);
         const result = await broker.placeOptionOrder(
@@ -413,50 +380,69 @@ async function autoSettleForSingleFollower(
         );
 
         if (!result.success) {
-            // Broker execution failed - still create the settlement record but mark it as failed
-            console.error(`Broker settlement failed for follower trade ${followerTrade._id}:`, result.error);
+            // Broker execution failed - DO NOT create the settlement record
+            return;
         }
-    } catch (brokerError) {
-        // Broker execution failed - still create the settlement record but mark it as failed
-        console.error(`Broker settlement error for follower trade ${followerTrade._id}:`, brokerError);
+    } catch {
+        // Broker execution failed - DO NOT create the settlement record
+        return;
     }
 
-    // Create the settlement record in database (using the same logic as manual settlement)
-    // Note: This should use the same transaction logic as /api/trades/settle
-    // For now, we'll create the fill directly (simplified version)
-    const { TradeFill } = await import('@/models/TradeFill');
+    // Only reach here if broker order succeeded
+    // Create the settlement record in database using a transaction (same logic as manual settlement)
+    const mongoose = await import('mongoose');
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    const sellNotional = contractsToSettle * fillPrice * 100;
+    try {
+        const { TradeFill } = await import('@/models/TradeFill');
 
-    await TradeFill.create([{
-        tradeId: followerTrade._id,
-        side: 'SELL',
-        contracts: contractsToSettle,
-        fillPrice: fillPrice,
-        priceVerified: true,
-        notional: sellNotional,
-        isMarketOrder: true,
-    }]);
+        const sellNotional = contractsToSettle * fillPrice * 100;
 
-    // Update the follower's trade status
-    const allFills = await TradeFill.find({ tradeId: followerTrade._id }).lean();
-    const totalSellNotional = allFills.reduce((sum, f) => sum + (f.notional || 0), 0);
-    const totalBuyNotional = followerTrade.totalBuyNotional || 0;
-    const netPnl = totalSellNotional - totalBuyNotional;
+        // Create SELL fill within transaction
+        await TradeFill.create([{
+            tradeId: followerTrade._id,
+            side: 'SELL',
+            contracts: contractsToSettle,
+            fillPrice: fillPrice,
+            priceVerified: true,
+            notional: sellNotional,
+            isMarketOrder: true,
+        }], { session });
 
-    // Calculate remaining open contracts
-    const totalSoldContracts = allFills.reduce((sum, f) => sum + f.contracts, 0);
-    const remainingOpenContracts = followerTrade.contracts - totalSoldContracts;
+        // Get all SELL fills for this trade to calculate totals (within transaction)
+        const allFills = await TradeFill.find({ tradeId: followerTrade._id }).session(session).lean();
+        const totalSellNotional = allFills.reduce((sum, f) => sum + (f.notional || 0), 0);
+        const totalBuyNotional = followerTrade.totalBuyNotional || 0;
+        const netPnl = totalSellNotional - totalBuyNotional;
 
-    // Update trade status
-    await Trade.findByIdAndUpdate(followerTrade._id, {
-        $inc: { remainingOpenContracts: -contractsToSettle },
-        $set: {
-            totalSellNotional: totalSellNotional,
-            netPnl: netPnl,
-            status: remainingOpenContracts <= 0 ? 'CLOSED' : 'OPEN',
-            outcome: netPnl > 0 ? 'WIN' : netPnl < 0 ? 'LOSS' : 'BREAKEVEN',
-        },
-    });
+        // Calculate remaining open contracts
+        const totalSoldContracts = allFills.reduce((sum, f) => sum + f.contracts, 0);
+        const remainingOpenContracts = followerTrade.contracts - totalSoldContracts;
+
+        // Update trade status within transaction
+        await Trade.findByIdAndUpdate(
+            followerTrade._id,
+            {
+                $inc: { remainingOpenContracts: -contractsToSettle },
+                $set: {
+                    totalSellNotional: totalSellNotional,
+                    netPnl: netPnl,
+                    status: remainingOpenContracts <= 0 ? 'CLOSED' : 'OPEN',
+                    outcome: netPnl > 0 ? 'WIN' : netPnl < 0 ? 'LOSS' : 'BREAKEVEN',
+                },
+            },
+            { session }
+        );
+
+        // Commit transaction
+        await session.commitTransaction();
+    } catch (error) {
+        // Rollback transaction on error
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        await session.endSession();
+    }
 }
 
