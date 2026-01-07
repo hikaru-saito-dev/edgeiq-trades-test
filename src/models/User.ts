@@ -25,7 +25,7 @@ export interface CompanyMembership {
   webhooks?: Webhook[]; // Different webhooks per company
   notifyOnSettlement?: boolean;
   onlyNotifyWinningSettlements?: boolean;
-  optIn?: boolean; // Leaderboard opt-in per company
+  // Note: optIn moved to Company model (company-level setting)
 
   // Follow offer settings (per company)
   followOfferEnabled?: boolean;
@@ -88,7 +88,7 @@ const CompanyMembershipSchema = new Schema<CompanyMembership>({
   webhooks: { type: [WebhookSchema], default: [] },
   notifyOnSettlement: { type: Boolean, default: false },
   onlyNotifyWinningSettlements: { type: Boolean, default: false },
-  optIn: { type: Boolean, default: true },
+  // Note: optIn removed - now in Company model
   followOfferEnabled: { type: Boolean, default: false },
   followOfferPriceCents: { type: Number, min: 0 },
   followOfferNumPlays: { type: Number, min: 1 },
@@ -124,7 +124,6 @@ const UserSchema = new Schema<IUser>({
 
 // Indexes for efficient queries
 UserSchema.index({ 'companyMemberships.companyId': 1, 'companyMemberships.role': 1 });
-UserSchema.index({ 'companyMemberships.companyId': 1, 'companyMemberships.optIn': 1 });
 UserSchema.index({ 'companyMemberships.companyId': 1, whopUserId: 1 }, { unique: true, sparse: true });
 UserSchema.index({ 'companyMemberships.followOfferPlanId': 1, 'companyMemberships.followOfferEnabled': 1 }); // For webhook lookup
 

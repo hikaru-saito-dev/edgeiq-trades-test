@@ -349,7 +349,7 @@ export async function GET() {
         companyId: companyId,
         companyName: company?.companyName,
         companyDescription: company?.companyDescription,
-        optIn: membership.optIn ?? true,
+        optIn: company?.optIn ?? true, // optIn is now in Company model
         whopUsername: user.whopUsername,
         whopDisplayName: user.whopDisplayName,
         whopAvatarUrl: user.whopAvatarUrl,
@@ -440,9 +440,16 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Only owners and companyOwners can opt out of leaderboard (default is opted in)
+    // optIn is now a company-level setting, not per-membership
     if (validated.optIn !== undefined) {
       if (membership.role === 'companyOwner' || membership.role === 'owner') {
-        membershipUpdates.optIn = validated.optIn;
+        // Update Company.optIn instead of membership.optIn
+        const company = await Company.findOne({ companyId });
+        if (!company) {
+          return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+        }
+        company.optIn = validated.optIn;
+        await company.save();
       } else {
         return NextResponse.json(
           { error: 'Only owners and company owners can opt out of leaderboard' },
@@ -583,7 +590,7 @@ export async function PATCH(request: NextRequest) {
         companyId: companyId,
         companyName: updatedCompany?.companyName,
         companyDescription: updatedCompany?.companyDescription,
-        optIn: updatedMembership?.optIn ?? membership.optIn ?? true,
+        optIn: updatedCompany?.optIn ?? true, // optIn is now in Company model
         membershipPlans: updatedCompany?.membershipPlans || [],
         followOfferEnabled: updatedMembership?.followOfferEnabled ?? false,
         followOfferPriceCents: updatedMembership?.followOfferPriceCents ?? 0,

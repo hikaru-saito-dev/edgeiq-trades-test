@@ -6,6 +6,7 @@ export interface ICompany extends Document {
   companyName?: string;
   companyDescription?: string;
   membershipPlans?: MembershipPlan[]; // Array of membership plans for this company
+  optIn?: boolean; // Leaderboard opt-in (default true - company appears on leaderboard)
   hideLeaderboardFromMembers?: boolean; // Company owner setting to hide leaderboard from members
   hideCompanyStatsFromMembers?: boolean; // Company owner setting to hide company stats toggle from members and admins
   companyOwnerWhopUserId: string; // Reference to owner (person-level)
@@ -32,6 +33,7 @@ const CompanySchema = new Schema<ICompany>({
   companyName: { type: String, trim: true },
   companyDescription: { type: String, trim: true },
   membershipPlans: { type: [MembershipPlanSchema], default: [] },
+  optIn: { type: Boolean, default: true }, // Default true - company appears on leaderboard
   hideLeaderboardFromMembers: { type: Boolean, default: false },
   hideCompanyStatsFromMembers: { type: Boolean, default: false },
   companyOwnerWhopUserId: { type: String, required: true },

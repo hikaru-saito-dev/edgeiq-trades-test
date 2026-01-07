@@ -149,7 +149,7 @@ export async function getOrCreateCompanyMembership(
                 companyId,
                 alias: defaultAlias || `User ${whopUserId.slice(0, 8)}`,
                 role: defaultRole,
-                optIn: true,
+                // Note: optIn removed - now in Company model
                 followOfferEnabled: false,
                 joinedAt: new Date(),
             }],
@@ -166,7 +166,7 @@ export async function getOrCreateCompanyMembership(
             companyId,
             alias: user.companyMemberships[0]?.alias || defaultAlias || `User ${whopUserId.slice(0, 8)}`,
             role: defaultRole,
-            optIn: true,
+            // Note: optIn removed - now in Company model
             followOfferEnabled: false,
             joinedAt: new Date(),
         };

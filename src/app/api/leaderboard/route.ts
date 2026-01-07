@@ -79,16 +79,11 @@ export async function GET(request: NextRequest) {
     const sortColumn = searchParams.get('sortColumn') || 'roi';
     const sortDirection = (searchParams.get('sortDirection') || 'desc') as 'asc' | 'desc';
 
-    // Only show owners and companyOwners who are opted in (default) and have companyId set
-    // Include users where optIn is true or undefined/null (since default is opted in)
-    // Query users with companyMemberships that have companyOwner role and optIn
+    // Only show companies that are opted in (default) - optIn is now in Company model
+    // Query users with companyMemberships that have companyOwner role
+    // We'll filter by Company.optIn later in the pipeline
     const baseQuery: Record<string, unknown> = {
       'companyMemberships.role': 'companyOwner',
-      $or: [
-        { 'companyMemberships.optIn': true },
-        { 'companyMemberships.optIn': { $exists: false } },
-        { 'companyMemberships.optIn': null },
-      ],
     };
 
     const cutoffDate = rangeToCutoff(range);
@@ -127,11 +122,6 @@ export async function GET(request: NextRequest) {
       {
         $match: {
           'companyMemberships.role': { $in: ['companyOwner', 'owner', 'admin'] },
-          $or: [
-            { 'companyMemberships.optIn': true },
-            { 'companyMemberships.optIn': { $exists: false } },
-            { 'companyMemberships.optIn': null },
-          ],
         },
       },
       {
@@ -159,6 +149,17 @@ export async function GET(request: NextRequest) {
       {
         $addFields: {
           companyData: { $arrayElemAt: ['$companyData', 0] },
+        },
+      },
+      {
+        // Filter by Company.optIn (default true - company appears on leaderboard)
+        $match: {
+          $or: [
+            { 'companyData.optIn': true },
+            { 'companyData.optIn': { $exists: false } },
+            { 'companyData.optIn': null },
+            { 'companyData': null }, // Handle case where company doesn't exist yet
+          ],
         },
       },
       {

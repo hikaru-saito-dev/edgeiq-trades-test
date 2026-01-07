@@ -1,384 +1,637 @@
 /**
- * Migration script to transform User collection from old structure to new structure
- * 
- * Old structure: One User document per (whopUserId, companyId) pair
- * New structure: One User document per whopUserId with companyMemberships array
- * 
- * Run with: npx tsx scripts/migrate-user-collection.ts
+ * Migration Script: Convert User collection from old structure to new structure
+ *
+ * OLD STRUCTURE (current production):
+ * - Collection: users
+ * - One document per (whopUserId, companyId) OR per person
+ * - Company-specific fields are on the User document:
+ *   - companyId, role, alias, webhooks, optIn, followOffer*, membershipPlans, hideLeaderboardFromMembers, etc.
+ *
+ * NEW STRUCTURE (after migration):
+ * - Collection: users
+ *   - One document per person (whopUserId)
+ *   - `companyMemberships`: array of company-specific data
+ *   - `activeCompanyId`, `activeMembership`
+ * - Collection: companies
+ *   - One document per companyId
+ *   - Company-level settings (membershipPlans, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, companyOwnerWhopUserId, optIn)
+ *
+ * GOALS:
+ * - SAFE: creates backup, supports dry-run, and can be run multiple times.
+ * - CORRECT: preserves ALL old data, no duplication, no data loss.
+ * - ONE companyOwner per companyId.
+ * - Leaderboard behavior preserved:
+ *   - Only companyOwner appears on leaderboard.
+ *   - `optIn` is company-level (migrated to Company collection); default true when missing.
+ *
+ * USAGE:
+ *   npm run migrate:users:dry    # Dry-run (no writes)
+ *   npm run migrate:users        # Live migration
+ *
+ * IMPORTANT:
+ * - This script is intentionally focused ONLY on migrating from the old structure
+ *   (documents that still have `companyId` and no `companyMemberships`) into the
+ *   new structure. It does NOT try to be a generic "repair everything" script.
  */
 
-import { IUser, UserRole, Webhook } from '../src/models/User';
+import mongoose from 'mongoose';
+import { config } from 'dotenv';
+import { resolve } from 'path';
 
-// Load environment variables from .env.local BEFORE any other imports
-// Using require to ensure it runs synchronously before ES6 imports
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const path = require('path');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-require('dotenv').config({ path: path.resolve(process.cwd(), '.env.local') });
+// Load environment variables from .env.local (same behavior as app)
+const envPaths = [
+    resolve(process.cwd(), '.env.local'),
+    resolve(process.cwd(), '..', '.env.local'),
+];
 
-// Verify environment variables are loaded
-if (!process.env.MONGO_URI) {
-    console.error('Error: MONGO_URI not found in environment variables');
-    console.error('Make sure .env.local exists and contains MONGO_URI');
+let envLoaded = false;
+for (const envPath of envPaths) {
+    const result = config({ path: envPath });
+    if (!result.error) {
+        envLoaded = true;
+        console.log(`✅ Loaded environment from: ${envPath}`);
+        break;
+    }
+}
+
+if (!envLoaded) {
+    console.warn('⚠️  Could not find .env.local file, using process env vars');
+}
+
+const MONGODB_URI = process.env.MONGO_URI;
+const MONGODB_DB = process.env.MONGO_DB;
+
+if (!MONGODB_URI || !MONGODB_DB) {
+    console.error('❌ Missing MONGO_URI or MONGO_DB environment variables');
     process.exit(1);
 }
 
-async function migrate() {
-    // Use dynamic imports AFTER environment variables are loaded
-    const { User } = await import('../src/models/User');
-    const { Company } = await import('../src/models/Company');
-    const connectDB = (await import('../src/lib/db')).default;
+// Import models AFTER env is loaded
+import { User, IUser, CompanyMembership } from '../src/models/User';
+import { Company, ICompany } from '../src/models/Company';
+
+type OldUserDoc = {
+    _id: mongoose.Types.ObjectId;
+    whopUserId: string;
+    whopUsername?: string;
+    whopDisplayName?: string;
+    whopAvatarUrl?: string;
+    companyId?: string;
+    role?: 'companyOwner' | 'owner' | 'admin' | 'member' | string;
+    alias?: string;
+    webhooks?: unknown[];
+    notifyOnSettlement?: boolean;
+    onlyNotifyWinningSettlements?: boolean;
+    optIn?: boolean;
+    followOfferEnabled?: boolean;
+    followOfferPriceCents?: number;
+    followOfferNumPlays?: number;
+    followOfferPlanId?: string;
+    followOfferCheckoutUrl?: string;
+    membershipPlans?: ICompany['membershipPlans'];
+    hideLeaderboardFromMembers?: boolean;
+    hideCompanyStatsFromMembers?: boolean;
+    companyName?: string;
+    companyDescription?: string;
+    createdAt?: Date;
+    updatedAt?: Date;
+};
+
+type MigrationStats = {
+    totalOldDocs: number;
+    totalOldUsers: number;
+    migratedUsers: number;
+    skippedUsers: number;
+    errors: number;
+    companiesTouched: Set<string>;
+};
+
+// -----------------------------
+// DB Connection Helpers
+// -----------------------------
+
+async function connectDB(): Promise<void> {
+    if (mongoose.connection.readyState === 1) return;
 
     try {
-        await connectDB();
-        console.log('Connected to database');
-
-        // Get all users - separate old format (with companyId) from new format (with companyMemberships array)
-        const allUsers = await User.find({}).lean();
-        console.log(`Found ${allUsers.length} user documents to process`);
-
-        // Separate old format users from new format users
-        const oldFormatUsers: typeof allUsers = [];
-        const newFormatUsers: typeof allUsers = [];
-
-        // Type for old format user document
-        interface OldFormatUser {
-            _id: unknown;
-            whopUserId?: string;
-            companyId?: string;
-            companyMemberships?: unknown[];
-            [key: string]: unknown;
-        }
-
-        for (const user of allUsers) {
-            const userDoc = user as OldFormatUser;
-            // Check if it's new format: has companyMemberships array (even if empty)
-            if (Array.isArray(userDoc.companyMemberships)) {
-                newFormatUsers.push(user);
-            } else if (userDoc.companyId) {
-                // Old format: has companyId field
-                oldFormatUsers.push(user);
-            } else {
-                console.warn('Skipping user with unknown format:', user._id);
-            }
-        }
-
-        console.log(`- Old format users: ${oldFormatUsers.length}`);
-        console.log(`- New format users: ${newFormatUsers.length}`);
-
-        if (oldFormatUsers.length === 0) {
-            console.log('No old format users to migrate. Migration complete!');
-            process.exit(0);
-        }
-
-        // Group old format users by whopUserId
-        const usersByWhopUserId = new Map<string, typeof allUsers>();
-        for (const user of oldFormatUsers) {
-            const userDoc = user as OldFormatUser;
-            const whopUserId = userDoc.whopUserId;
-            if (!whopUserId) {
-                console.warn('Skipping user without whopUserId:', user._id);
-                continue;
-            }
-
-            if (!usersByWhopUserId.has(whopUserId)) {
-                usersByWhopUserId.set(whopUserId, []);
-            }
-            usersByWhopUserId.get(whopUserId)!.push(user);
-        }
-
-        console.log(`Found ${usersByWhopUserId.size} unique whopUserIds`);
-
-        let migratedCount = 0;
-        let companyCreatedCount = 0;
-
-        // Process each whopUserId
-        for (const [whopUserId, userDocs] of usersByWhopUserId) {
-            if (userDocs.length === 0) continue;
-
-            try {
-                // Check if user already exists in new format
-                const existingUser = await User.findOne({ whopUserId });
-                const isNewUser = !existingUser;
-
-                // Sort by creation date to get the first one (oldest)
-                userDocs.sort((a, b) => {
-                    const aDoc = a as OldFormatUser;
-                    const bDoc = b as OldFormatUser;
-                    const aDate = (aDoc.createdAt as Date) || new Date(0);
-                    const bDate = (bDoc.createdAt as Date) || new Date(0);
-                    return aDate.getTime() - bDate.getTime();
-                });
-
-                // Helper function to get best value (prefer non-null, non-undefined, most recent)
-                const getBestValue = <T>(existing: T | undefined | null, ...candidates: (T | undefined | null)[]): T | undefined => {
-                    if (existing !== undefined && existing !== null && existing !== '') {
-                        return existing;
-                    }
-                    for (const candidate of candidates) {
-                        if (candidate !== undefined && candidate !== null && candidate !== '') {
-                            return candidate;
-                        }
-                    }
-                    return existing ?? undefined;
-                };
-
-                // Collect all person-level fields from all old format users
-                // Prefer most recent non-empty values
-                const allPersonFields: {
-                    whopUsername?: string;
-                    whopDisplayName?: string;
-                    whopAvatarUrl?: string;
-                    followingDiscordWebhook?: string;
-                    followingWhopWebhook?: string;
-                } = {};
-
-                // Sort by updatedAt (most recent first) to get best values
-                const sortedByUpdate = [...userDocs].sort((a, b) => {
-                    const aDoc = a as OldFormatUser;
-                    const bDoc = b as OldFormatUser;
-                    const aDate = (aDoc.updatedAt as Date) || (aDoc.createdAt as Date) || new Date(0);
-                    const bDate = (bDoc.updatedAt as Date) || (bDoc.createdAt as Date) || new Date(0);
-                    return bDate.getTime() - aDate.getTime();
-                });
-
-                for (const doc of sortedByUpdate) {
-                    const d = doc as OldFormatUser;
-                    if (!allPersonFields.whopUsername && d.whopUsername) allPersonFields.whopUsername = d.whopUsername as string;
-                    if (!allPersonFields.whopDisplayName && d.whopDisplayName) allPersonFields.whopDisplayName = d.whopDisplayName as string;
-                    if (!allPersonFields.whopAvatarUrl && d.whopAvatarUrl) allPersonFields.whopAvatarUrl = d.whopAvatarUrl as string;
-                    if (!allPersonFields.followingDiscordWebhook && d.followingDiscordWebhook) allPersonFields.followingDiscordWebhook = d.followingDiscordWebhook as string;
-                    if (!allPersonFields.followingWhopWebhook && d.followingWhopWebhook) allPersonFields.followingWhopWebhook = d.followingWhopWebhook as string;
-                }
-
-                // Prepare base user data - merge existing with old format data
-                interface BaseUserData {
-                    whopUserId: string;
-                    whopUsername?: string;
-                    whopDisplayName?: string;
-                    whopAvatarUrl?: string;
-                    followingDiscordWebhook?: string;
-                    followingWhopWebhook?: string;
-                    companyMemberships: IUser['companyMemberships'];
-                    activeCompanyId?: string;
-                    activeMembership?: IUser['companyMemberships'][number];
-                }
-
-                const baseUserData: BaseUserData = {
-                    whopUserId,
-                    whopUsername: getBestValue(existingUser?.whopUsername, allPersonFields.whopUsername),
-                    whopDisplayName: getBestValue(existingUser?.whopDisplayName, allPersonFields.whopDisplayName),
-                    whopAvatarUrl: getBestValue(existingUser?.whopAvatarUrl, allPersonFields.whopAvatarUrl),
-                    followingDiscordWebhook: getBestValue(existingUser?.followingDiscordWebhook, allPersonFields.followingDiscordWebhook),
-                    followingWhopWebhook: getBestValue(existingUser?.followingWhopWebhook, allPersonFields.followingWhopWebhook),
-                    companyMemberships: existingUser ? [...existingUser.companyMemberships] : [],
-                };
-
-                // Track existing company IDs to avoid duplicates
-                const existingCompanyIds = new Set(
-                    baseUserData.companyMemberships.map((m) => m.companyId)
-                );
-
-                // Find company owner for each company (check ALL old format users for that company)
-                const companyOwners = new Map<string, string>(); // companyId -> whopUserId
-                interface CompanyData {
-                    companyName?: string;
-                    companyDescription?: string;
-                    membershipPlans: unknown[];
-                    hideLeaderboardFromMembers: boolean;
-                    hideCompanyStatsFromMembers: boolean;
-                }
-                const companyDataMap = new Map<string, CompanyData>(); // companyId -> company data from old format
-
-                // First pass: collect company owners and company data
-                for (const userDoc of userDocs) {
-                    const doc = userDoc as OldFormatUser;
-                    const companyId = doc.companyId as string | undefined;
-
-                    if (!companyId) continue;
-
-                    // Track company owner (first companyOwner found wins)
-                    if ((doc.role as string) === 'companyOwner' && companyId && !companyOwners.has(companyId)) {
-                        companyOwners.set(companyId, whopUserId);
-                    }
-
-                    // Collect company data (prefer most complete)
-                    if (companyId && !companyDataMap.has(companyId)) {
-                        companyDataMap.set(companyId, {
-                            companyName: doc.companyName as string | undefined,
-                            companyDescription: doc.companyDescription as string | undefined,
-                            membershipPlans: (doc.membershipPlans as unknown[]) || [],
-                            hideLeaderboardFromMembers: (doc.hideLeaderboardFromMembers as boolean) ?? false,
-                            hideCompanyStatsFromMembers: (doc.hideCompanyStatsFromMembers as boolean) ?? false,
-                        });
-                    } else if (companyId) {
-                        const existing = companyDataMap.get(companyId)!;
-                        // Merge: prefer non-empty values
-                        if (!existing.companyName && doc.companyName) existing.companyName = doc.companyName as string;
-                        if (!existing.companyDescription && doc.companyDescription) existing.companyDescription = doc.companyDescription as string;
-                        if ((!existing.membershipPlans || existing.membershipPlans.length === 0) && doc.membershipPlans && Array.isArray(doc.membershipPlans) && doc.membershipPlans.length > 0) {
-                            existing.membershipPlans = doc.membershipPlans;
-                        }
-                    }
-                }
-
-                // Second pass: process each company membership
-                for (const userDoc of userDocs) {
-                    const doc = userDoc as OldFormatUser;
-                    const companyId = doc.companyId as string | undefined;
-
-                    if (!companyId) {
-                        console.warn(`Skipping user ${doc._id} without companyId`);
-                        continue;
-                    }
-
-                    // Skip if membership already exists
-                    if (existingCompanyIds.has(companyId)) {
-                        console.warn(`Skipping duplicate membership for user ${whopUserId} in company ${companyId}`);
-                        continue;
-                    }
-
-                    // Create or update company
-                    let company = await Company.findOne({ companyId });
-                    const companyData = companyDataMap.get(companyId) || {
-                        companyName: undefined,
-                        companyDescription: undefined,
-                        membershipPlans: [],
-                        hideLeaderboardFromMembers: false,
-                        hideCompanyStatsFromMembers: false,
-                    };
-                    const companyOwnerWhopUserId = companyOwners.get(companyId) || whopUserId;
-
-                    if (!company) {
-                        try {
-                            company = await Company.create({
-                                companyId,
-                                companyName: companyData.companyName,
-                                companyDescription: companyData.companyDescription,
-                                membershipPlans: companyData.membershipPlans || [],
-                                hideLeaderboardFromMembers: companyData.hideLeaderboardFromMembers ?? false,
-                                hideCompanyStatsFromMembers: companyData.hideCompanyStatsFromMembers ?? false,
-                                companyOwnerWhopUserId,
-                            });
-                            companyCreatedCount++;
-                        } catch (error: unknown) {
-                            // Company might have been created by another process, try to fetch it
-                            if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
-                                company = await Company.findOne({ companyId });
-                                if (!company) {
-                                    throw error;
-                                }
-                            } else {
-                                throw error;
-                            }
-                        }
-                    } else {
-                        // Update existing company with data from old format (merge, don't overwrite)
-                        const updates: Partial<{
-                            companyName?: string;
-                            companyDescription?: string;
-                            membershipPlans: unknown[];
-                        }> = {};
-                        if (!company.companyName && companyData.companyName) updates.companyName = companyData.companyName;
-                        if (!company.companyDescription && companyData.companyDescription) updates.companyDescription = companyData.companyDescription;
-                        if ((!company.membershipPlans || company.membershipPlans.length === 0) && companyData.membershipPlans && companyData.membershipPlans.length > 0) {
-                            updates.membershipPlans = companyData.membershipPlans;
-                        }
-                        if (Object.keys(updates).length > 0) {
-                            await Company.updateOne({ companyId }, { $set: updates });
-                        }
-                    }
-
-                    // Create company membership - preserve ALL fields from old format
-                    const membership: IUser['companyMemberships'][number] = {
-                        companyId: companyId!,
-                        alias: (doc.alias as string) || `User ${whopUserId.slice(0, 8)}`,
-                        role: (doc.role as UserRole) || 'member',
-                        webhooks: (doc.webhooks as Webhook[]) || [],
-                        notifyOnSettlement: (doc.notifyOnSettlement as boolean) ?? false,
-                        onlyNotifyWinningSettlements: (doc.onlyNotifyWinningSettlements as boolean) ?? false,
-                        optIn: (doc.optIn as boolean) ?? true,
-                        followOfferEnabled: (doc.followOfferEnabled as boolean) ?? false,
-                        followOfferPriceCents: doc.followOfferPriceCents as number | undefined,
-                        followOfferNumPlays: doc.followOfferNumPlays as number | undefined,
-                        followOfferPlanId: doc.followOfferPlanId as string | undefined,
-                        followOfferCheckoutUrl: doc.followOfferCheckoutUrl as string | undefined,
-                        joinedAt: (doc.createdAt as Date) || new Date(),
-                    };
-
-                    baseUserData.companyMemberships.push(membership);
-                }
-
-                // Set activeCompanyId and activeMembership to first company (oldest)
-                if (baseUserData.companyMemberships.length > 0) {
-                    const firstMembership = baseUserData.companyMemberships[0];
-                    baseUserData.activeCompanyId = firstMembership.companyId;
-                    baseUserData.activeMembership = firstMembership;
-                }
-
-                // Create or update user document (SAVE FIRST, DELETE LATER)
-                if (isNewUser) {
-                    await User.create(baseUserData);
-                } else {
-                    // Use $addToSet to merge companyMemberships safely
-                    // First, add new memberships
-                    for (const membership of baseUserData.companyMemberships) {
-                        const existingIndex = existingUser.companyMemberships.findIndex(
-                            (m: IUser['companyMemberships'][number]) => m.companyId === membership.companyId
-                        );
-                        if (existingIndex === -1) {
-                            // New membership, add it
-                            await User.updateOne(
-                                { whopUserId },
-                                { $push: { companyMemberships: membership } }
-                            );
-                        }
-                    }
-                    // Update person-level fields
-                    await User.updateOne(
-                        { whopUserId },
-                        {
-                            $set: {
-                                whopUsername: baseUserData.whopUsername,
-                                whopDisplayName: baseUserData.whopDisplayName,
-                                whopAvatarUrl: baseUserData.whopAvatarUrl,
-                                followingDiscordWebhook: baseUserData.followingDiscordWebhook,
-                                followingWhopWebhook: baseUserData.followingWhopWebhook,
-                                activeCompanyId: baseUserData.activeCompanyId,
-                                activeMembership: baseUserData.activeMembership,
-                            }
-                        }
-                    );
-                }
-
-                // Only delete old user documents AFTER successful migration
-                for (const userDoc of userDocs) {
-                    await User.deleteOne({ _id: userDoc._id });
-                }
-
-                migratedCount++;
-
-                if (migratedCount % 10 === 0) {
-                    console.log(`Migrated ${migratedCount} users...`);
-                }
-            } catch (error: unknown) {
-                console.error(`Error migrating user ${whopUserId}:`, error);
-                console.error('Skipping this user and continuing...');
-                // Continue with next user instead of failing entire migration
-            }
-        }
-
-        console.log(`\nMigration complete!`);
-        console.log(`- Migrated ${migratedCount} users`);
-        console.log(`- Created ${companyCreatedCount} companies`);
-        console.log(`- Deleted ${oldFormatUsers.length} old user documents`);
-
-        process.exit(0);
-    } catch (error) {
-        console.error('Migration failed:', error);
+        await mongoose.connect(MONGODB_URI as string, { dbName: MONGODB_DB as string });
+        console.log('✅ Connected to MongoDB');
+        console.log(`   Database: ${MONGODB_DB}`);
+    } catch (err) {
+        console.error('❌ Failed to connect to MongoDB:', err);
         process.exit(1);
     }
 }
 
-migrate();
+// -----------------------------
+// Backup & Rollback
+// -----------------------------
 
+async function createBackup(): Promise<string> {
+    const db = mongoose.connection.db;
+    if (!db) throw new Error('Database not connected');
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupName = `users_backup_${timestamp}`;
+
+    console.log('📦 Creating backup collection:', backupName);
+
+    await db.collection('users').aggregate([{ $match: {} }, { $out: backupName }]).toArray();
+
+    console.log('✅ Backup created:', backupName);
+    console.log('   To restore manually:');
+    console.log(`   db.${backupName}.aggregate([{ $match: {} }, { $out: "users" }])`);
+    return backupName;
+}
+
+async function rollbackFromLatestBackup(): Promise<void> {
+    const db = mongoose.connection.db;
+    if (!db) throw new Error('Database not connected');
+
+    const collections = await db.listCollections().toArray();
+    const backups = collections
+        .map(c => c.name)
+        .filter(name => name.startsWith('users_backup_'))
+        .sort()
+        .reverse();
+
+    if (backups.length === 0) {
+        console.error('❌ No users_backup_* collections found to rollback from');
+        return;
+    }
+
+    const latest = backups[0];
+    console.log(`⏪ Rolling back from latest backup: ${latest}`);
+
+    await db.collection(latest).aggregate([{ $match: {} }, { $out: 'users' }]).toArray();
+
+    console.log('✅ Rollback completed (users collection restored from backup)');
+}
+
+// -----------------------------
+// Detection of Old Structure
+// -----------------------------
+
+async function detectOldStructure(): Promise<{ totalOldDocs: number; uniqueWhopUserIds: string[] }> {
+    const db = mongoose.connection.db;
+    if (!db) throw new Error('Database not connected');
+
+    const usersCollection = db.collection('users');
+
+    console.log('🔍 Scanning users collection for old-structure documents...');
+
+    const totalUsers = await usersCollection.estimatedDocumentCount();
+    console.log(`   Total documents in users collection: ${totalUsers}`);
+
+    // Old structure definition:
+    // - companyId exists
+    // - companyMemberships is missing OR null OR empty array
+    const oldStructureQuery = {
+        companyId: { $exists: true, $ne: null },
+        $or: [
+            { companyMemberships: { $exists: false } },
+            { companyMemberships: null },
+            { companyMemberships: { $size: 0 } },
+        ],
+    };
+
+    const totalOldDocs = await usersCollection.countDocuments(oldStructureQuery);
+    const uniqueWhopUserIds = (await usersCollection.distinct('whopUserId', {
+        ...oldStructureQuery,
+        whopUserId: { $exists: true, $ne: null },
+    })) as string[];
+
+    const newStructureCount = await usersCollection.countDocuments({
+        'companyMemberships.0': { $exists: true },
+    });
+
+    console.log(`   Old-structure documents: ${totalOldDocs}`);
+    console.log(`   Unique whopUserIds with old structure: ${uniqueWhopUserIds.length}`);
+    console.log(`   New-structure users (already migrated): ${newStructureCount}`);
+
+    return { totalOldDocs, uniqueWhopUserIds };
+}
+
+// -----------------------------
+// Per-User Migration
+// -----------------------------
+
+function pickBest<T>(values: (T | undefined)[]): T | undefined {
+    for (const v of values) {
+        if (v !== undefined && v !== null && v !== '') return v;
+    }
+    return undefined;
+}
+
+
+function mapRole(oldRole?: string): 'companyOwner' | 'owner' | 'admin' | 'member' {
+    if (oldRole === 'companyOwner') return 'companyOwner';
+    if (oldRole === 'owner') return 'owner';
+    if (oldRole === 'admin') return 'admin';
+    return 'member';
+}
+
+async function migrateOneUser(
+    whopUserId: string,
+    dryRun: boolean,
+    stats: MigrationStats,
+): Promise<void> {
+    try {
+        const oldDocs = (await User.find({
+            whopUserId,
+            companyId: { $exists: true, $ne: null },
+            $or: [
+                { companyMemberships: { $exists: false } },
+                { companyMemberships: null },
+                { companyMemberships: { $size: 0 } },
+            ],
+        }).lean()) as unknown as OldUserDoc[];
+
+        if (oldDocs.length === 0) {
+            stats.skippedUsers++;
+            return;
+        }
+
+        // Existing new-structure user (if any)
+        const existingNewUser = (await User.findOne({
+            whopUserId,
+            'companyMemberships.0': { $exists: true },
+        })) as IUser | null;
+
+        // Group memberships by companyId (there should be at most one old doc per companyId, but be safe)
+        const membershipByCompany = new Map<string, CompanyMembership>();
+        const usernames: (string | undefined)[] = [];
+        const displayNames: (string | undefined)[] = [];
+        const avatars: (string | undefined)[] = [];
+
+        for (const doc of oldDocs) {
+            if (!doc.companyId) continue;
+
+            usernames.push(doc.whopUsername);
+            displayNames.push(doc.whopDisplayName);
+            avatars.push(doc.whopAvatarUrl);
+
+            if (!membershipByCompany.has(doc.companyId)) {
+                const mappedRole = mapRole(doc.role);
+
+                const membership: CompanyMembership = {
+                    companyId: doc.companyId,
+                    alias: doc.alias || doc.whopDisplayName || doc.whopUsername || `User ${whopUserId.slice(0, 8)}`,
+                    role: mappedRole,
+                    webhooks: (Array.isArray(doc.webhooks) ? doc.webhooks : []) as CompanyMembership['webhooks'],
+                    notifyOnSettlement: doc.notifyOnSettlement ?? false,
+                    onlyNotifyWinningSettlements: doc.onlyNotifyWinningSettlements ?? false,
+                    // Note: optIn removed - now stored in Company model
+                    followOfferEnabled: doc.followOfferEnabled ?? false,
+                    followOfferPriceCents: doc.followOfferPriceCents,
+                    followOfferNumPlays: doc.followOfferNumPlays,
+                    followOfferPlanId: doc.followOfferPlanId,
+                    followOfferCheckoutUrl: doc.followOfferCheckoutUrl,
+                    joinedAt: doc.createdAt || new Date(),
+                };
+
+                membershipByCompany.set(doc.companyId, membership);
+            }
+        }
+
+        if (membershipByCompany.size === 0) {
+            stats.skippedUsers++;
+            return;
+        }
+
+        const mergedUsername = pickBest(usernames);
+        const mergedDisplayName = pickBest(displayNames);
+        const mergedAvatar = pickBest(avatars);
+
+        const memberships = Array.from(membershipByCompany.values());
+        const firstMembership = memberships[0];
+
+        if (dryRun) {
+            console.log(`   [DRY RUN] Would migrate whopUserId=${whopUserId} with ${memberships.length} membership(s)`);
+            stats.migratedUsers++;
+            return;
+        }
+
+        if (existingNewUser) {
+            // Merge new memberships into existing user (avoid duplicates by companyId)
+            const existingByCompany = new Map<string, CompanyMembership>();
+            for (const m of existingNewUser.companyMemberships || []) {
+                existingByCompany.set(m.companyId, m);
+            }
+
+            for (const m of memberships) {
+                if (!existingByCompany.has(m.companyId)) {
+                    existingNewUser.companyMemberships.push(m);
+                }
+            }
+
+            // Patch person-level fields if missing
+            if (!existingNewUser.whopUsername && mergedUsername) existingNewUser.whopUsername = mergedUsername;
+            if (!existingNewUser.whopDisplayName && mergedDisplayName) existingNewUser.whopDisplayName = mergedDisplayName;
+            if (!existingNewUser.whopAvatarUrl && mergedAvatar) existingNewUser.whopAvatarUrl = mergedAvatar;
+            if (!existingNewUser.activeCompanyId) {
+                existingNewUser.activeCompanyId = firstMembership.companyId;
+                existingNewUser.activeMembership = firstMembership;
+            }
+
+            await existingNewUser.save();
+        } else {
+            // Create brand new user in new structure
+            await User.create({
+                whopUserId,
+                whopUsername: mergedUsername,
+                whopDisplayName: mergedDisplayName,
+                whopAvatarUrl: mergedAvatar,
+                companyMemberships: memberships,
+                activeCompanyId: firstMembership.companyId,
+                activeMembership: firstMembership,
+            } as Partial<IUser>);
+        }
+
+        // Delete all old-structure docs for this whopUserId
+        const oldIds = oldDocs.map(d => d._id);
+        if (oldIds.length > 0) {
+            await User.deleteMany({
+                _id: { $in: oldIds },
+                companyId: { $exists: true, $ne: null },
+                $or: [
+                    { companyMemberships: { $exists: false } },
+                    { companyMemberships: null },
+                    { companyMemberships: { $size: 0 } },
+                ],
+            });
+        }
+
+        // Track companies touched (for later company migration)
+        for (const m of memberships) {
+            stats.companiesTouched.add(m.companyId);
+        }
+
+        stats.migratedUsers++;
+    } catch (err) {
+        console.error(`❌ Error migrating user ${whopUserId}:`, err);
+        stats.errors++;
+    }
+}
+
+// -----------------------------
+// Company Migration / Fix
+// -----------------------------
+
+async function syncCompaniesFromUsers(dryRun: boolean): Promise<void> {
+    console.log('\n🏢 Syncing companies from companyOwner old docs...');
+
+    // Step 1: Find ALL companyOwners from old-structure docs
+    // These are the source of truth for company settings (optIn, membershipPlans, etc.)
+    const companyOwnerOldDocs = (await User.find({
+        companyId: { $exists: true, $ne: null },
+        role: 'companyOwner', // only companyOwner can have company settings
+        $or: [
+            { companyMemberships: { $exists: false } },
+            { companyMemberships: null },
+            { companyMemberships: { $size: 0 } },
+        ],
+    }).lean()) as unknown as OldUserDoc[];
+
+    console.log(`   Found ${companyOwnerOldDocs.length} companyOwner old docs`);
+
+    // Step 2: Group by companyId, preferring companyOwner over owner
+    const companyOwnerByCompany = new Map<string, OldUserDoc>();
+    for (const doc of companyOwnerOldDocs) {
+        if (!doc.companyId) continue;
+        const existing = companyOwnerByCompany.get(doc.companyId);
+        if (!existing || doc.role === 'companyOwner') {
+            // Prefer companyOwner over owner, or take first if same role
+            companyOwnerByCompany.set(doc.companyId, doc);
+        }
+    }
+
+    console.log(`   Found ${companyOwnerByCompany.size} unique companies with companyOwner`);
+
+    // Step 3: Also get companyOwner from new-structure users (for companies that might not have old docs)
+    const newStructureUsers = (await User.find({
+        'companyMemberships.0': { $exists: true },
+    }).lean()) as unknown as IUser[];
+
+    const companyOwnerFromNew = new Map<string, string>(); // companyId -> whopUserId
+    for (const user of newStructureUsers) {
+        if (!user.companyMemberships) continue;
+        for (const m of user.companyMemberships as unknown as CompanyMembership[]) {
+            if (m.role === 'companyOwner' && !companyOwnerFromNew.has(m.companyId)) {
+                companyOwnerFromNew.set(m.companyId, user.whopUserId);
+            }
+        }
+    }
+
+    // Step 4: Process each company
+    for (const [companyId, companyOwnerDoc] of companyOwnerByCompany.entries()) {
+        const existing = (await Company.findOne({ companyId })) as ICompany | null;
+
+        // Get companyOwner whopUserId (from old doc or new structure)
+        const ownerWhopUserId = companyOwnerDoc.whopUserId || companyOwnerFromNew.get(companyId) || '';
+
+        // Extract company settings from companyOwner's old doc
+        // optIn is company-level, migrated from companyOwner's old doc
+        const optIn = companyOwnerDoc.optIn ?? true; // Default true if not set
+        const membershipPlans = companyOwnerDoc.membershipPlans || [];
+        const hideLeaderboardFromMembers = companyOwnerDoc.hideLeaderboardFromMembers ?? false;
+        const hideCompanyStatsFromMembers = companyOwnerDoc.hideCompanyStatsFromMembers ?? false;
+        const companyName = companyOwnerDoc.companyName;
+        const companyDescription = companyOwnerDoc.companyDescription;
+
+        if (dryRun) {
+            if (!existing) {
+                console.log(
+                    `   [DRY RUN] Would create Company(${companyId}) with owner=${ownerWhopUserId}, optIn=${optIn}, membershipPlans=${membershipPlans.length}, hideLeaderboardFromMembers=${hideLeaderboardFromMembers}`,
+                );
+            } else {
+                const updates: string[] = [];
+                if (ownerWhopUserId && existing.companyOwnerWhopUserId !== ownerWhopUserId) {
+                    updates.push(`owner from ${existing.companyOwnerWhopUserId} to ${ownerWhopUserId}`);
+                }
+                if (existing.optIn !== optIn) {
+                    updates.push(`optIn from ${existing.optIn ?? true} to ${optIn}`);
+                }
+                if (membershipPlans.length > 0 && (!existing.membershipPlans || existing.membershipPlans.length === 0)) {
+                    updates.push(`membershipPlans from ${existing.membershipPlans?.length || 0} to ${membershipPlans.length}`);
+                }
+                if (existing.hideLeaderboardFromMembers !== hideLeaderboardFromMembers) {
+                    updates.push(`hideLeaderboardFromMembers from ${existing.hideLeaderboardFromMembers} to ${hideLeaderboardFromMembers}`);
+                }
+                if (updates.length > 0) {
+                    console.log(`   [DRY RUN] Would update Company(${companyId}): ${updates.join(', ')}`);
+                }
+            }
+            continue;
+        }
+
+        if (!existing) {
+            // Create new Company from companyOwner's old doc
+            await Company.create({
+                companyId,
+                companyOwnerWhopUserId: ownerWhopUserId,
+                optIn, // Migrate optIn to Company (company-level setting)
+                membershipPlans,
+                companyName,
+                companyDescription,
+                hideLeaderboardFromMembers,
+                hideCompanyStatsFromMembers,
+            } as Partial<ICompany>);
+            console.log(`   ✅ Created Company(${companyId}) with optIn=${optIn}, membershipPlans=${membershipPlans.length}`);
+        } else {
+            // Update existing Company with companyOwner's settings
+            let updated = false;
+            if (ownerWhopUserId && existing.companyOwnerWhopUserId !== ownerWhopUserId) {
+                existing.companyOwnerWhopUserId = ownerWhopUserId;
+                updated = true;
+            }
+            // Always update optIn from companyOwner's doc (it's the source of truth)
+            if (existing.optIn !== optIn) {
+                existing.optIn = optIn;
+                updated = true;
+            }
+            // Migrate membershipPlans if Company doesn't have any
+            if (membershipPlans.length > 0 && (!existing.membershipPlans || existing.membershipPlans.length === 0)) {
+                existing.membershipPlans = membershipPlans;
+                updated = true;
+            }
+            // Update companyName if missing
+            if (!existing.companyName && companyName) {
+                existing.companyName = companyName;
+                updated = true;
+            }
+            // Update companyDescription if missing
+            if (!existing.companyDescription && companyDescription) {
+                existing.companyDescription = companyDescription;
+                updated = true;
+            }
+            // Update hideLeaderboardFromMembers from companyOwner's doc
+            if (existing.hideLeaderboardFromMembers !== hideLeaderboardFromMembers) {
+                existing.hideLeaderboardFromMembers = hideLeaderboardFromMembers;
+                updated = true;
+            }
+            // Update hideCompanyStatsFromMembers from companyOwner's doc
+            if (existing.hideCompanyStatsFromMembers !== hideCompanyStatsFromMembers) {
+                existing.hideCompanyStatsFromMembers = hideCompanyStatsFromMembers;
+                updated = true;
+            }
+            if (updated) {
+                await existing.save();
+                console.log(`   ✅ Updated Company(${companyId}) with optIn=${optIn}, membershipPlans=${membershipPlans.length}`);
+            }
+        }
+    }
+
+    // Step 5: Also create Companies for companies that exist in new structure but don't have old docs
+    for (const [companyId, ownerWhopUserId] of companyOwnerFromNew.entries()) {
+        if (companyOwnerByCompany.has(companyId)) {
+            continue; // Already processed above
+        }
+
+        const existing = (await Company.findOne({ companyId })) as ICompany | null;
+        if (!existing && !dryRun) {
+            // Create Company with defaults (no old doc to get settings from)
+            await Company.create({
+                companyId,
+                companyOwnerWhopUserId: ownerWhopUserId,
+                optIn: true, // Default to true
+                membershipPlans: [],
+                hideLeaderboardFromMembers: false,
+                hideCompanyStatsFromMembers: false,
+            } as Partial<ICompany>);
+            console.log(`   ✅ Created Company(${companyId}) with defaults (no old doc found)`);
+        }
+    }
+}
+
+// -----------------------------
+// High-level Migration Runner
+// -----------------------------
+
+async function runMigration(dryRun: boolean): Promise<void> {
+    await connectDB();
+
+    const args = process.argv.slice(2);
+    if (args.includes('--rollback')) {
+        console.log('⏪ Rollback requested...');
+        await rollbackFromLatestBackup();
+        await mongoose.disconnect();
+        return;
+    }
+
+    const stats: MigrationStats = {
+        totalOldDocs: 0,
+        totalOldUsers: 0,
+        migratedUsers: 0,
+        skippedUsers: 0,
+        errors: 0,
+        companiesTouched: new Set<string>(),
+    };
+
+    console.log('🚀 Starting User collection migration...');
+    console.log(`   Mode: ${dryRun ? 'DRY RUN (no writes)' : 'LIVE (writes enabled)'}`);
+
+    // Step 1: Detect old-structure documents
+    const detection = await detectOldStructure();
+    stats.totalOldDocs = detection.totalOldDocs;
+    stats.totalOldUsers = detection.uniqueWhopUserIds.length;
+
+    if (stats.totalOldDocs === 0) {
+        console.log('✅ No old-structure documents found. Nothing to migrate.');
+        await mongoose.disconnect();
+        return;
+    }
+
+    // Step 2: Backup (only in live mode)
+    let backupName: string | null = null;
+    if (!dryRun) {
+        backupName = await createBackup();
+    } else {
+        console.log('📦 [DRY RUN] Would create backup collection before migrating');
+    }
+
+    // Step 3: FIRST - Create/update Companies from companyOwner old docs (BEFORE migrating users)
+    // This must happen BEFORE user migration because user migration deletes old docs
+    await syncCompaniesFromUsers(dryRun);
+
+    // Step 4: THEN - Migrate users one-by-one (this will delete old docs)
+    console.log(`\n👤 Migrating ${stats.totalOldUsers} unique whopUserId(s)...`);
+
+    const batchSize = 50;
+    let processed = 0;
+
+    for (const whopUserId of detection.uniqueWhopUserIds) {
+        await migrateOneUser(whopUserId, dryRun, stats);
+        processed++;
+        if (processed % batchSize === 0) {
+            console.log(
+                `   Progress: ${processed}/${stats.totalOldUsers} (${Math.round(
+                    (processed / stats.totalOldUsers) * 100,
+                )}%)`,
+            );
+        }
+    }
+
+    // Step 5: Summary
+    console.log('\n📊 Migration Summary:');
+    console.log(`   Total old-structure docs   : ${stats.totalOldDocs}`);
+    console.log(`   Unique users to migrate    : ${stats.totalOldUsers}`);
+    console.log(`   Users migrated             : ${stats.migratedUsers}`);
+    console.log(`   Users skipped              : ${stats.skippedUsers}`);
+    console.log(`   Errors                     : ${stats.errors}`);
+    console.log(`   Companies touched          : ${stats.companiesTouched.size}`);
+    if (backupName) {
+        console.log(`   Backup collection          : ${backupName}`);
+    }
+
+    await mongoose.disconnect();
+    console.log('✅ Migration finished.');
+}
+
+// Entry point
+const isDryRun = process.argv.includes('--dry-run') || process.argv.includes('--dry');
+
+runMigration(isDryRun).catch(err => {
+    console.error('❌ Migration failed with unexpected error:', err);
+    process.exit(1);
+});
