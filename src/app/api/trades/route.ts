@@ -432,10 +432,17 @@ export async function POST(request: NextRequest) {
         priceSource = result.priceSource || 'market_data';
 
         // If broker provided execution price, use it instead of market data price
+        // Ensure execution price is a valid number
         if (brokerExecutionPrice !== null && brokerExecutionPrice !== undefined) {
-          finalFillPrice = brokerExecutionPrice;
-          // Recalculate notional with broker execution price
-          notional = validated.contracts * finalFillPrice * 100;
+          const executionPriceNum = typeof brokerExecutionPrice === 'number'
+            ? brokerExecutionPrice
+            : Number(brokerExecutionPrice);
+
+          if (Number.isFinite(executionPriceNum) && executionPriceNum > 0) {
+            finalFillPrice = executionPriceNum;
+            // Recalculate notional with broker execution price
+            notional = validated.contracts * finalFillPrice * 100;
+          }
         }
       }
     } catch (brokerError) {
@@ -573,9 +580,14 @@ export async function POST(request: NextRequest) {
       }
       invalidatePersonalStatsCache(String(user._id));
 
+      // Ensure finalFillPrice is a number before calling toFixed
+      const fillPriceNum = typeof finalFillPrice === 'number' && Number.isFinite(finalFillPrice)
+        ? finalFillPrice
+        : Number(finalFillPrice) || 0;
+
       const responsePayload = {
         trade: tradeResult,
-        message: `Buy Order: ${validated.contracts}x ${validated.ticker} ${validated.strike}${validated.optionType} ${validated.expiryDate} @ $${finalFillPrice.toFixed(2)}`,
+        message: `Buy Order: ${validated.contracts}x ${validated.ticker} ${validated.strike}${validated.optionType} ${validated.expiryDate} @ $${fillPriceNum.toFixed(2)}`,
         priceInfo: {
           fillPrice: finalFillPrice,
           priceSource: priceSource,

@@ -242,10 +242,17 @@ export async function POST(request: NextRequest) {
             priceSource = result.priceSource || 'market_data';
 
             // If broker provided execution price, use it instead of market data price
+            // Ensure execution price is a valid number
             if (brokerExecutionPrice !== null && brokerExecutionPrice !== undefined) {
-              finalFillPrice = brokerExecutionPrice;
-              // Recalculate sell notional with broker execution price
-              sellNotional = validated.contracts * finalFillPrice * 100;
+              const executionPriceNum = typeof brokerExecutionPrice === 'number'
+                ? brokerExecutionPrice
+                : Number(brokerExecutionPrice);
+
+              if (Number.isFinite(executionPriceNum) && executionPriceNum > 0) {
+                finalFillPrice = executionPriceNum;
+                // Recalculate sell notional with broker execution price
+                sellNotional = validated.contracts * finalFillPrice * 100;
+              }
             }
           }
         } catch (brokerError) {
@@ -350,7 +357,11 @@ export async function POST(request: NextRequest) {
       // Format message
       const expiryFormatted = `${String(updatedTrade.expiryDate.getMonth() + 1)}/${String(updatedTrade.expiryDate.getDate())}/${updatedTrade.expiryDate.getFullYear()}`;
       const optionTypeLabel = updatedTrade.optionType === 'C' ? 'C' : 'P';
-      const message = `Sell Order: ${validated.contracts}x ${updatedTrade.ticker} ${updatedTrade.strike}${optionTypeLabel} ${expiryFormatted} @ $${finalFillPrice.toFixed(2)}`;
+      // Ensure finalFillPrice is a number before calling toFixed
+      const fillPriceNum = typeof finalFillPrice === 'number' && Number.isFinite(finalFillPrice)
+        ? finalFillPrice
+        : Number(finalFillPrice) || 0;
+      const message = `Sell Order: ${validated.contracts}x ${updatedTrade.ticker} ${updatedTrade.strike}${optionTypeLabel} ${expiryFormatted} @ $${fillPriceNum.toFixed(2)}`;
 
       return NextResponse.json({
         fill: fill[0],
