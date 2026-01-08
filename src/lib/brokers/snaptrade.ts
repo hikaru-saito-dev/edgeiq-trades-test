@@ -186,7 +186,12 @@ export class SnapTradeBroker implements IBroker {
       };
 
       // Add limit_price for LIMIT orders (required for LIMIT order type)
-      if (useLimit && limitPriceValue !== undefined) {
+      // Only set limit price when we have a finite number
+      if (
+        useLimit &&
+        typeof limitPriceValue === 'number' &&
+        Number.isFinite(limitPriceValue)
+      ) {
         orderRequest.limit_price = limitPriceValue.toFixed(2);
       }
 
