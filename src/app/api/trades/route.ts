@@ -582,6 +582,8 @@ export async function POST(request: NextRequest) {
           brokerExecutionPrice: brokerExecutionPrice ?? null,
           marketDataPrice: marketFillPrice,
         },
+        // Include broker order details for frontend debugging
+        brokerOrderDetails: brokerOrderDetails ?? null,
       };
 
       return NextResponse.json(responsePayload, { status: 201 });

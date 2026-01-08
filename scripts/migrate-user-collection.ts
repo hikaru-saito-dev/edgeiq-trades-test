@@ -254,7 +254,7 @@ async function migrateOneUser(
 
         // Existing new-structure user (if any)
         const existingNewUser = (await User.findOne({
-            whopUserId,
+                    whopUserId,
             'companyMemberships.0': { $exists: true },
         })) as IUser | null;
 
@@ -462,8 +462,8 @@ async function syncCompaniesFromUsers(dryRun: boolean): Promise<void> {
                     console.log(`   [DRY RUN] Would update Company(${companyId}): ${updates.join(', ')}`);
                 }
             }
-            continue;
-        }
+                        continue;
+                    }
 
         if (!existing) {
             // Create new Company from companyOwner's old doc
@@ -535,9 +535,9 @@ async function syncCompaniesFromUsers(dryRun: boolean): Promise<void> {
                 companyId,
                 companyOwnerWhopUserId: ownerWhopUserId,
                 optIn: true, // Default to true
-                membershipPlans: [],
-                hideLeaderboardFromMembers: false,
-                hideCompanyStatsFromMembers: false,
+                        membershipPlans: [],
+                        hideLeaderboardFromMembers: false,
+                        hideCompanyStatsFromMembers: false,
             } as Partial<ICompany>);
             console.log(`   ✅ Created Company(${companyId}) with defaults (no old doc found)`);
         }
@@ -633,5 +633,5 @@ const isDryRun = process.argv.includes('--dry-run') || process.argv.includes('--
 
 runMigration(isDryRun).catch(err => {
     console.error('❌ Migration failed with unexpected error:', err);
-    process.exit(1);
+        process.exit(1);
 });

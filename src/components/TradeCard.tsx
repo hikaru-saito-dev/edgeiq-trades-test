@@ -200,6 +200,37 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
       if (res.ok) {
         const data = await res.json();
         toast.showSuccess(data.message || 'Trade settled successfully');
+
+        // Log broker order details for debugging
+        if (data.brokerOrderDetails) {
+          console.log('=== BROKER ORDER RESPONSE (SETTLE) ===');
+          console.log('Full broker order details:', JSON.stringify(data.brokerOrderDetails, null, 2));
+
+          // Check if orders array exists and log execution price
+          if (data.brokerOrderDetails.orders && Array.isArray(data.brokerOrderDetails.orders)) {
+            console.log('Orders array:', data.brokerOrderDetails.orders);
+            data.brokerOrderDetails.orders.forEach((order: Record<string, unknown>, index: number) => {
+              console.log(`Order ${index + 1}:`, {
+                brokerage_order_id: order.brokerage_order_id,
+                status: order.status,
+                execution_price: order.execution_price,
+                filled_quantity: order.filled_quantity,
+                total_quantity: order.total_quantity,
+                limit_price: order.limit_price,
+                action: order.action,
+                time_executed: order.time_executed,
+                time_placed: order.time_placed,
+              });
+            });
+          } else {
+            console.log('No orders array found in broker order details');
+          }
+          console.log('Price Info:', data.priceInfo);
+          console.log('=== END BROKER ORDER RESPONSE (SETTLE) ===');
+        } else {
+          console.log('No broker order details in response (trade might not have been placed via broker)');
+        }
+
         setSettleOpen(false);
         setSettleContracts(1);
         if (onUpdate) onUpdate();
