@@ -211,6 +211,12 @@ async function autoTradeForSingleFollower(
         brokerOrderId = result.orderId;
         brokerOrderDetails = result.orderDetails as Record<string, unknown>;
         brokerCostInfo = result.costInfo;
+
+        // Update fillPrice with broker execution price if available
+        if (result.executionPrice !== null && result.executionPrice !== undefined) {
+            followerTradeData.fillPrice = result.executionPrice;
+            followerTradeData.totalBuyNotional = followerTradeData.contracts! * result.executionPrice * 100;
+        }
     } catch {
         // Broker execution failed - DO NOT create the trade
         return; // Exit without creating trade
@@ -370,6 +376,7 @@ async function autoSettleForSingleFollower(
 
     // Execute the sell order on the follower's broker account FIRST
     // Only create the settlement record if broker order succeeds
+    let actualFillPrice = fillPrice; // Default to creator's fill price
     try {
         const broker = createBroker(brokerConnection.brokerType, brokerConnection);
         const result = await broker.placeOptionOrder(
@@ -382,6 +389,11 @@ async function autoSettleForSingleFollower(
         if (!result.success) {
             // Broker execution failed - DO NOT create the settlement record
             return;
+        }
+
+        // Use broker execution price if available (actual fill price for follower)
+        if (result.executionPrice !== null && result.executionPrice !== undefined) {
+            actualFillPrice = result.executionPrice;
         }
     } catch {
         // Broker execution failed - DO NOT create the settlement record
@@ -397,14 +409,14 @@ async function autoSettleForSingleFollower(
     try {
         const { TradeFill } = await import('@/models/TradeFill');
 
-        const sellNotional = contractsToSettle * fillPrice * 100;
+        const sellNotional = contractsToSettle * actualFillPrice * 100;
 
         // Create SELL fill within transaction
         await TradeFill.create([{
             tradeId: followerTrade._id,
             side: 'SELL',
             contracts: contractsToSettle,
-            fillPrice: fillPrice,
+            fillPrice: actualFillPrice, // Use actual broker execution price
             priceVerified: true,
             notional: sellNotional,
             isMarketOrder: true,

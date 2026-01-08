@@ -196,7 +196,47 @@ export class SnapTradeBroker implements IBroker {
 
     try {
       // Try MARKET order first
-      return await tryPlaceOrder(false);
+      const result = await tryPlaceOrder(false);
+
+      // If execution price not available immediately (status is PENDING), wait briefly and check once
+      // Market orders typically execute within 2-5 seconds
+      if (result.success && result.orderId && (!result.executionPrice || result.executionPrice === null)) {
+        // Wait 3 seconds for market order to execute
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        // Make a single call to get order detail with execution price
+        try {
+          const userSecret = await this.getUserSecret();
+          const orderDetailResponse = await this.client.accountInformation.getUserAccountOrderDetail({
+            accountId: this.connection.accountId!,
+            userId: this.connection.snaptradeUserId,
+            userSecret,
+            brokerage_order_id: result.orderId,
+          });
+
+          const order = orderDetailResponse.data;
+          // Check if order has executed and execution_price is available
+          if (order?.execution_price !== undefined && order.execution_price !== null) {
+            result.executionPrice = order.execution_price;
+            result.priceSource = 'broker';
+
+            // Recalculate cost info with actual execution price
+            const fillPrice = order.execution_price;
+            const grossCost = fillPrice * contracts * 100;
+            result.costInfo = {
+              grossCost,
+              commission: 0,
+              estimatedFees: {},
+              totalCost: grossCost,
+            };
+          }
+        } catch (error) {
+          // If order detail check fails, continue with market data price (non-blocking)
+          console.warn('Could not fetch execution price from order detail:', error);
+        }
+      }
+
+      return result;
     } catch (error: unknown) {
       // Extract actual error message from SnapTrade response
       let errorMessage = 'Failed to place order with broker';
