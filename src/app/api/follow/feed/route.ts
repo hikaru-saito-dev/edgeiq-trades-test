@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
         followerWhopUserId: user.whopUserId,
         status: { $in: ['active', 'completed'] },
       })
-        .select('capperWhopUserId capperUserId numPlaysPurchased numPlaysConsumed status createdAt')
+        .select('capperWhopUserId capperUserId companyId numPlaysPurchased numPlaysConsumed status createdAt')
         .lean();
       allFollows = follows as unknown as IFollowPurchase[];
       // Cache result
@@ -140,23 +140,23 @@ export async function GET(request: NextRequest) {
     }
     logPerformance('Metadata building', metadataStart);
 
-    // Step 4: Get capper user info and company colors (single batch query with projection)
+    // Step 4: Get capper user info (single batch query with projection)
     const capperInfoStart = Date.now();
     const allCapperUsers = await User.find({
       whopUserId: { $in: Array.from(allCapperWhopUserIds) },
     })
-      .select('_id companyId whopUserId alias whopUsername whopDisplayName whopAvatarUrl')
+      .select('_id whopUserId alias whopUsername whopDisplayName whopAvatarUrl companyMemberships')
       .lean();
 
-    // Get unique companyIds from capper users
+    // Get unique companyIds from follow purchases (these are the capper's companies)
     const capperCompanyIds = new Set<string>();
-    for (const capperUser of allCapperUsers) {
-      if (capperUser.companyId) {
-        capperCompanyIds.add(capperUser.companyId);
+    for (const follow of allFollows) {
+      if (follow.companyId) {
+        capperCompanyIds.add(follow.companyId);
       }
     }
 
-    // Get company colors for cappers
+    // Get company colors for cappers using companyId from FollowPurchase
     const { Company } = await import('@/models/Company');
     const capperCompanies = await Company.find({
       companyId: { $in: Array.from(capperCompanyIds) },
@@ -179,22 +179,24 @@ export async function GET(request: NextRequest) {
       whopUsername?: string;
       whopDisplayName?: string;
       whopAvatarUrl?: string;
-      companyId?: string;
-      primaryColor?: string;
-      secondaryColor?: string;
     }>();
 
     for (const capperUser of allCapperUsers) {
       if (capperUser.whopUserId && !capperInfoMap.has(capperUser.whopUserId)) {
-        const companyColors = capperUser.companyId ? companyColorMap.get(capperUser.companyId) : undefined;
+        // Get alias from companyOwner membership
+        let alias: string | undefined;
+        if (capperUser.companyMemberships && Array.isArray(capperUser.companyMemberships)) {
+          const ownerMembership = capperUser.companyMemberships.find(
+            (m: { role?: string; alias?: string }) => m.role === 'companyOwner'
+          );
+          alias = ownerMembership?.alias;
+        }
+
         capperInfoMap.set(capperUser.whopUserId, {
-          alias: capperUser.alias,
+          alias: alias || capperUser.alias,
           whopUsername: capperUser.whopUsername,
           whopDisplayName: capperUser.whopDisplayName,
           whopAvatarUrl: capperUser.whopAvatarUrl,
-          companyId: capperUser.companyId,
-          primaryColor: companyColors?.primaryColor,
-          secondaryColor: companyColors?.secondaryColor,
         });
       }
     }
@@ -450,14 +452,17 @@ export async function GET(request: NextRequest) {
       const capperInfo = capperInfoMap.get(follow.capperWhopUserId || '') || {};
       const remainingPlays = Math.max(0, follow.numPlaysPurchased - follow.numPlaysConsumed);
 
+      // Get company colors using companyId from FollowPurchase
+      const companyColors = follow.companyId ? companyColorMap.get(follow.companyId) : undefined;
+
       return {
         followPurchaseId: String(follow._id),
         capper: {
           userId: String(follow.capperUserId),
           alias: capperInfo.alias || capperInfo.whopDisplayName || capperInfo.whopUsername || 'Unknown',
           avatarUrl: capperInfo.whopAvatarUrl,
-          primaryColor: capperInfo.primaryColor || null,
-          secondaryColor: capperInfo.secondaryColor || null,
+          primaryColor: companyColors?.primaryColor || null,
+          secondaryColor: companyColors?.secondaryColor || null,
         },
         numPlaysPurchased: follow.numPlaysPurchased,
         numPlaysConsumed: follow.numPlaysConsumed,
