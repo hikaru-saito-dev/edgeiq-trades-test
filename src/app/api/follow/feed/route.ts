@@ -148,21 +148,60 @@ export async function GET(request: NextRequest) {
       .select('_id companyId whopUserId alias whopUsername whopDisplayName whopAvatarUrl')
       .lean();
 
+    // Get company IDs for cappers to fetch white-label colors
+    const capperCompanyIds = new Set<string>();
+    const capperToCompanyIdMap = new Map<string, string>();
+    for (const capperUser of allCapperUsers) {
+      if (capperUser.whopUserId && capperUser.companyId) {
+        capperCompanyIds.add(capperUser.companyId);
+        capperToCompanyIdMap.set(capperUser.whopUserId, capperUser.companyId);
+      }
+    }
+
+    // Fetch company data for white-label colors
+    const { Company } = await import('@/models/Company');
+    const capperCompanies = await Company.find({
+      companyId: { $in: Array.from(capperCompanyIds) },
+    })
+      .select('companyId primaryColor secondaryColor accentColor')
+      .lean();
+
+    const companyColorMap = new Map<string, {
+      primaryColor?: string;
+      secondaryColor?: string;
+      accentColor?: string;
+    }>();
+    for (const company of capperCompanies) {
+      companyColorMap.set(company.companyId, {
+        primaryColor: company.primaryColor,
+        secondaryColor: company.secondaryColor,
+        accentColor: company.accentColor,
+      });
+    }
+
     // Build capper info map (single pass)
     const capperInfoMap = new Map<string, {
       alias?: string;
       whopUsername?: string;
       whopDisplayName?: string;
       whopAvatarUrl?: string;
+      primaryColor?: string;
+      secondaryColor?: string;
+      accentColor?: string;
     }>();
 
     for (const capperUser of allCapperUsers) {
       if (capperUser.whopUserId && !capperInfoMap.has(capperUser.whopUserId)) {
+        const companyId = capperToCompanyIdMap.get(capperUser.whopUserId);
+        const colors = companyId ? companyColorMap.get(companyId) : undefined;
         capperInfoMap.set(capperUser.whopUserId, {
           alias: capperUser.alias,
           whopUsername: capperUser.whopUsername,
           whopDisplayName: capperUser.whopDisplayName,
           whopAvatarUrl: capperUser.whopAvatarUrl,
+          primaryColor: colors?.primaryColor,
+          secondaryColor: colors?.secondaryColor,
+          accentColor: colors?.accentColor,
         });
       }
     }
@@ -424,6 +463,10 @@ export async function GET(request: NextRequest) {
           userId: String(follow.capperUserId),
           alias: capperInfo.alias || capperInfo.whopDisplayName || capperInfo.whopUsername || 'Unknown',
           avatarUrl: capperInfo.whopAvatarUrl,
+          // White-label customization (colors only - displayName uses company owner's alias)
+          primaryColor: capperInfo.primaryColor || null,
+          secondaryColor: capperInfo.secondaryColor || null,
+          accentColor: capperInfo.accentColor || null,
         },
         numPlaysPurchased: follow.numPlaysPurchased,
         numPlaysConsumed: follow.numPlaysConsumed,

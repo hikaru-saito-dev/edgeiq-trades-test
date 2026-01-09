@@ -231,6 +231,9 @@ const updateUserSchema = z.object({
   optIn: z.boolean().optional(), // Only owners and companyOwners can opt out (default is opted in)
   hideLeaderboardFromMembers: z.boolean().optional(), // Only companyOwners can set
   hideCompanyStatsFromMembers: z.boolean().optional(), // Only companyOwners can set
+  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(), // Hex color format
+  secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   webhooks: z.array(webhookSchema).optional(), // Array of webhooks with names
   notifyOnSettlement: z.boolean().optional(),
   onlyNotifyWinningSettlements: z.boolean().optional(), // Only send settlement webhooks for winning trades
@@ -350,6 +353,10 @@ export async function GET() {
         companyName: company?.companyName,
         companyDescription: company?.companyDescription,
         optIn: company?.optIn ?? true, // optIn is now in Company model
+        // White-label customization (colors only - displayName uses company owner's alias)
+        primaryColor: company?.primaryColor,
+        secondaryColor: company?.secondaryColor,
+        accentColor: company?.accentColor,
         whopUsername: user.whopUsername,
         whopDisplayName: user.whopDisplayName,
         whopAvatarUrl: user.whopAvatarUrl,
@@ -509,6 +516,16 @@ export async function PATCH(request: NextRequest) {
       if (validated.hideCompanyStatsFromMembers !== undefined) {
         companyUpdates.hideCompanyStatsFromMembers = validated.hideCompanyStatsFromMembers;
       }
+      // White-label customization (colors only)
+      if (validated.primaryColor !== undefined) {
+        companyUpdates.primaryColor = validated.primaryColor || undefined;
+      }
+      if (validated.secondaryColor !== undefined) {
+        companyUpdates.secondaryColor = validated.secondaryColor || undefined;
+      }
+      if (validated.accentColor !== undefined) {
+        companyUpdates.accentColor = validated.accentColor || undefined;
+      }
 
       if (Object.keys(companyUpdates).length > 0) {
         Object.assign(company, companyUpdates);
@@ -518,7 +535,9 @@ export async function PATCH(request: NextRequest) {
       // Non-owners cannot update company settings
       if (validated.companyName !== undefined || validated.companyDescription !== undefined ||
         validated.membershipPlans !== undefined || validated.hideLeaderboardFromMembers !== undefined ||
-        validated.hideCompanyStatsFromMembers !== undefined) {
+        validated.hideCompanyStatsFromMembers !== undefined ||
+        validated.primaryColor !== undefined || validated.secondaryColor !== undefined ||
+        validated.accentColor !== undefined) {
         return NextResponse.json(
           { error: 'Only company owners can update company settings' },
           { status: 403 }
@@ -591,6 +610,10 @@ export async function PATCH(request: NextRequest) {
         companyName: updatedCompany?.companyName,
         companyDescription: updatedCompany?.companyDescription,
         optIn: updatedCompany?.optIn ?? true, // optIn is now in Company model
+        // White-label customization (colors only - displayName uses company owner's alias)
+        primaryColor: updatedCompany?.primaryColor,
+        secondaryColor: updatedCompany?.secondaryColor,
+        accentColor: updatedCompany?.accentColor,
         membershipPlans: updatedCompany?.membershipPlans || [],
         followOfferEnabled: updatedMembership?.followOfferEnabled ?? false,
         followOfferPriceCents: updatedMembership?.followOfferPriceCents ?? 0,

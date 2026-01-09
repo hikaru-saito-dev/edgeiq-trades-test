@@ -77,6 +77,10 @@ interface LeaderboardEntry {
   lossCount: number;
   currentStreak: number; // Current win streak (0 if no active streak)
   longestStreak: number; // Longest win streak ever achieved
+  // White-label customization (colors only - displayName uses company owner's alias)
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  accentColor?: string | null;
 }
 
 export default function LeaderboardTable() {
@@ -438,17 +442,33 @@ export default function LeaderboardTable() {
                       <TableCell align="center">
                         <Chip
                           label={`#${entry.rank}`}
-                          color="primary"
                           size="small"
+                          sx={{
+                            backgroundColor: entry.accentColor || entry.primaryColor || undefined,
+                            color: entry.accentColor || entry.primaryColor ? 'white' : undefined,
+                          }}
                         />
                       </TableCell>
                       <TableCell>
                         <Box display="flex" alignItems="center" gap={1}>
-                          <Avatar src={entry.whopAvatarUrl} sx={{ width: 32, height: 32 }}>
+                          <Avatar
+                            src={entry.whopAvatarUrl}
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              backgroundColor: entry.primaryColor || undefined,
+                            }}
+                          >
                             {(entry.alias || entry.whopDisplayName || '?').charAt(0).toUpperCase()}
                           </Avatar>
                           <Box>
-                            <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: entry.primaryColor || 'var(--app-text)',
+                                fontWeight: 500
+                              }}
+                            >
                               {entry.alias || entry.whopDisplayName}
                             </Typography>
                             {entry.whopUsername && (
@@ -556,11 +576,13 @@ export default function LeaderboardTable() {
                                 startIcon={<PersonAddIcon />}
                                 onClick={() => handleFollowClick(entry)}
                                 sx={{
-                                  borderColor: theme.palette.primary.main,
-                                  color: theme.palette.primary.main,
+                                  borderColor: entry.primaryColor || theme.palette.primary.main,
+                                  color: entry.primaryColor || theme.palette.primary.main,
                                   '&:hover': {
-                                    borderColor: theme.palette.primary.dark,
-                                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                                    borderColor: entry.secondaryColor || entry.primaryColor || theme.palette.primary.dark,
+                                    backgroundColor: entry.primaryColor
+                                      ? `${entry.primaryColor}10`
+                                      : alpha(theme.palette.primary.main, 0.1),
                                   },
                                 }}
                               >

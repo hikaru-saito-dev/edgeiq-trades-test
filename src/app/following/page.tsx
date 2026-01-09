@@ -66,6 +66,10 @@ interface Follow {
     userId: string;
     alias: string;
     avatarUrl?: string;
+    // White-label customization (colors only - displayName uses company owner's alias)
+    primaryColor?: string | null;
+    secondaryColor?: string | null;
+    accentColor?: string | null;
   };
   numPlaysPurchased: number;
   numPlaysConsumed: number;
@@ -256,21 +260,35 @@ export default function FollowingPage() {
                     sx={{
                       p: 2,
                       borderRadius: 2,
-                      backgroundColor: alpha(theme.palette.primary.main, isDark ? 0.15 : 0.08),
-                      border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                      backgroundColor: follow.capper.primaryColor
+                        ? alpha(follow.capper.primaryColor, isDark ? 0.15 : 0.08)
+                        : alpha(theme.palette.primary.main, isDark ? 0.15 : 0.08),
+                      border: `1px solid ${follow.capper.primaryColor
+                        ? alpha(follow.capper.primaryColor, 0.2)
+                        : alpha(theme.palette.primary.main, 0.2)}`,
                     }}
                   >
                     <Box display="flex" alignItems="center" gap={2} mb={1}>
                       <Avatar
                         src={follow.capper.avatarUrl}
-                        sx={{ width: 40, height: 40 }}
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          backgroundColor: follow.capper.primaryColor || undefined,
+                        }}
                       >
                         {follow.capper.alias && follow.capper.alias.length > 0
                           ? follow.capper.alias.charAt(0).toUpperCase()
                           : '?'}
                       </Avatar>
                       <Box flex={1}>
-                        <Typography variant="body1" sx={{ color: 'var(--app-text)', fontWeight: 600 }}>
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            color: follow.capper.primaryColor || 'var(--app-text)',
+                            fontWeight: 600
+                          }}
+                        >
                           {follow.capper.alias || 'Unknown'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
@@ -280,14 +298,23 @@ export default function FollowingPage() {
                       <Chip
                         label={follow.status === 'active' ? 'Active' : 'Completed'}
                         size="small"
-                        color={follow.status === 'active' ? 'primary' : 'default'}
+                        sx={{
+                          backgroundColor: follow.status === 'active'
+                            ? (follow.capper.accentColor || follow.capper.primaryColor || undefined)
+                            : undefined,
+                          color: follow.status === 'active' && (follow.capper.accentColor || follow.capper.primaryColor)
+                            ? 'white'
+                            : undefined,
+                        }}
                       />
                     </Box>
                     <Box
                       sx={{
                         height: 6,
                         borderRadius: 3,
-                        backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                        backgroundColor: follow.capper.secondaryColor || follow.capper.primaryColor
+                          ? alpha(follow.capper.secondaryColor || follow.capper.primaryColor || '', 0.2)
+                          : alpha(theme.palette.primary.main, 0.2),
                         overflow: 'hidden',
                         mt: 1,
                       }}
@@ -296,7 +323,9 @@ export default function FollowingPage() {
                         sx={{
                           height: '100%',
                           width: `${follow.numPlaysPurchased > 0 ? Math.max(0, Math.min(100, (follow.remainingPlays / follow.numPlaysPurchased) * 100)) : 0}%`,
-                          background: 'linear-gradient(90deg, #3b82f6, #2563eb)',
+                          background: follow.capper.secondaryColor || follow.capper.primaryColor
+                            ? `linear-gradient(90deg, ${follow.capper.secondaryColor || follow.capper.primaryColor}, ${follow.capper.primaryColor || follow.capper.secondaryColor || '#2563eb'})`
+                            : 'linear-gradient(90deg, #3b82f6, #2563eb)',
                           transition: 'width 0.3s ease',
                         }}
                       />
