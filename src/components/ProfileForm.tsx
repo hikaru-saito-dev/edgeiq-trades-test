@@ -753,124 +753,150 @@ export default function ProfileForm() {
               margin="normal"
               sx={fieldStyles}
             />
+            {/* Notification Webhooks */}
+            <>
+              <Typography variant="h6" sx={{ color: 'var(--app-text)', mt: 3, mb: 2, fontWeight: 600 }}>
+                Notification Webhooks
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 2 }}>
+                Configure webhook URLs to receive trade notifications.
+              </Typography>
+              {/* Multiple Webhooks Section */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={handleAddWebhook}
+                  sx={{
+                    borderColor: controlBorder,
+                    color: theme.palette.primary.main,
+                    '&:hover': {
+                      borderColor: theme.palette.primary.main,
+                      backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                    },
+                  }}
+                >
+                  Add Webhook
+                </Button>
+              </Box>
 
-            {/* Notification Webhooks - For owners and admins */}
-            {(role === 'companyOwner' || role === 'owner' || role === 'admin') && (
-
-              <>
-                <Typography variant="h6" sx={{ color: 'var(--app-text)', mt: 3, mb: 2, fontWeight: 600 }}>
-                  Notification Webhooks
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 2 }}>
-                  Configure webhook URLs to receive trade notifications.
-                </Typography>
-                {/* Multiple Webhooks Section */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<AddIcon />}
-                    onClick={handleAddWebhook}
+              {webhooks.map((webhook, index) => (
+                <Paper
+                  key={webhook.id}
+                  sx={{
+                    p: 2,
+                    mb: 2,
+                    bgcolor: alpha(theme.palette.primary.main, isDark ? 0.15 : 0.08),
+                    border: `1px solid ${alpha(theme.palette.primary.main, isDark ? 0.3 : 0.2)}`,
+                    borderRadius: 2,
+                  }}
+                >
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Chip
+                      label={`Webhook ${index + 1}`}
+                      size="small"
+                      sx={{
+                        background: alpha(theme.palette.primary.main, isDark ? 0.25 : 0.2),
+                        color: theme.palette.primary.main,
+                      }}
+                    />
+                    <IconButton
+                      onClick={() => handleRemoveWebhook(webhook.id)}
+                      size="small"
+                      sx={{
+                        color: theme.palette.error.main,
+                        '&:hover': {
+                          background: alpha(theme.palette.error.main, 0.1),
+                        },
+                      }}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                  <TextField
+                    fullWidth
+                    label="Webhook Name"
+                    value={webhook.name}
+                    onChange={(e) => handleWebhookChange(webhook.id, 'name', e.target.value)}
+                    placeholder="e.g., Parlays Channel, ML Bets"
+                    margin="normal"
+                    size="small"
                     sx={{
-                      borderColor: controlBorder,
-                      color: theme.palette.primary.main,
-                      '&:hover': {
-                        borderColor: theme.palette.primary.main,
-                        backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                      '& .MuiOutlinedInput-root': {
+                        color: 'var(--app-text)',
+                        '& fieldset': { borderColor: controlBorder },
+                      },
+                      '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
+                    }}
+                  />
+                  <FormControl fullWidth margin="normal" size="small">
+                    <InputLabel sx={{ color: 'var(--text-muted)' }}>Type</InputLabel>
+                    <Select
+                      value={webhook.type}
+                      onChange={(e) => handleWebhookChange(webhook.id, 'type', e.target.value)}
+                      label="Type"
+                      sx={{
+                        color: 'var(--app-text)',
+                        '& .MuiOutlinedInput-notchedOutline': { borderColor: controlBorder },
+                      }}
+                    >
+                      <MenuItem value="discord">Discord</MenuItem>
+                      <MenuItem value="whop">Whop</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <TextField
+                    fullWidth
+                    label="Webhook URL"
+                    value={webhook.url}
+                    onChange={(e) => handleWebhookChange(webhook.id, 'url', e.target.value)}
+                    placeholder={webhook.type === 'discord' ? 'https://discord.com/api/webhooks/...' : 'https://data.whop.com/api/v5/feed/webhooks/...'}
+                    margin="normal"
+                    size="small"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        color: 'var(--app-text)',
+                        '& fieldset': { borderColor: controlBorder },
+                      },
+                      '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
+                    }}
+                  />
+                </Paper>
+              ))}
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={notifyOnSettlement}
+                    onChange={(e) => setNotifyOnSettlement(e.target.checked)}
+                    sx={{
+                      '& .MuiSwitch-switchBase.Mui-checked': {
+                        color: theme.palette.primary.main,
+                      },
+                      '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                        backgroundColor: theme.palette.primary.main,
                       },
                     }}
-                  >
-                    Add Webhook
-                  </Button>
-                </Box>
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
+                      Notify on Trade Settlement
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block' }}>
+                      Receive notifications when trades are settled (win/loss, P&L, and trade details)
+                    </Typography>
+                  </Box>
+                }
+                sx={{ mt: 2, color: 'var(--app-text)' }}
+              />
 
-                {webhooks.map((webhook, index) => (
-                  <Paper
-                    key={webhook.id}
-                    sx={{
-                      p: 2,
-                      mb: 2,
-                      bgcolor: alpha(theme.palette.primary.main, isDark ? 0.15 : 0.08),
-                      border: `1px solid ${alpha(theme.palette.primary.main, isDark ? 0.3 : 0.2)}`,
-                      borderRadius: 2,
-                    }}
-                  >
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                      <Chip
-                        label={`Webhook ${index + 1}`}
-                        size="small"
-                        sx={{
-                          background: alpha(theme.palette.primary.main, isDark ? 0.25 : 0.2),
-                          color: theme.palette.primary.main,
-                        }}
-                      />
-                      <IconButton
-                        onClick={() => handleRemoveWebhook(webhook.id)}
-                        size="small"
-                        sx={{
-                          color: theme.palette.error.main,
-                          '&:hover': {
-                            background: alpha(theme.palette.error.main, 0.1),
-                          },
-                        }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Box>
-                    <TextField
-                      fullWidth
-                      label="Webhook Name"
-                      value={webhook.name}
-                      onChange={(e) => handleWebhookChange(webhook.id, 'name', e.target.value)}
-                      placeholder="e.g., Parlays Channel, ML Bets"
-                      margin="normal"
-                      size="small"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          color: 'var(--app-text)',
-                          '& fieldset': { borderColor: controlBorder },
-                        },
-                        '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
-                      }}
-                    />
-                    <FormControl fullWidth margin="normal" size="small">
-                      <InputLabel sx={{ color: 'var(--text-muted)' }}>Type</InputLabel>
-                      <Select
-                        value={webhook.type}
-                        onChange={(e) => handleWebhookChange(webhook.id, 'type', e.target.value)}
-                        label="Type"
-                        sx={{
-                          color: 'var(--app-text)',
-                          '& .MuiOutlinedInput-notchedOutline': { borderColor: controlBorder },
-                        }}
-                      >
-                        <MenuItem value="discord">Discord</MenuItem>
-                        <MenuItem value="whop">Whop</MenuItem>
-                      </Select>
-                    </FormControl>
-                    <TextField
-                      fullWidth
-                      label="Webhook URL"
-                      value={webhook.url}
-                      onChange={(e) => handleWebhookChange(webhook.id, 'url', e.target.value)}
-                      placeholder={webhook.type === 'discord' ? 'https://discord.com/api/webhooks/...' : 'https://data.whop.com/api/v5/feed/webhooks/...'}
-                      margin="normal"
-                      size="small"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          color: 'var(--app-text)',
-                          '& fieldset': { borderColor: controlBorder },
-                        },
-                        '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
-                      }}
-                    />
-                  </Paper>
-                ))}
-
+              {notifyOnSettlement && (
                 <FormControlLabel
                   control={
                     <Switch
-                      checked={notifyOnSettlement}
-                      onChange={(e) => setNotifyOnSettlement(e.target.checked)}
+                      checked={onlyNotifyWinningSettlements}
+                      onChange={(e) => setOnlyNotifyWinningSettlements(e.target.checked)}
                       sx={{
                         '& .MuiSwitch-switchBase.Mui-checked': {
                           color: theme.palette.primary.main,
@@ -884,47 +910,18 @@ export default function ProfileForm() {
                   label={
                     <Box>
                       <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
-                        Notify on Trade Settlement
+                        Only Notify on Winning Trades
                       </Typography>
                       <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block' }}>
-                        Receive notifications when trades are settled (win/loss, P&L, and trade details)
+                        Only send settlement notifications for winning trades. Losses and breakevens will be silent.
                       </Typography>
                     </Box>
                   }
-                  sx={{ mt: 2, color: 'var(--app-text)' }}
+                  sx={{ mt: 1, ml: 4, color: 'var(--app-text)' }}
                 />
+              )}
+            </>
 
-                {notifyOnSettlement && (
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={onlyNotifyWinningSettlements}
-                        onChange={(e) => setOnlyNotifyWinningSettlements(e.target.checked)}
-                        sx={{
-                          '& .MuiSwitch-switchBase.Mui-checked': {
-                            color: theme.palette.primary.main,
-                          },
-                          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                            backgroundColor: theme.palette.primary.main,
-                          },
-                        }}
-                      />
-                    }
-                    label={
-                      <Box>
-                        <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
-                          Only Notify on Winning Trades
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block' }}>
-                          Only send settlement notifications for winning trades. Losses and breakevens will be silent.
-                        </Typography>
-                      </Box>
-                    }
-                    sx={{ mt: 1, ml: 4, color: 'var(--app-text)' }}
-                  />
-                )}
-              </>
-            )}
 
             {/* Broker Connections */}
             <Divider sx={{ my: 4, borderColor: 'var(--surface-border)' }} />
