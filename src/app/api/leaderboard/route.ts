@@ -502,6 +502,8 @@ export async function GET(request: NextRequest) {
         whopAvatarUrl: entry.whopAvatarUrl,
         companyId: entry.companyId,
         membershipPlans,
+        primaryColor: entry.primaryColor || null,
+        secondaryColor: entry.secondaryColor || null,
         followOffer: entry.followOfferEnabled
           ? {
             enabled: entry.followOfferEnabled,

@@ -1837,7 +1837,6 @@ export default function ProfileForm() {
                         value={primaryColor || '#3b82f6'}
                         onChange={(e) => {
                           setPrimaryColor(e.target.value);
-                          setPrimaryColorPickerAnchor(null);
                         }}
                         style={{
                           width: '100%',
@@ -1932,7 +1931,6 @@ export default function ProfileForm() {
                         value={secondaryColor || '#2563eb'}
                         onChange={(e) => {
                           setSecondaryColor(e.target.value);
-                          setSecondaryColorPickerAnchor(null);
                         }}
                         style={{
                           width: '100%',
@@ -1970,6 +1968,7 @@ export default function ProfileForm() {
                   >
                     <Box display="flex" alignItems="center" gap={2} mb={2}>
                       <Avatar
+                        src={userData?.whopAvatarUrl}
                         sx={{
                           width: 40,
                           height: 40,
