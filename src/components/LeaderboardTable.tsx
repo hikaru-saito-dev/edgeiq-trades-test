@@ -451,13 +451,18 @@ export default function LeaderboardTable() {
                             sx={{
                               width: 32,
                               height: 32,
-                              bgcolor: entry.primaryColor || undefined,
                             }}
                           >
                             {(entry.alias || entry.whopDisplayName || '?').charAt(0).toUpperCase()}
                           </Avatar>
                           <Box>
-                            <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: entry.primaryColor || 'var(--app-text)',
+                                fontWeight: 500,
+                              }}
+                            >
                               {entry.alias || entry.whopDisplayName}
                             </Typography>
                             {entry.whopUsername && (
@@ -659,14 +664,19 @@ export default function LeaderboardTable() {
                 sx={{
                   width: 40,
                   height: 40,
-                  bgcolor: selectedCompany.primaryColor || undefined,
                 }}
               >
                 {(selectedCompany.whopDisplayName || selectedCompany.alias || '?').charAt(0).toUpperCase()}
               </Avatar>
             )}
             <Box>
-              <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 600 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: selectedCompany?.primaryColor || 'var(--app-text)',
+                  fontWeight: 600,
+                }}
+              >
                 {selectedCompany?.whopDisplayName || selectedCompany?.alias}
               </Typography>
               {selectedCompany?.whopUsername && (

@@ -23,6 +23,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Popover,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
@@ -125,6 +126,8 @@ export default function ProfileForm() {
   const [hideCompanyStatsFromMembers, setHideCompanyStatsFromMembers] = useState(false);
   const [primaryColor, setPrimaryColor] = useState<string>('');
   const [secondaryColor, setSecondaryColor] = useState<string>('');
+  const [primaryColorPickerAnchor, setPrimaryColorPickerAnchor] = useState<HTMLButtonElement | null>(null);
+  const [secondaryColorPickerAnchor, setSecondaryColorPickerAnchor] = useState<HTMLButtonElement | null>(null);
   const [webhooks, setWebhooks] = useState<Array<{ id: string; name: string; url: string; type: 'whop' | 'discord' }>>([]);
   const [notifyOnSettlement, setNotifyOnSettlement] = useState(false);
   const [onlyNotifyWinningSettlements, setOnlyNotifyWinningSettlements] = useState(false);
@@ -1751,66 +1754,196 @@ export default function ProfileForm() {
               </Typography>
 
               <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} gap={2} mb={3}>
-                <TextField
-                  fullWidth
-                  label="Primary Color"
-                  value={primaryColor}
-                  onChange={(e) => setPrimaryColor(e.target.value)}
-                  placeholder="#3b82f6"
-                  helperText="Hex color code (e.g., #3b82f6)"
-                  InputProps={{
-                    startAdornment: primaryColor ? (
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: '4px',
-                          backgroundColor: primaryColor,
-                          border: '1px solid var(--surface-border)',
-                          mr: 1,
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                    Primary Color
+                  </Typography>
+                  <Box display="flex" gap={1} alignItems="center">
+                    <Button
+                      variant="outlined"
+                      onClick={(e) => setPrimaryColorPickerAnchor(e.currentTarget)}
+                      sx={{
+                        minWidth: 60,
+                        height: 40,
+                        p: 0,
+                        border: `2px solid ${controlBorder}`,
+                        borderRadius: 1,
+                        backgroundColor: primaryColor || 'transparent',
+                        backgroundImage: primaryColor
+                          ? 'none'
+                          : 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)',
+                        backgroundSize: '8px 8px',
+                        backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px',
+                        '&:hover': {
+                          borderColor: theme.palette.primary.main,
+                          backgroundColor: primaryColor || 'transparent',
+                        },
+                      }}
+                    >
+                      {!primaryColor && (
+                        <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                          Pick
+                        </Typography>
+                      )}
+                    </Button>
+                    <TextField
+                      fullWidth
+                      value={primaryColor}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Allow hex format
+                        if (value === '' || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                          setPrimaryColor(value);
+                        }
+                      }}
+                      placeholder="#3b82f6"
+                      size="small"
+                      InputProps={{
+                        startAdornment: primaryColor ? (
+                          <Box
+                            sx={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: '4px',
+                              backgroundColor: primaryColor,
+                              border: '1px solid var(--surface-border)',
+                              mr: 1,
+                            }}
+                          />
+                        ) : null,
+                      }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          color: 'var(--app-text)',
+                          '& fieldset': { borderColor: controlBorder },
+                        },
+                        '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
+                        '& .MuiFormHelperText-root': { color: 'var(--text-muted)' },
+                      }}
+                    />
+                  </Box>
+                  <Popover
+                    open={Boolean(primaryColorPickerAnchor)}
+                    anchorEl={primaryColorPickerAnchor}
+                    onClose={() => setPrimaryColorPickerAnchor(null)}
+                    anchorOrigin={{
+                      vertical: 'bottom',
+                      horizontal: 'left',
+                    }}
+                  >
+                    <Box sx={{ p: 2 }}>
+                      <input
+                        type="color"
+                        value={primaryColor || '#3b82f6'}
+                        onChange={(e) => {
+                          setPrimaryColor(e.target.value);
+                          setPrimaryColorPickerAnchor(null);
+                        }}
+                        style={{
+                          width: '100%',
+                          height: '200px',
+                          border: 'none',
+                          cursor: 'pointer',
                         }}
                       />
-                    ) : null,
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      color: 'var(--app-text)',
-                      '& fieldset': { borderColor: controlBorder },
-                    },
-                    '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
-                    '& .MuiFormHelperText-root': { color: 'var(--text-muted)' },
-                  }}
-                />
-                <TextField
-                  fullWidth
-                  label="Secondary Color"
-                  value={secondaryColor}
-                  onChange={(e) => setSecondaryColor(e.target.value)}
-                  placeholder="#2563eb"
-                  helperText="Hex color code (e.g., #2563eb)"
-                  InputProps={{
-                    startAdornment: secondaryColor ? (
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: '4px',
-                          backgroundColor: secondaryColor,
-                          border: '1px solid var(--surface-border)',
-                          mr: 1,
+                    </Box>
+                  </Popover>
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                    Secondary Color
+                  </Typography>
+                  <Box display="flex" gap={1} alignItems="center">
+                    <Button
+                      variant="outlined"
+                      onClick={(e) => setSecondaryColorPickerAnchor(e.currentTarget)}
+                      sx={{
+                        minWidth: 60,
+                        height: 40,
+                        p: 0,
+                        border: `2px solid ${controlBorder}`,
+                        borderRadius: 1,
+                        backgroundColor: secondaryColor || 'transparent',
+                        backgroundImage: secondaryColor
+                          ? 'none'
+                          : 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)',
+                        backgroundSize: '8px 8px',
+                        backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px',
+                        '&:hover': {
+                          borderColor: theme.palette.primary.main,
+                          backgroundColor: secondaryColor || 'transparent',
+                        },
+                      }}
+                    >
+                      {!secondaryColor && (
+                        <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                          Pick
+                        </Typography>
+                      )}
+                    </Button>
+                    <TextField
+                      fullWidth
+                      value={secondaryColor}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Allow hex format
+                        if (value === '' || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                          setSecondaryColor(value);
+                        }
+                      }}
+                      placeholder="#2563eb"
+                      size="small"
+                      InputProps={{
+                        startAdornment: secondaryColor ? (
+                          <Box
+                            sx={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: '4px',
+                              backgroundColor: secondaryColor,
+                              border: '1px solid var(--surface-border)',
+                              mr: 1,
+                            }}
+                          />
+                        ) : null,
+                      }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          color: 'var(--app-text)',
+                          '& fieldset': { borderColor: controlBorder },
+                        },
+                        '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
+                        '& .MuiFormHelperText-root': { color: 'var(--text-muted)' },
+                      }}
+                    />
+                  </Box>
+                  <Popover
+                    open={Boolean(secondaryColorPickerAnchor)}
+                    anchorEl={secondaryColorPickerAnchor}
+                    onClose={() => setSecondaryColorPickerAnchor(null)}
+                    anchorOrigin={{
+                      vertical: 'bottom',
+                      horizontal: 'left',
+                    }}
+                  >
+                    <Box sx={{ p: 2 }}>
+                      <input
+                        type="color"
+                        value={secondaryColor || '#2563eb'}
+                        onChange={(e) => {
+                          setSecondaryColor(e.target.value);
+                          setSecondaryColorPickerAnchor(null);
+                        }}
+                        style={{
+                          width: '100%',
+                          height: '200px',
+                          border: 'none',
+                          cursor: 'pointer',
                         }}
                       />
-                    ) : null,
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      color: 'var(--app-text)',
-                      '& fieldset': { borderColor: controlBorder },
-                    },
-                    '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
-                    '& .MuiFormHelperText-root': { color: 'var(--text-muted)' },
-                  }}
-                />
+                    </Box>
+                  </Popover>
+                </Box>
               </Box>
 
               {/* Preview */}
@@ -1840,13 +1973,18 @@ export default function ProfileForm() {
                         sx={{
                           width: 40,
                           height: 40,
-                          bgcolor: primaryColor || theme.palette.primary.main,
                         }}
                       >
                         {alias.charAt(0).toUpperCase()}
                       </Avatar>
                       <Box>
-                        <Typography variant="body1" sx={{ color: 'var(--app-text)', fontWeight: 600 }}>
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            color: primaryColor || 'var(--app-text)',
+                            fontWeight: 600,
+                          }}
+                        >
                           {alias || 'Your Name'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>

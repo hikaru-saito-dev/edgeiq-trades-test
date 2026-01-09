@@ -268,7 +268,6 @@ export default function FollowingPage() {
                         sx={{
                           width: 40,
                           height: 40,
-                          bgcolor: follow.capper.primaryColor || undefined,
                         }}
                       >
                         {follow.capper.alias && follow.capper.alias.length > 0
@@ -276,7 +275,13 @@ export default function FollowingPage() {
                           : '?'}
                       </Avatar>
                       <Box flex={1}>
-                        <Typography variant="body1" sx={{ color: 'var(--app-text)', fontWeight: 600 }}>
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            color: follow.capper.primaryColor || 'var(--app-text)',
+                            fontWeight: 600,
+                          }}
+                        >
                           {follow.capper.alias || 'Unknown'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
