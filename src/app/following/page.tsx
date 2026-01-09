@@ -151,7 +151,7 @@ export default function FollowingPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthorized, accessLoading, page, pageSize, debouncedSearch]);
-
+  console.log('follows', follows);
   if (accessLoading) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -258,8 +258,12 @@ export default function FollowingPage() {
                     sx={{
                       p: 2,
                       borderRadius: 2,
-                      backgroundColor: alpha(theme.palette.primary.main, isDark ? 0.15 : 0.08),
-                      border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                      backgroundColor: follow.capper.primaryColor && follow.capper.primaryColor.trim()
+                        ? alpha(follow.capper.primaryColor, 0.1)
+                        : alpha(theme.palette.primary.main, isDark ? 0.15 : 0.08),
+                      border: follow.capper.primaryColor && follow.capper.primaryColor.trim()
+                        ? `1px solid ${alpha(follow.capper.primaryColor, 0.3)}`
+                        : `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
                     }}
                   >
                     <Box display="flex" alignItems="center" gap={2} mb={1}>
@@ -278,7 +282,7 @@ export default function FollowingPage() {
                         <Typography
                           variant="body1"
                           sx={{
-                            color: follow.capper.primaryColor || 'var(--app-text)',
+                            color: (follow.capper.primaryColor && follow.capper.primaryColor.trim()) || 'var(--app-text)',
                             fontWeight: 600,
                           }}
                         >
@@ -307,9 +311,9 @@ export default function FollowingPage() {
                         sx={{
                           height: '100%',
                           width: `${follow.numPlaysPurchased > 0 ? Math.max(0, Math.min(100, (follow.remainingPlays / follow.numPlaysPurchased) * 100)) : 0}%`,
-                          background: follow.capper.primaryColor && follow.capper.secondaryColor
+                          background: (follow.capper.primaryColor && follow.capper.primaryColor.trim()) && (follow.capper.secondaryColor && follow.capper.secondaryColor.trim())
                             ? `linear-gradient(90deg, ${follow.capper.primaryColor}, ${follow.capper.secondaryColor})`
-                            : follow.capper.primaryColor
+                            : (follow.capper.primaryColor && follow.capper.primaryColor.trim())
                               ? follow.capper.primaryColor
                               : 'linear-gradient(90deg, #3b82f6, #2563eb)',
                           transition: 'width 0.3s ease',

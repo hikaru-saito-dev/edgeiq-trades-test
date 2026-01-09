@@ -436,7 +436,23 @@ export default function LeaderboardTable() {
                   </TableRow>
                 ) : (
                   leaderboard.map((entry) => (
-                    <TableRow key={entry.userId} hover>
+                    <TableRow
+                      key={entry.userId}
+                      hover
+                      sx={{
+                        backgroundColor: entry.primaryColor
+                          ? alpha(entry.primaryColor, 0.1)
+                          : undefined,
+                        borderLeft: entry.primaryColor
+                          ? `3px solid ${alpha(entry.primaryColor, 0.3)}`
+                          : undefined,
+                        '&:hover': {
+                          backgroundColor: entry.primaryColor
+                            ? alpha(entry.primaryColor, 0.15)
+                            : undefined,
+                        },
+                      }}
+                    >
                       <TableCell align="center">
                         <Chip
                           label={`#${entry.rank}`}

@@ -1830,8 +1830,19 @@ export default function ProfileForm() {
                       vertical: 'bottom',
                       horizontal: 'left',
                     }}
+                    PaperProps={{
+                      sx: {
+                        p: 2,
+                        background: 'var(--surface-bg)',
+                        border: '1px solid var(--surface-border)',
+                        borderRadius: 2,
+                      },
+                    }}
                   >
-                    <Box sx={{ p: 2 }}>
+                    <Box>
+                      <Typography variant="body2" sx={{ color: 'var(--app-text)', mb: 1, fontWeight: 500 }}>
+                        Select Primary Color
+                      </Typography>
                       <input
                         type="color"
                         value={primaryColor || '#3b82f6'}
@@ -1840,9 +1851,30 @@ export default function ProfileForm() {
                         }}
                         style={{
                           width: '100%',
-                          height: '200px',
-                          border: 'none',
+                          height: '150px',
+                          border: '1px solid var(--surface-border)',
+                          borderRadius: '8px',
                           cursor: 'pointer',
+                          backgroundColor: 'transparent',
+                        }}
+                      />
+                      <TextField
+                        fullWidth
+                        size="small"
+                        value={primaryColor || '#3b82f6'}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                            setPrimaryColor(value);
+                          }
+                        }}
+                        placeholder="#3b82f6"
+                        sx={{
+                          mt: 1,
+                          '& .MuiOutlinedInput-root': {
+                            color: 'var(--app-text)',
+                            '& fieldset': { borderColor: controlBorder },
+                          },
                         }}
                       />
                     </Box>
@@ -1924,8 +1956,19 @@ export default function ProfileForm() {
                       vertical: 'bottom',
                       horizontal: 'left',
                     }}
+                    PaperProps={{
+                      sx: {
+                        p: 2,
+                        background: 'var(--surface-bg)',
+                        border: '1px solid var(--surface-border)',
+                        borderRadius: 2,
+                      },
+                    }}
                   >
-                    <Box sx={{ p: 2 }}>
+                    <Box>
+                      <Typography variant="body2" sx={{ color: 'var(--app-text)', mb: 1, fontWeight: 500 }}>
+                        Select Secondary Color
+                      </Typography>
                       <input
                         type="color"
                         value={secondaryColor || '#2563eb'}
@@ -1934,9 +1977,30 @@ export default function ProfileForm() {
                         }}
                         style={{
                           width: '100%',
-                          height: '200px',
-                          border: 'none',
+                          height: '150px',
+                          border: '1px solid var(--surface-border)',
+                          borderRadius: '8px',
                           cursor: 'pointer',
+                          backgroundColor: 'transparent',
+                        }}
+                      />
+                      <TextField
+                        fullWidth
+                        size="small"
+                        value={secondaryColor || '#2563eb'}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                            setSecondaryColor(value);
+                          }
+                        }}
+                        placeholder="#2563eb"
+                        sx={{
+                          mt: 1,
+                          '& .MuiOutlinedInput-root': {
+                            color: 'var(--app-text)',
+                            '& fieldset': { borderColor: controlBorder },
+                          },
                         }}
                       />
                     </Box>
