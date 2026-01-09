@@ -392,13 +392,12 @@ export async function GET(request: NextRequest) {
             },
           },
           membershipPlans: { $ifNull: ['$companyData.membershipPlans', []] },
+          primaryColor: { $ifNull: ['$companyData.primaryColor', null] },
+          secondaryColor: { $ifNull: ['$companyData.secondaryColor', null] },
           followOfferEnabled: { $ifNull: ['$ownerMembership.followOfferEnabled', false] },
           followOfferPriceCents: { $ifNull: ['$ownerMembership.followOfferPriceCents', 0] },
           followOfferNumPlays: { $ifNull: ['$ownerMembership.followOfferNumPlays', 0] },
           followOfferCheckoutUrl: { $ifNull: ['$ownerMembership.followOfferCheckoutUrl', null] },
-          primaryColor: { $ifNull: ['$companyData.primaryColor', null] },
-          secondaryColor: { $ifNull: ['$companyData.secondaryColor', null] },
-          accentColor: { $ifNull: ['$companyData.accentColor', null] },
           whopDisplayName: {
             $ifNull: [
               '$ownerData.whopDisplayName',
@@ -511,10 +510,6 @@ export async function GET(request: NextRequest) {
             checkoutUrl: entry.followOfferCheckoutUrl || null,
           }
           : null,
-        // White-label customization (colors only - displayName uses company owner's alias)
-        primaryColor: entry.primaryColor || null,
-        secondaryColor: entry.secondaryColor || null,
-        accentColor: entry.accentColor || null,
         winRate: Number(entry.winRate ?? 0),
         roi: Number(entry.roi ?? 0),
         netPnl: Number(entry.netPnl ?? 0),

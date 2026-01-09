@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
     }
     logPerformance('Metadata building', metadataStart);
 
-    // Step 4: Get capper user info (single batch query with projection)
+    // Step 4: Get capper user info and company colors (single batch query with projection)
     const capperInfoStart = Date.now();
     const allCapperUsers = await User.find({
       whopUserId: { $in: Array.from(allCapperWhopUserIds) },
@@ -148,34 +148,28 @@ export async function GET(request: NextRequest) {
       .select('_id companyId whopUserId alias whopUsername whopDisplayName whopAvatarUrl')
       .lean();
 
-    // Get company IDs for cappers to fetch white-label colors
+    // Get unique companyIds from capper users
     const capperCompanyIds = new Set<string>();
-    const capperToCompanyIdMap = new Map<string, string>();
     for (const capperUser of allCapperUsers) {
-      if (capperUser.whopUserId && capperUser.companyId) {
+      if (capperUser.companyId) {
         capperCompanyIds.add(capperUser.companyId);
-        capperToCompanyIdMap.set(capperUser.whopUserId, capperUser.companyId);
       }
     }
 
-    // Fetch company data for white-label colors
+    // Get company colors for cappers
     const { Company } = await import('@/models/Company');
     const capperCompanies = await Company.find({
       companyId: { $in: Array.from(capperCompanyIds) },
     })
-      .select('companyId primaryColor secondaryColor accentColor')
+      .select('companyId primaryColor secondaryColor')
       .lean();
 
-    const companyColorMap = new Map<string, {
-      primaryColor?: string;
-      secondaryColor?: string;
-      accentColor?: string;
-    }>();
+    // Build company color map
+    const companyColorMap = new Map<string, { primaryColor?: string; secondaryColor?: string }>();
     for (const company of capperCompanies) {
       companyColorMap.set(company.companyId, {
-        primaryColor: company.primaryColor,
-        secondaryColor: company.secondaryColor,
-        accentColor: company.accentColor,
+        primaryColor: company.primaryColor || undefined,
+        secondaryColor: company.secondaryColor || undefined,
       });
     }
 
@@ -185,23 +179,22 @@ export async function GET(request: NextRequest) {
       whopUsername?: string;
       whopDisplayName?: string;
       whopAvatarUrl?: string;
+      companyId?: string;
       primaryColor?: string;
       secondaryColor?: string;
-      accentColor?: string;
     }>();
 
     for (const capperUser of allCapperUsers) {
       if (capperUser.whopUserId && !capperInfoMap.has(capperUser.whopUserId)) {
-        const companyId = capperToCompanyIdMap.get(capperUser.whopUserId);
-        const colors = companyId ? companyColorMap.get(companyId) : undefined;
+        const companyColors = capperUser.companyId ? companyColorMap.get(capperUser.companyId) : undefined;
         capperInfoMap.set(capperUser.whopUserId, {
           alias: capperUser.alias,
           whopUsername: capperUser.whopUsername,
           whopDisplayName: capperUser.whopDisplayName,
           whopAvatarUrl: capperUser.whopAvatarUrl,
-          primaryColor: colors?.primaryColor,
-          secondaryColor: colors?.secondaryColor,
-          accentColor: colors?.accentColor,
+          companyId: capperUser.companyId,
+          primaryColor: companyColors?.primaryColor,
+          secondaryColor: companyColors?.secondaryColor,
         });
       }
     }
@@ -463,10 +456,8 @@ export async function GET(request: NextRequest) {
           userId: String(follow.capperUserId),
           alias: capperInfo.alias || capperInfo.whopDisplayName || capperInfo.whopUsername || 'Unknown',
           avatarUrl: capperInfo.whopAvatarUrl,
-          // White-label customization (colors only - displayName uses company owner's alias)
           primaryColor: capperInfo.primaryColor || null,
           secondaryColor: capperInfo.secondaryColor || null,
-          accentColor: capperInfo.accentColor || null,
         },
         numPlaysPurchased: follow.numPlaysPurchased,
         numPlaysConsumed: follow.numPlaysConsumed,

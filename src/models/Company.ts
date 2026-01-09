@@ -10,9 +10,9 @@ export interface ICompany extends Document {
   hideLeaderboardFromMembers?: boolean; // Company owner setting to hide leaderboard from members
   hideCompanyStatsFromMembers?: boolean; // Company owner setting to hide company stats toggle from members and admins
   companyOwnerWhopUserId: string; // Reference to owner (person-level)
-  primaryColor?: string; // Primary brand color (hex format, e.g., "#00FF00")
-  secondaryColor?: string; // Secondary brand color (hex format)
-  accentColor?: string; // Accent color for highlights (hex format)
+  // White-label customization (companyOwner only)
+  primaryColor?: string; // Primary brand color (hex)
+  secondaryColor?: string; // Secondary brand color (hex)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,9 +40,9 @@ const CompanySchema = new Schema<ICompany>({
   hideLeaderboardFromMembers: { type: Boolean, default: false },
   hideCompanyStatsFromMembers: { type: Boolean, default: false },
   companyOwnerWhopUserId: { type: String, required: true },
-  primaryColor: { type: String, trim: true, match: /^#[0-9A-Fa-f]{6}$/ }, // Hex color validation
-  secondaryColor: { type: String, trim: true, match: /^#[0-9A-Fa-f]{6}$/ },
-  accentColor: { type: String, trim: true, match: /^#[0-9A-Fa-f]{6}$/ },
+  // White-label customization (companyOwner only)
+  primaryColor: { type: String, trim: true }, // Hex color code
+  secondaryColor: { type: String, trim: true }, // Hex color code
 }, {
   timestamps: true,
 });

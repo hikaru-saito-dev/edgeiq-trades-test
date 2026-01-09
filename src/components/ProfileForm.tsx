@@ -112,10 +112,8 @@ interface UserData {
     url: string;
     isPremium?: boolean;
   }>;
-  // White-label customization (colors only - displayName uses company owner's alias)
   primaryColor?: string | null;
   secondaryColor?: string | null;
-  accentColor?: string | null;
 }
 
 export default function ProfileForm() {
@@ -125,6 +123,8 @@ export default function ProfileForm() {
   const [optIn, setOptIn] = useState(true); // Default to true (opted in)
   const [hideLeaderboardFromMembers, setHideLeaderboardFromMembers] = useState(false);
   const [hideCompanyStatsFromMembers, setHideCompanyStatsFromMembers] = useState(false);
+  const [primaryColor, setPrimaryColor] = useState<string>('');
+  const [secondaryColor, setSecondaryColor] = useState<string>('');
   const [webhooks, setWebhooks] = useState<Array<{ id: string; name: string; url: string; type: 'whop' | 'discord' }>>([]);
   const [notifyOnSettlement, setNotifyOnSettlement] = useState(false);
   const [onlyNotifyWinningSettlements, setOnlyNotifyWinningSettlements] = useState(false);
@@ -142,10 +142,6 @@ export default function ProfileForm() {
   const [followOfferPriceDollars, setFollowOfferPriceDollars] = useState<number>(0);
   const [followOfferNumPlays, setFollowOfferNumPlays] = useState<number>(0);
   const [savingFollowOffer, setSavingFollowOffer] = useState(false);
-  // White-label customization colors
-  const [primaryColor, setPrimaryColor] = useState<string>('');
-  const [secondaryColor, setSecondaryColor] = useState<string>('');
-  const [accentColor, setAccentColor] = useState<string>('');
   const [userData, setUserData] = useState<UserData | null>(null);
   const [personalStats, setPersonalStats] = useState<UserStats | null>(null);
   const [companyStats, setCompanyStats] = useState<UserStats | null>(null);
@@ -313,6 +309,8 @@ export default function ProfileForm() {
       setOptIn(profileData.user.optIn !== undefined ? profileData.user.optIn : true);
       setHideLeaderboardFromMembers(profileData.user.hideLeaderboardFromMembers ?? false);
       setHideCompanyStatsFromMembers(profileData.user.hideCompanyStatsFromMembers ?? false);
+      setPrimaryColor(profileData.user.primaryColor || '');
+      setSecondaryColor(profileData.user.secondaryColor || '');
       setWebhooks(profileData.user.webhooks || []);
       setNotifyOnSettlement(profileData.user.notifyOnSettlement ?? false);
       setOnlyNotifyWinningSettlements(profileData.user.onlyNotifyWinningSettlements ?? false);
@@ -489,9 +487,8 @@ export default function ProfileForm() {
         followingDiscordWebhook?: string | null;
         followingWhopWebhook?: string | null;
         membershipPlans?: typeof membershipPlans;
-        primaryColor?: string;
-        secondaryColor?: string;
-        accentColor?: string;
+        primaryColor?: string | null;
+        secondaryColor?: string | null;
       } = {
         alias,
         webhooks: webhooks.filter(w => w.name.trim() && w.url.trim()),
@@ -509,10 +506,8 @@ export default function ProfileForm() {
         updateData.hideLeaderboardFromMembers = hideLeaderboardFromMembers;
         updateData.hideCompanyStatsFromMembers = hideCompanyStatsFromMembers;
         updateData.membershipPlans = validPlans;
-        // White-label customization colors
-        updateData.primaryColor = primaryColor || undefined;
-        updateData.secondaryColor = secondaryColor || undefined;
-        updateData.accentColor = accentColor || undefined;
+        updateData.primaryColor = primaryColor.trim() || null;
+        updateData.secondaryColor = secondaryColor.trim() || null;
       }
 
       const response = await apiRequest('/api/user', { userId, companyId, method: 'PATCH', body: JSON.stringify(updateData) });
@@ -1744,338 +1739,135 @@ export default function ProfileForm() {
             />
           )}
 
-          {/* White-label Customization - Colors */}
+          {/* White-label Customization */}
           {role === 'companyOwner' && (
-            <>
-              <Divider sx={{ my: 4, borderColor: 'var(--surface-border)' }} />
-              <Box sx={{ mt: 4 }}>
-                <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 2, fontWeight: 600 }}>
-                  Brand Colors
-                </Typography>
+            <Box sx={{ mt: 4 }}>
+              <Divider sx={{ mb: 3, borderColor: 'var(--surface-border)' }} />
+              <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 2, fontWeight: 600 }}>
+                Brand Colors
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
+                Customize your brand colors that will be displayed on the leaderboard and follow page. Leave empty to use default colors.
+              </Typography>
 
-
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  {/* Primary Color */}
-                  <Box>
-                    <Typography variant="body2" sx={{ color: 'var(--app-text)', mb: 1, fontWeight: 500 }}>
-                      Primary Color
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                      <input
-                        type="color"
-                        value={primaryColor || '#22c55e'}
-                        onChange={(e) => setPrimaryColor(e.target.value)}
-                        style={{
-                          width: '60px',
-                          height: '40px',
-                          border: '1px solid var(--surface-border)',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          backgroundColor: 'transparent',
-                        }}
-                      />
-                      <TextField
-                        size="small"
-                        value={primaryColor}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          if (value === '' || /^#[0-9A-Fa-f]{0,6}$/i.test(value)) {
-                            setPrimaryColor(value);
-                          }
-                        }}
-                        placeholder="#22c55e"
+              <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} gap={2} mb={3}>
+                <TextField
+                  fullWidth
+                  label="Primary Color"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  placeholder="#3b82f6"
+                  helperText="Hex color code (e.g., #3b82f6)"
+                  InputProps={{
+                    startAdornment: primaryColor ? (
+                      <Box
                         sx={{
-                          flex: 1,
-                          maxWidth: '200px',
-                          '& .MuiOutlinedInput-root': {
-                            color: 'var(--app-text)',
-                            '& fieldset': {
-                              borderColor: 'var(--surface-border)',
-                            },
-                            '&:hover fieldset': {
-                              borderColor: 'var(--primary-main)',
-                            },
-                            '&.Mui-focused fieldset': {
-                              borderColor: 'var(--primary-main)',
-                            },
-                          },
-                        }}
-                      />
-                      {primaryColor && (
-                        <Button
-                          size="small"
-                          onClick={() => setPrimaryColor('')}
-                          sx={{ color: 'var(--text-muted)' }}
-                        >
-                          Clear
-                        </Button>
-                      )}
-                    </Box>
-                    <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block', mt: 0.5 }}>
-                      Main brand color used for primary elements
-                    </Typography>
-                  </Box>
-
-                  {/* Secondary Color */}
-                  <Box>
-                    <Typography variant="body2" sx={{ color: 'var(--app-text)', mb: 1, fontWeight: 500 }}>
-                      Secondary Color
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                      <input
-                        type="color"
-                        value={secondaryColor || '#16a34a'}
-                        onChange={(e) => setSecondaryColor(e.target.value)}
-                        style={{
-                          width: '60px',
-                          height: '40px',
-                          border: '1px solid var(--surface-border)',
+                          width: 24,
+                          height: 24,
                           borderRadius: '4px',
-                          cursor: 'pointer',
-                          backgroundColor: 'transparent',
-                        }}
-                      />
-                      <TextField
-                        size="small"
-                        value={secondaryColor}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          if (value === '' || /^#[0-9A-Fa-f]{0,6}$/i.test(value)) {
-                            setSecondaryColor(value);
-                          }
-                        }}
-                        placeholder="#16a34a"
-                        sx={{
-                          flex: 1,
-                          maxWidth: '200px',
-                          '& .MuiOutlinedInput-root': {
-                            color: 'var(--app-text)',
-                            '& fieldset': {
-                              borderColor: 'var(--surface-border)',
-                            },
-                            '&:hover fieldset': {
-                              borderColor: 'var(--primary-main)',
-                            },
-                            '&.Mui-focused fieldset': {
-                              borderColor: 'var(--primary-main)',
-                            },
-                          },
-                        }}
-                      />
-                      {secondaryColor && (
-                        <Button
-                          size="small"
-                          onClick={() => setSecondaryColor('')}
-                          sx={{ color: 'var(--text-muted)' }}
-                        >
-                          Clear
-                        </Button>
-                      )}
-                    </Box>
-                    <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block', mt: 0.5 }}>
-                      Secondary brand color for complementary elements
-                    </Typography>
-                  </Box>
-
-                  {/* Accent Color */}
-                  <Box>
-                    <Typography variant="body2" sx={{ color: 'var(--app-text)', mb: 1, fontWeight: 500 }}>
-                      Accent Color
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                      <input
-                        type="color"
-                        value={accentColor || '#15803d'}
-                        onChange={(e) => setAccentColor(e.target.value)}
-                        style={{
-                          width: '60px',
-                          height: '40px',
+                          backgroundColor: primaryColor,
                           border: '1px solid var(--surface-border)',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          backgroundColor: 'transparent',
+                          mr: 1,
                         }}
                       />
-                      <TextField
-                        size="small"
-                        value={accentColor}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          if (value === '' || /^#[0-9A-Fa-f]{0,6}$/i.test(value)) {
-                            setAccentColor(value);
-                          }
-                        }}
-                        placeholder="#15803d"
+                    ) : null,
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'var(--app-text)',
+                      '& fieldset': { borderColor: controlBorder },
+                    },
+                    '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
+                    '& .MuiFormHelperText-root': { color: 'var(--text-muted)' },
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="Secondary Color"
+                  value={secondaryColor}
+                  onChange={(e) => setSecondaryColor(e.target.value)}
+                  placeholder="#2563eb"
+                  helperText="Hex color code (e.g., #2563eb)"
+                  InputProps={{
+                    startAdornment: secondaryColor ? (
+                      <Box
                         sx={{
-                          flex: 1,
-                          maxWidth: '200px',
-                          '& .MuiOutlinedInput-root': {
-                            color: 'var(--app-text)',
-                            '& fieldset': {
-                              borderColor: 'var(--surface-border)',
-                            },
-                            '&:hover fieldset': {
-                              borderColor: 'var(--primary-main)',
-                            },
-                            '&.Mui-focused fieldset': {
-                              borderColor: 'var(--primary-main)',
-                            },
-                          },
+                          width: 24,
+                          height: 24,
+                          borderRadius: '4px',
+                          backgroundColor: secondaryColor,
+                          border: '1px solid var(--surface-border)',
+                          mr: 1,
                         }}
                       />
-                      {accentColor && (
-                        <Button
-                          size="small"
-                          onClick={() => setAccentColor('')}
-                          sx={{ color: 'var(--text-muted)' }}
-                        >
-                          Clear
-                        </Button>
-                      )}
-                    </Box>
-                    <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block', mt: 0.5 }}>
-                      Accent color for highlights and special elements
-                    </Typography>
-                  </Box>
-                </Box>
+                    ) : null,
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'var(--app-text)',
+                      '& fieldset': { borderColor: controlBorder },
+                    },
+                    '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
+                    '& .MuiFormHelperText-root': { color: 'var(--text-muted)' },
+                  }}
+                />
+              </Box>
 
-                {/* Preview Section */}
-                <Box sx={{ mt: 4, p: 3, borderRadius: 2, border: '1px solid var(--surface-border)', background: 'var(--surface-bg)' }}>
+              {/* Preview */}
+              {(primaryColor || secondaryColor) && (
+                <Paper
+                  sx={{
+                    p: 3,
+                    mt: 2,
+                    background: 'var(--surface-bg)',
+                    border: '1px solid var(--surface-border)',
+                    borderRadius: 2,
+                  }}
+                >
                   <Typography variant="body2" sx={{ color: 'var(--app-text)', mb: 2, fontWeight: 500 }}>
                     Preview
                   </Typography>
-                  <Typography variant="caption" sx={{ color: 'var(--text-muted)', mb: 2, display: 'block' }}>
-                    How your brand colors will appear on the leaderboard and follow page:
-                  </Typography>
-
-                  {/* Leaderboard Preview */}
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="caption" sx={{ color: 'var(--text-muted)', mb: 1, display: 'block' }}>
-                      Leaderboard Entry:
-                    </Typography>
-                    <Box
-                      sx={{
-                        p: 2,
-                        borderRadius: 1,
-                        border: `1px solid ${primaryColor || '#22c55e'}40`,
-                        background: primaryColor ? `${primaryColor}10` : 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 2,
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: '50%',
-                          background: primaryColor || '#22c55e',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white',
-                          fontWeight: 600,
-                          fontSize: '14px',
-                        }}
-                      >
-                        {alias.charAt(0).toUpperCase() || '?'}
-                      </Box>
-                      <Box flex={1}>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: primaryColor || '#22c55e',
-                            fontWeight: 600,
-                          }}
-                        >
-                          {alias || 'Your Alias'}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
-                          @{userData?.whopUsername || 'username'}
-                        </Typography>
-                      </Box>
-                      <Box
-                        sx={{
-                          px: 1.5,
-                          py: 0.5,
-                          borderRadius: 1,
-                          background: accentColor || secondaryColor || primaryColor || '#15803d',
-                          color: 'white',
-                          fontSize: '12px',
-                          fontWeight: 500,
-                        }}
-                      >
-                        Active
-                      </Box>
-                    </Box>
-                  </Box>
-
-                  {/* Follow Page Preview */}
-                  <Box>
-                    <Typography variant="caption" sx={{ color: 'var(--text-muted)', mb: 1, display: 'block' }}>
-                      Follow Page Entry:
-                    </Typography>
-                    <Box
-                      sx={{
-                        p: 2,
-                        borderRadius: 1,
-                        border: `1px solid ${secondaryColor || primaryColor || '#16a34a'}40`,
-                        background: secondaryColor ? `${secondaryColor}10` : primaryColor ? `${primaryColor}10` : 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 2,
-                      }}
-                    >
-                      <Box
+                  <Box
+                    sx={{
+                      p: 2,
+                      borderRadius: 2,
+                      background: alpha(primaryColor || theme.palette.primary.main, 0.1),
+                      border: `1px solid ${alpha(primaryColor || theme.palette.primary.main, 0.3)}`,
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" gap={2} mb={2}>
+                      <Avatar
                         sx={{
                           width: 40,
                           height: 40,
-                          borderRadius: '50%',
-                          background: secondaryColor || primaryColor || '#16a34a',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white',
-                          fontWeight: 600,
-                          fontSize: '16px',
+                          bgcolor: primaryColor || theme.palette.primary.main,
                         }}
                       >
-                        {alias.charAt(0).toUpperCase() || '?'}
-                      </Box>
-                      <Box flex={1}>
-                        <Typography
-                          variant="body1"
-                          sx={{
-                            color: secondaryColor || primaryColor || '#16a34a',
-                            fontWeight: 600,
-                          }}
-                        >
-                          {alias || 'Your Alias'}
+                        {alias.charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="body1" sx={{ color: 'var(--app-text)', fontWeight: 600 }}>
+                          {alias || 'Your Name'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
-                          10 of 10 plays remaining
+                          Leaderboard Entry
                         </Typography>
                       </Box>
-                      <Box
-                        sx={{
-                          px: 1.5,
-                          py: 0.5,
-                          borderRadius: 1,
-                          background: accentColor || primaryColor || '#15803d',
-                          color: 'white',
-                          fontSize: '12px',
-                          fontWeight: 500,
-                        }}
-                      >
-                        Active
-                      </Box>
                     </Box>
+                    <Box
+                      sx={{
+                        height: 6,
+                        borderRadius: 3,
+                        background: secondaryColor
+                          ? `linear-gradient(90deg, ${primaryColor || theme.palette.primary.main}, ${secondaryColor})`
+                          : primaryColor || theme.palette.primary.main,
+                      }}
+                    />
                   </Box>
-                </Box>
-              </Box>
-            </>
+                </Paper>
+              )}
+            </Box>
           )}
-
 
           {/* Membership Plans Section */}
           <Divider sx={{ my: 4, borderColor: 'var(--surface-border)' }} />
