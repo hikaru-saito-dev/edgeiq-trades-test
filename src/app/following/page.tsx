@@ -80,7 +80,7 @@ export default function FollowingPage() {
   const toast = useToast();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
-  const { isAuthorized, loading: accessLoading, userId, companyId } = useAccess();
+  const { isAuthorized, loading: accessLoading, userId, companyId, companyBranding } = useAccess();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [follows, setFollows] = useState<Follow[]>([]);
   const [loading, setLoading] = useState(true);

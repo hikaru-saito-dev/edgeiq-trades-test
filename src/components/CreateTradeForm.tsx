@@ -35,7 +35,7 @@ interface CreateTradeFormProps {
 
 export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTradeFormProps) {
   const toast = useToast();
-  const { userId, companyId } = useAccess();
+  const { userId, companyId, companyBranding } = useAccess();
   const [loading, setLoading] = useState(false);
   const [marketOpen, setMarketOpen] = useState(true);
   const [marketMessage, setMarketMessage] = useState('');
@@ -533,10 +533,25 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
             disabled={loading || !marketOpen}
             startIcon={loading ? <CircularProgress size={16} /> : <AddIcon />}
             sx={{
-              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+              background: `linear-gradient(135deg, ${companyBranding?.primaryColor || theme.palette.primary.main} 0%, ${companyBranding?.secondaryColor || theme.palette.secondary.main} 100%)`,
               color: '#ffffff',
               '&:hover': {
-                background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
+                background: `linear-gradient(135deg, ${(() => {
+                  const primary = companyBranding?.primaryColor || theme.palette.primary.main;
+                  const secondary = companyBranding?.secondaryColor || theme.palette.secondary.main;
+                  const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
+                  const rgb2 = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(secondary);
+                  if (rgb && rgb2) {
+                    const r1 = Math.round(parseInt(rgb[1], 16) * 0.85);
+                    const g1 = Math.round(parseInt(rgb[2], 16) * 0.85);
+                    const b1 = Math.round(parseInt(rgb[3], 16) * 0.85);
+                    const r2 = Math.round(parseInt(rgb2[1], 16) * 0.85);
+                    const g2 = Math.round(parseInt(rgb2[2], 16) * 0.85);
+                    const b2 = Math.round(parseInt(rgb2[3], 16) * 0.85);
+                    return `rgb(${r1}, ${g1}, ${b1}) 0%, rgb(${r2}, ${g2}, ${b2}) 100%`;
+                  }
+                  return `${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%`;
+                })()})`,
               },
               '&:disabled': {
                 background: alpha(theme.palette.primary.main, 0.3),

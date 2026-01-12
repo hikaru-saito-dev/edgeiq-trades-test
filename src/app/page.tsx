@@ -251,18 +251,33 @@ function HomeContent() {
                 component={Link}
                 href="/trades"
                 sx={{
-                  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                  background: `linear-gradient(135deg, ${companyBranding?.primaryColor || theme.palette.primary.main} 0%, ${companyBranding?.secondaryColor || theme.palette.secondary.main} 100%)`,
                   color: 'white',
                   px: 5,
                   py: 1.75,
                   fontSize: '1.1rem',
                   fontWeight: 600,
                   borderRadius: 3,
-                  boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.3)}`,
+                  boxShadow: `0 8px 24px ${alpha(companyBranding?.primaryColor || theme.palette.primary.main, 0.3)}`,
                   textTransform: 'none',
                   '&:hover': {
-                    background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
-                    boxShadow: `0 12px 32px ${alpha(theme.palette.primary.main, 0.4)}`,
+                    background: `linear-gradient(135deg, ${(() => {
+                      const primary = companyBranding?.primaryColor || theme.palette.primary.main;
+                      const secondary = companyBranding?.secondaryColor || theme.palette.secondary.main;
+                      const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
+                      const rgb2 = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(secondary);
+                      if (rgb && rgb2) {
+                        const r1 = Math.round(parseInt(rgb[1], 16) * 0.85);
+                        const g1 = Math.round(parseInt(rgb[2], 16) * 0.85);
+                        const b1 = Math.round(parseInt(rgb[3], 16) * 0.85);
+                        const r2 = Math.round(parseInt(rgb2[1], 16) * 0.85);
+                        const g2 = Math.round(parseInt(rgb2[2], 16) * 0.85);
+                        const b2 = Math.round(parseInt(rgb2[3], 16) * 0.85);
+                        return `rgb(${r1}, ${g1}, ${b1}) 0%, rgb(${r2}, ${g2}, ${b2}) 100%`;
+                      }
+                      return `${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%`;
+                    })()})`,
+                    boxShadow: `0 12px 32px ${alpha(companyBranding?.primaryColor || theme.palette.primary.main, 0.4)}`,
                     transform: 'translateY(-2px)',
                   },
                   transition: 'all 0.3s ease',
@@ -278,26 +293,58 @@ function HomeContent() {
                 component={Link}
                 href="/leaderboard"
                 sx={{
-                  borderColor: theme.palette.primary.main,
+                  borderColor: companyBranding?.primaryColor || theme.palette.primary.main,
                   borderWidth: 2,
-                  color: theme.palette.primary.main,
+                  color: companyBranding?.primaryColor || theme.palette.primary.main,
                   px: 5,
                   py: 1.75,
                   fontSize: '1.1rem',
                   fontWeight: 600,
                   borderRadius: 2,
                   textTransform: 'none',
-                  backgroundColor: theme.palette.mode === 'dark' ? 'transparent' : alpha(theme.palette.primary.main, 0.08),
-                  boxShadow: theme.palette.mode === 'dark'
-                    ? `0 0 20px ${alpha(theme.palette.primary.main, 0.2)}`
-                    : `0 0 20px ${alpha(theme.palette.primary.main, 0.12)}`,
+                  backgroundColor: (() => {
+                    const primary = companyBranding?.primaryColor || theme.palette.primary.main;
+                    return theme.palette.mode === 'dark' ? 'transparent' : alpha(primary, 0.08);
+                  })(),
+                  boxShadow: (() => {
+                    const primary = companyBranding?.primaryColor || theme.palette.primary.main;
+                    return theme.palette.mode === 'dark'
+                      ? `0 0 20px ${alpha(primary, 0.2)}`
+                      : `0 0 20px ${alpha(primary, 0.12)}`;
+                  })(),
                   '&:hover': {
-                    borderColor: theme.palette.primary.light,
+                    borderColor: (() => {
+                      const primary = companyBranding?.primaryColor || theme.palette.primary.main;
+                      const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
+                      if (rgb) {
+                        const r = Math.round(parseInt(rgb[1], 16) + (255 - parseInt(rgb[1], 16)) * 0.2);
+                        const g = Math.round(parseInt(rgb[2], 16) + (255 - parseInt(rgb[2], 16)) * 0.2);
+                        const b = Math.round(parseInt(rgb[3], 16) + (255 - parseInt(rgb[3], 16)) * 0.2);
+                        return `rgb(${r}, ${g}, ${b})`;
+                      }
+                      return theme.palette.primary.light;
+                    })(),
                     borderWidth: 2,
-                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                    backgroundColor: (() => {
+                      const primary = companyBranding?.primaryColor || theme.palette.primary.main;
+                      return alpha(primary, 0.1);
+                    })(),
                     transform: 'translateY(-2px)',
-                    color: theme.palette.primary.light,
-                    boxShadow: `0 0 30px ${alpha(theme.palette.primary.main, 0.3)}`,
+                    color: (() => {
+                      const primary = companyBranding?.primaryColor || theme.palette.primary.main;
+                      const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
+                      if (rgb) {
+                        const r = Math.round(parseInt(rgb[1], 16) + (255 - parseInt(rgb[1], 16)) * 0.2);
+                        const g = Math.round(parseInt(rgb[2], 16) + (255 - parseInt(rgb[2], 16)) * 0.2);
+                        const b = Math.round(parseInt(rgb[3], 16) + (255 - parseInt(rgb[3], 16)) * 0.2);
+                        return `rgb(${r}, ${g}, ${b})`;
+                      }
+                      return theme.palette.primary.light;
+                    })(),
+                    boxShadow: (() => {
+                      const primary = companyBranding?.primaryColor || theme.palette.primary.main;
+                      return `0 0 30px ${alpha(primary, 0.3)}`;
+                    })(),
                   },
                   transition: 'all 0.3s ease',
                 }}

@@ -50,7 +50,7 @@ interface User {
 }
 
 export default function UsersPage() {
-  const { role: currentRole, loading: accessLoading, userId, companyId } = useAccess();
+  const { role: currentRole, loading: accessLoading, userId, companyId, companyBranding } = useAccess();
   const toast = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -323,7 +323,7 @@ export default function UsersPage() {
             fontWeight={700}
             gutterBottom
             sx={{
-              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+              background: `linear-gradient(135deg, ${companyBranding?.primaryColor || theme.palette.primary.main} 0%, ${companyBranding?.secondaryColor || theme.palette.secondary.main} 100%)`,
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
@@ -542,9 +542,24 @@ export default function UsersPage() {
                               onClick={() => handleSaveRole(user.whopUserId)}
                               disabled={updating === user.whopUserId}
                               sx={{
-                                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                                background: `linear-gradient(135deg, ${companyBranding?.primaryColor || theme.palette.primary.main} 0%, ${companyBranding?.secondaryColor || theme.palette.secondary.main} 100%)`,
                                 '&:hover': {
-                                  background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
+                                  background: `linear-gradient(135deg, ${(() => {
+                                    const primary = companyBranding?.primaryColor || theme.palette.primary.main;
+                                    const secondary = companyBranding?.secondaryColor || theme.palette.secondary.main;
+                                    const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
+                                    const rgb2 = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(secondary);
+                                    if (rgb && rgb2) {
+                                      const r1 = Math.round(parseInt(rgb[1], 16) * 0.85);
+                                      const g1 = Math.round(parseInt(rgb[2], 16) * 0.85);
+                                      const b1 = Math.round(parseInt(rgb[3], 16) * 0.85);
+                                      const r2 = Math.round(parseInt(rgb2[1], 16) * 0.85);
+                                      const g2 = Math.round(parseInt(rgb2[2], 16) * 0.85);
+                                      const b2 = Math.round(parseInt(rgb2[3], 16) * 0.85);
+                                      return `rgb(${r1}, ${g1}, ${b1}) 0%, rgb(${r2}, ${g2}, ${b2}) 100%`;
+                                    }
+                                    return `${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%`;
+                                  })()})`,
                                 },
                               }}
                             >

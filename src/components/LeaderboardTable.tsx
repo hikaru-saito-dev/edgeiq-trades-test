@@ -83,7 +83,7 @@ interface LeaderboardEntry {
 
 export default function LeaderboardTable() {
   const toast = useToast();
-  const { userId, companyId, isAuthorized } = useAccess();
+  const { userId, companyId, isAuthorized, companyBranding } = useAccess();
   const [range, setRange] = useState<'all' | '30d' | '7d'>('all');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -560,10 +560,25 @@ export default function LeaderboardTable() {
                             size="small"
                             onClick={() => handleViewMembership(entry)}
                             sx={{
-                              background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                              background: `linear-gradient(135deg, ${companyBranding?.primaryColor || theme.palette.primary.main}, ${companyBranding?.secondaryColor || theme.palette.secondary.main})`,
                               color: 'white',
                               '&:hover': {
-                                background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
+                                background: `linear-gradient(135deg, ${(() => {
+                                  const primary = companyBranding?.primaryColor || theme.palette.primary.main;
+                                  const secondary = companyBranding?.secondaryColor || theme.palette.secondary.main;
+                                  const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
+                                  const rgb2 = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(secondary);
+                                  if (rgb && rgb2) {
+                                    const r1 = Math.round(parseInt(rgb[1], 16) * 0.85);
+                                    const g1 = Math.round(parseInt(rgb[2], 16) * 0.85);
+                                    const b1 = Math.round(parseInt(rgb[3], 16) * 0.85);
+                                    const r2 = Math.round(parseInt(rgb2[1], 16) * 0.85);
+                                    const g2 = Math.round(parseInt(rgb2[2], 16) * 0.85);
+                                    const b2 = Math.round(parseInt(rgb2[3], 16) * 0.85);
+                                    return `rgb(${r1}, ${g1}, ${b1}), rgb(${r2}, ${g2}, ${b2})`;
+                                  }
+                                  return `${theme.palette.primary.dark}, ${theme.palette.secondary.dark}`;
+                                })()})`,
                               },
                             }}
                           >
@@ -768,15 +783,30 @@ export default function LeaderboardTable() {
                         onClick={() => window.open(plan.affiliateLink!, '_blank', 'noopener,noreferrer')}
                         startIcon={<LaunchIcon />}
                         sx={{
-                          background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                          background: `linear-gradient(135deg, ${companyBranding?.primaryColor || theme.palette.primary.main}, ${companyBranding?.secondaryColor || theme.palette.secondary.main})`,
                           color: 'white',
                           py: 1.5,
                           fontWeight: 600,
-                          boxShadow: `0 4px 20px ${alpha(theme.palette.primary.main, 0.3)}`,
+                          boxShadow: `0 4px 20px ${alpha(companyBranding?.primaryColor || theme.palette.primary.main, 0.3)}`,
                           '&:hover': {
-                            background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
+                            background: `linear-gradient(135deg, ${(() => {
+                              const primary = companyBranding?.primaryColor || theme.palette.primary.main;
+                              const secondary = companyBranding?.secondaryColor || theme.palette.secondary.main;
+                              const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
+                              const rgb2 = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(secondary);
+                              if (rgb && rgb2) {
+                                const r1 = Math.round(parseInt(rgb[1], 16) * 0.85);
+                                const g1 = Math.round(parseInt(rgb[2], 16) * 0.85);
+                                const b1 = Math.round(parseInt(rgb[3], 16) * 0.85);
+                                const r2 = Math.round(parseInt(rgb2[1], 16) * 0.85);
+                                const g2 = Math.round(parseInt(rgb2[2], 16) * 0.85);
+                                const b2 = Math.round(parseInt(rgb2[3], 16) * 0.85);
+                                return `rgb(${r1}, ${g1}, ${b1}), rgb(${r2}, ${g2}, ${b2})`;
+                              }
+                              return `${theme.palette.primary.dark}, ${theme.palette.secondary.dark}`;
+                            })()})`,
                             transform: 'translateY(-2px)',
-                            boxShadow: `0 6px 30px ${alpha(theme.palette.primary.main, 0.4)}`,
+                            boxShadow: `0 6px 30px ${alpha(companyBranding?.primaryColor || theme.palette.primary.main, 0.4)}`,
                           },
                           transition: 'all 0.3s ease',
                         }}

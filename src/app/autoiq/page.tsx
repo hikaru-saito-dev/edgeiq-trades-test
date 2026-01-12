@@ -17,7 +17,7 @@ interface BrokerAccount {
 
 export default function AutoIQPage() {
     const theme = useTheme();
-    const { isAuthorized, userId, companyId, hasAutoIQ, loading: accessLoading } = useAccess();
+    const { isAuthorized, userId, companyId, hasAutoIQ, loading: accessLoading, companyBranding } = useAccess();
     const toast = useToast();
     const [autoTradeMode, setAutoTradeMode] = useState<'auto-trade' | 'notify-only'>('notify-only');
     const [defaultBrokerConnectionId, setDefaultBrokerConnectionId] = useState<string | null>(null);
@@ -174,7 +174,7 @@ export default function AutoIQPage() {
                         sx={{
                             fontWeight: 700,
                             mb: 1,
-                            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                            background: `linear-gradient(135deg, ${companyBranding?.primaryColor || theme.palette.primary.main} 0%, ${companyBranding?.secondaryColor || theme.palette.secondary.main} 100%)`,
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
                             backgroundClip: 'text',
@@ -212,7 +212,7 @@ export default function AutoIQPage() {
                             window.open(upgradeUrl, '_blank');
                         }}
                         sx={{
-                            background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                            background: `linear-gradient(135deg, ${companyBranding?.primaryColor || theme.palette.primary.main}, ${companyBranding?.secondaryColor || theme.palette.secondary.main})`,
                             color: '#ffffff',
                             px: 6,
                             py: 1.5,
@@ -220,26 +220,26 @@ export default function AutoIQPage() {
                             textTransform: 'none',
                             borderRadius: 2,
                             boxShadow: (() => {
-                              const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(theme.palette.primary.main);
-                              if (rgb) {
-                                const r = parseInt(rgb[1], 16);
-                                const g = parseInt(rgb[2], 16);
-                                const b = parseInt(rgb[3], 16);
-                                return `0 4px 12px rgba(${r}, ${g}, ${b}, 0.3)`;
-                              }
-                              return `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`;
+                                const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(theme.palette.primary.main);
+                                if (rgb) {
+                                    const r = parseInt(rgb[1], 16);
+                                    const g = parseInt(rgb[2], 16);
+                                    const b = parseInt(rgb[3], 16);
+                                    return `0 4px 12px rgba(${r}, ${g}, ${b}, 0.3)`;
+                                }
+                                return `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`;
                             })(),
                             '&:hover': {
                                 background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
                                 boxShadow: (() => {
-                                  const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(theme.palette.primary.main);
-                                  if (rgb) {
-                                    const r = parseInt(rgb[1], 16);
-                                    const g = parseInt(rgb[2], 16);
-                                    const b = parseInt(rgb[3], 16);
-                                    return `0 6px 16px rgba(${r}, ${g}, ${b}, 0.4)`;
-                                  }
-                                  return `0 6px 16px ${alpha(theme.palette.primary.main, 0.4)}`;
+                                    const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(theme.palette.primary.main);
+                                    if (rgb) {
+                                        const r = parseInt(rgb[1], 16);
+                                        const g = parseInt(rgb[2], 16);
+                                        const b = parseInt(rgb[3], 16);
+                                        return `0 6px 16px rgba(${r}, ${g}, ${b}, 0.4)`;
+                                    }
+                                    return `0 6px 16px ${alpha(theme.palette.primary.main, 0.4)}`;
                                 })(),
                                 transform: 'translateY(-1px)',
                             },
@@ -442,17 +442,32 @@ export default function AutoIQPage() {
                         onClick={handleSave}
                         disabled={saving}
                         sx={{
-                            background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                            background: `linear-gradient(135deg, ${companyBranding?.primaryColor || theme.palette.primary.main}, ${companyBranding?.secondaryColor || theme.palette.secondary.main})`,
                             color: '#ffffff',
                             px: 4,
                             py: 1.5,
                             fontWeight: 600,
                             textTransform: 'none',
                             borderRadius: 2,
-                            boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
+                            boxShadow: `0 4px 12px ${alpha(companyBranding?.primaryColor || theme.palette.primary.main, 0.3)}`,
                             '&:hover': {
-                                background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
-                                boxShadow: `0 6px 16px ${alpha(theme.palette.primary.main, 0.4)}`,
+                                background: `linear-gradient(135deg, ${(() => {
+                                    const primary = companyBranding?.primaryColor || theme.palette.primary.main;
+                                    const secondary = companyBranding?.secondaryColor || theme.palette.secondary.main;
+                                    const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
+                                    const rgb2 = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(secondary);
+                                    if (rgb && rgb2) {
+                                        const r1 = Math.round(parseInt(rgb[1], 16) * 0.85);
+                                        const g1 = Math.round(parseInt(rgb[2], 16) * 0.85);
+                                        const b1 = Math.round(parseInt(rgb[3], 16) * 0.85);
+                                        const r2 = Math.round(parseInt(rgb2[1], 16) * 0.85);
+                                        const g2 = Math.round(parseInt(rgb2[2], 16) * 0.85);
+                                        const b2 = Math.round(parseInt(rgb2[3], 16) * 0.85);
+                                        return `rgb(${r1}, ${g1}, ${b1}), rgb(${r2}, ${g2}, ${b2})`;
+                                    }
+                                    return `${theme.palette.primary.dark}, ${theme.palette.secondary.dark}`;
+                                })()})`,
+                                boxShadow: `0 6px 16px ${alpha(companyBranding?.primaryColor || theme.palette.primary.main, 0.4)}`,
                                 transform: 'translateY(-1px)',
                             },
                             transition: 'all 0.2s ease',
