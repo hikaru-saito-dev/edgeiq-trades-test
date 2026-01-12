@@ -168,13 +168,22 @@ export default function TradesPage() {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight={400} gap={3}>
-          <CircularProgress 
+          <CircularProgress
             size={60}
             thickness={4}
-            sx={{ 
-              color: '#22c55e',
-              filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))',
-            }} 
+            sx={{
+              color: theme.palette.primary.main,
+              filter: (() => {
+                const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(theme.palette.primary.main);
+                if (rgb) {
+                  const r = parseInt(rgb[1], 16);
+                  const g = parseInt(rgb[2], 16);
+                  const b = parseInt(rgb[3], 16);
+                  return `drop-shadow(0 0 10px rgba(${r}, ${g}, ${b}, 0.5))`;
+                }
+                return 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))';
+              })(),
+            }}
           />
           <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
             Checking access...
@@ -206,22 +215,22 @@ export default function TradesPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <Box 
-          display="flex" 
+        <Box
+          display="flex"
           flexDirection={{ xs: 'column', sm: 'row' }}
-          justifyContent="space-between" 
+          justifyContent="space-between"
           alignItems={{ xs: 'flex-start', sm: 'center' }}
-          mb={2} 
+          mb={2}
           gap={2}
         >
           <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
-            <Typography 
-              variant="h4" 
-              component="h1" 
-              fontWeight={700} 
+            <Typography
+              variant="h4"
+              component="h1"
+              fontWeight={700}
               gutterBottom
               sx={{
-                background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
@@ -230,8 +239,8 @@ export default function TradesPage() {
             >
               My Trades
             </Typography>
-            <Typography 
-              variant="body2" 
+            <Typography
+              variant="body2"
               color="text.secondary"
               sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
             >
@@ -251,18 +260,36 @@ export default function TradesPage() {
             }}
             disabled={!marketOpen}
             sx={{
-              width: { xs: '100%', sm: 'auto' }, 
-              px: { xs: 2, sm: 3 }, 
+              width: { xs: '100%', sm: 'auto' },
+              px: { xs: 2, sm: 3 },
               py: 1.5,
-              background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
-              boxShadow: '0 8px 32px rgba(34, 197, 94, 0.3)',
+              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+              boxShadow: (() => {
+                const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(theme.palette.primary.main);
+                if (rgb) {
+                  const r = parseInt(rgb[1], 16);
+                  const g = parseInt(rgb[2], 16);
+                  const b = parseInt(rgb[3], 16);
+                  return `0 8px 32px rgba(${r}, ${g}, ${b}, 0.3)`;
+                }
+                return '0 8px 32px rgba(34, 197, 94, 0.3)';
+              })(),
               '&:hover': {
-                background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
-                boxShadow: '0 12px 40px rgba(34, 197, 94, 0.4)',
+                background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
+                boxShadow: (() => {
+                  const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(theme.palette.primary.main);
+                  if (rgb) {
+                    const r = parseInt(rgb[1], 16);
+                    const g = parseInt(rgb[2], 16);
+                    const b = parseInt(rgb[3], 16);
+                    return `0 12px 40px rgba(${r}, ${g}, ${b}, 0.4)`;
+                  }
+                  return '0 12px 40px rgba(34, 197, 94, 0.4)';
+                })(),
                 transform: 'translateY(-2px)',
               },
               '&:disabled': {
-                background: 'rgba(34, 197, 94, 0.3)',
+                background: alpha(theme.palette.primary.main, 0.3),
               },
               transition: 'all 0.3s ease',
             }}
@@ -369,13 +396,13 @@ export default function TradesPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3 }}
           >
-            <CircularProgress 
+            <CircularProgress
               size={60}
               thickness={4}
-              sx={{ 
-                color: '#22c55e',
-                filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))',
-              }} 
+              sx={{
+                color: theme.palette.primary.main,
+                filter: `drop-shadow(0 0 10px ${alpha(theme.palette.primary.main, 0.5)})`,
+              }}
             />
           </motion.div>
           <motion.div
@@ -383,9 +410,9 @@ export default function TradesPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
           >
-            <Typography 
-              variant="h6" 
-              sx={{ 
+            <Typography
+              variant="h6"
+              sx={{
                 color: 'var(--app-text)',
                 fontWeight: 500,
               }}
@@ -405,7 +432,7 @@ export default function TradesPage() {
               {search || selectedStatus !== 'All' ? 'No trades found' : 'No trades yet'}
             </Typography>
             <Typography variant="body2" color="text.secondary" mb={3}>
-              {search || selectedStatus !== 'All' 
+              {search || selectedStatus !== 'All'
                 ? 'Try adjusting your search or filters'
                 : 'Create your first trade to start tracking your performance'}
             </Typography>
@@ -422,11 +449,29 @@ export default function TradesPage() {
                 }}
                 disabled={!marketOpen}
                 sx={{
-                  background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
-                  boxShadow: '0 8px 32px rgba(34, 197, 94, 0.3)',
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                  boxShadow: (() => {
+                    const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(theme.palette.primary.main);
+                    if (rgb) {
+                      const r = parseInt(rgb[1], 16);
+                      const g = parseInt(rgb[2], 16);
+                      const b = parseInt(rgb[3], 16);
+                      return `0 8px 32px rgba(${r}, ${g}, ${b}, 0.3)`;
+                    }
+                    return '0 8px 32px rgba(34, 197, 94, 0.3)';
+                  })(),
                   '&:hover': {
-                    background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
-                    boxShadow: '0 12px 40px rgba(34, 197, 94, 0.4)',
+                    background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
+                    boxShadow: (() => {
+                      const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(theme.palette.primary.main);
+                      if (rgb) {
+                        const r = parseInt(rgb[1], 16);
+                        const g = parseInt(rgb[2], 16);
+                        const b = parseInt(rgb[3], 16);
+                        return `0 12px 40px rgba(${r}, ${g}, ${b}, 0.4)`;
+                      }
+                      return '0 12px 40px rgba(34, 197, 94, 0.4)';
+                    })(),
                     transform: 'translateY(-2px)',
                   },
                   transition: 'all 0.3s ease',
@@ -505,9 +550,9 @@ export default function TradesPage() {
           Company Access Required
         </DialogTitle>
         <DialogContent>
-          <Alert 
-            severity="warning" 
-            sx={{ 
+          <Alert
+            severity="warning"
+            sx={{
               mb: 2,
               backgroundColor: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
@@ -538,10 +583,10 @@ export default function TradesPage() {
               window.location.href = '/profile';
             }}
             sx={{
-              background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
               color: '#ffffff',
               '&:hover': {
-                background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
+                background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
               },
             }}
           >

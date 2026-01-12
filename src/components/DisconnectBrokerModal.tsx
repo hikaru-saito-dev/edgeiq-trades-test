@@ -12,7 +12,7 @@ import {
   TextField,
 } from '@mui/material';
 import WarningIcon from '@mui/icons-material/Warning';
-import { alpha, useTheme } from '@mui/material/styles';
+import { alpha } from '@mui/material/styles';
 
 interface DisconnectBrokerModalProps {
   open: boolean;
@@ -29,7 +29,6 @@ export default function DisconnectBrokerModal({
   brokerName,
   loading = false,
 }: DisconnectBrokerModalProps) {
-  const theme = useTheme();
   const [confirmText, setConfirmText] = useState('');
   const isConfirmed = confirmText === 'DELETE';
 
@@ -132,17 +131,17 @@ export default function DisconnectBrokerModal({
           variant="contained"
           sx={{
             background: (theme) => isConfirmed
-              ? `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`
+              ? `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`
               : alpha(theme.palette.primary.main, 0.3),
             color: 'white',
             fontWeight: 600,
             '&:hover': {
               background: (theme) => isConfirmed
-                ? `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.dark})`
-                : 'rgba(34, 197, 94, 0.3)',
+                ? `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`
+                : alpha(theme.palette.primary.main, 0.3),
             },
             '&:disabled': {
-              background: 'rgba(34, 197, 94, 0.3)',
+              background: (theme) => alpha(theme.palette.primary.main, 0.3),
               color: 'rgba(255, 255, 255, 0.5)',
             },
           }}

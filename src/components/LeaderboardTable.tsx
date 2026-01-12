@@ -560,10 +560,10 @@ export default function LeaderboardTable() {
                             size="small"
                             onClick={() => handleViewMembership(entry)}
                             sx={{
-                              background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                              background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                               color: 'white',
                               '&:hover': {
-                                background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.dark})`,
+                                background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
                               },
                             }}
                           >
@@ -768,15 +768,15 @@ export default function LeaderboardTable() {
                         onClick={() => window.open(plan.affiliateLink!, '_blank', 'noopener,noreferrer')}
                         startIcon={<LaunchIcon />}
                         sx={{
-                          background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                          background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                           color: 'white',
                           py: 1.5,
                           fontWeight: 600,
-                          boxShadow: '0 4px 20px rgba(34, 197, 94, 0.3)',
+                          boxShadow: `0 4px 20px ${alpha(theme.palette.primary.main, 0.3)}`,
                           '&:hover': {
-                            background: 'linear-gradient(135deg, #16a34a, #047857)',
+                            background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
                             transform: 'translateY(-2px)',
-                            boxShadow: '0 6px 30px rgba(34, 197, 94, 0.4)',
+                            boxShadow: `0 6px 30px ${alpha(theme.palette.primary.main, 0.4)}`,
                           },
                           transition: 'all 0.3s ease',
                         }}

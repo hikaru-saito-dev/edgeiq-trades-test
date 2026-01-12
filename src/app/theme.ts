@@ -95,7 +95,16 @@ const getDesignTokens = (mode: PaletteMode, primaryColor?: string | null, second
 
   // Use company primary color or default to green
   const primary = primaryColor && /^#[0-9A-Fa-f]{6}$/.test(primaryColor) ? primaryColor : '#22c55e';
-  const secondary = secondaryColor && /^#[0-9A-Fa-f]{6}$/.test(secondaryColor) ? secondaryColor : darkenColor(primary, 15);
+
+  // Use company secondary color, or generate a harmonious complementary color
+  let secondary: string;
+  if (secondaryColor && /^#[0-9A-Fa-f]{6}$/.test(secondaryColor)) {
+    secondary = secondaryColor;
+  } else {
+    // Generate a harmonious secondary color that complements primary
+    // Use a slightly darker/lighter version that works well together
+    secondary = isLight ? darkenColor(primary, 20) : lightenColor(primary, 15);
+  }
 
   // Generate color variants
   const primaryLight = lightenColor(primary, 20);
@@ -135,7 +144,7 @@ const getDesignTokens = (mode: PaletteMode, primaryColor?: string | null, second
       h1: {
         fontSize: '3rem',
         fontWeight: 800,
-        background: `linear-gradient(135deg, ${primary} 0%, ${primaryDark} 100%)`,
+        background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`,
         backgroundClip: 'text',
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',

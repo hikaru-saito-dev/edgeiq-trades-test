@@ -381,10 +381,10 @@ export default function ConnectAccountModal({
                     disabled={loading || !!redirectUri}
                     variant="contained"
                     sx={{
-                        background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                        background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                         color: 'white',
                         '&:hover': {
-                            background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.dark})`,
+                            background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
                         },
                         '&:disabled': {
                             background: (theme) => alpha(theme.palette.primary.main, 0.3),

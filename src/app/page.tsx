@@ -1,6 +1,7 @@
 'use client';
 
 import { Container, Typography, Box, Button, CircularProgress, useTheme } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useAccess, setExperienceId } from '@/components/AccessProvider';
@@ -69,8 +70,8 @@ function HomeContent() {
               90deg,
               transparent,
               transparent 20px,
-              rgba(34, 197, 94, ${theme.palette.mode === 'dark' ? 0.08 : 0.12}) 20px,
-              rgba(34, 197, 94, ${theme.palette.mode === 'dark' ? 0.08 : 0.12}) 22px
+              ${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.08 : 0.12)} 20px,
+              ${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.08 : 0.12)} 22px
             )
           `,
           zIndex: 0,
@@ -83,9 +84,9 @@ function HomeContent() {
           right: 0,
           height: '200px',
           background: `
-            radial-gradient(ellipse at 20% 50%, rgba(34, 197, 94, 0.25) 0%, transparent 50%),
-            radial-gradient(ellipse at 50% 30%, rgba(34, 197, 94, 0.2) 0%, transparent 50%),
-            radial-gradient(ellipse at 80% 60%, rgba(34, 197, 94, 0.15) 0%, transparent 50%)
+            radial-gradient(ellipse at 20% 50%, ${alpha(theme.palette.primary.main, 0.25)} 0%, transparent 50%),
+            radial-gradient(ellipse at 50% 30%, ${alpha(theme.palette.primary.main, 0.2)} 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 60%, ${alpha(theme.palette.primary.main, 0.15)} 0%, transparent 50%)
           `,
           zIndex: 0,
           animation: 'pulse 4s ease-in-out infinite',
@@ -111,9 +112,9 @@ function HomeContent() {
             left: 0,
             right: 0,
             height: '3px',
-            background: 'linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.6) 20%, rgba(34, 197, 94, 0.8) 50%, rgba(34, 197, 94, 0.6) 80%, transparent)',
+            background: `linear-gradient(90deg, transparent, ${alpha(theme.palette.primary.main, 0.6)} 20%, ${alpha(theme.palette.primary.main, 0.8)} 50%, ${alpha(theme.palette.primary.main, 0.6)} 80%, transparent)`,
             filter: 'blur(3px)',
-            boxShadow: '0 0 20px rgba(34, 197, 94, 0.6)',
+            boxShadow: `0 0 20px ${alpha(theme.palette.primary.main, 0.6)}`,
             animation: 'wave 8s ease-in-out infinite',
           },
           '&::after': {
@@ -123,9 +124,9 @@ function HomeContent() {
             left: 0,
             right: 0,
             height: '2px',
-            background: 'linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.5) 25%, rgba(34, 197, 94, 0.7) 50%, rgba(34, 197, 94, 0.5) 75%, transparent)',
+            background: `linear-gradient(90deg, transparent, ${alpha(theme.palette.primary.main, 0.5)} 25%, ${alpha(theme.palette.primary.main, 0.7)} 50%, ${alpha(theme.palette.primary.main, 0.5)} 75%, transparent)`,
             filter: 'blur(2px)',
-            boxShadow: '0 0 15px rgba(34, 197, 94, 0.5)',
+            boxShadow: `0 0 15px ${alpha(theme.palette.primary.main, 0.5)}`,
             animation: 'wave 10s ease-in-out infinite reverse',
           },
         }}
@@ -208,18 +209,18 @@ function HomeContent() {
                 component={Link}
                 href="/trades"
                 sx={{
-                  background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
                   color: 'white',
                   px: 5,
                   py: 1.75,
                   fontSize: '1.1rem',
                   fontWeight: 600,
                   borderRadius: 3,
-                  boxShadow: '0 8px 24px rgba(34, 197, 94, 0.3)',
+                  boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.3)}`,
                   textTransform: 'none',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
-                    boxShadow: '0 12px 32px rgba(34, 197, 94, 0.4)',
+                    background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
+                    boxShadow: `0 12px 32px ${alpha(theme.palette.primary.main, 0.4)}`,
                     transform: 'translateY(-2px)',
                   },
                   transition: 'all 0.3s ease',
@@ -245,18 +246,18 @@ function HomeContent() {
                   borderRadius: 2,
                   textTransform: 'none',
                   backgroundColor: (theme) =>
-                    theme.palette.mode === 'dark' ? 'transparent' : 'rgba(34, 197, 94, 0.08)',
+                    theme.palette.mode === 'dark' ? 'transparent' : alpha(theme.palette.primary.main, 0.08),
                   boxShadow: (theme) =>
                     theme.palette.mode === 'dark'
-                      ? '0 0 20px rgba(34, 197, 94, 0.2)'
-                      : '0 0 20px rgba(34, 197, 94, 0.12)',
+                      ? `0 0 20px ${alpha(theme.palette.primary.main, 0.2)}`
+                      : `0 0 20px ${alpha(theme.palette.primary.main, 0.12)}`,
                   '&:hover': {
-                    borderColor: '#34d399',
+                    borderColor: theme.palette.primary.light,
                     borderWidth: 2,
-                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
                     transform: 'translateY(-2px)',
-                    color: '#34d399',
-                    boxShadow: '0 0 30px rgba(34, 197, 94, 0.3)',
+                    color: theme.palette.primary.light,
+                    boxShadow: `0 0 30px ${alpha(theme.palette.primary.main, 0.3)}`,
                   },
                   transition: 'all 0.3s ease',
                 }}

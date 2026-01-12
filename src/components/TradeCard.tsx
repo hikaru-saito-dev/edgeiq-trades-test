@@ -87,8 +87,8 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
   const fillsBorder = `1px solid ${alpha(theme.palette.primary.main, isDark ? 0.45 : 0.25)}`;
   const fillsBg = alpha(theme.palette.background.paper, isDark ? 0.3 : 0.85);
   const timestampColor = alpha(theme.palette.text.secondary, 0.9);
-  const actionGradient = `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`;
-  const actionGradientHover = `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`;
+  const actionGradient = `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`;
+  const actionGradientHover = `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`;
   const actionGradientDisabled = alpha(theme.palette.primary.main, 0.35);
 
   const getStatusColor = () => {
@@ -267,12 +267,30 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
           borderRadius: 3,
           boxShadow: isDark
             ? '0 20px 40px rgba(0, 0, 0, 0.45)'
-            : '0 8px 32px rgba(34, 197, 94, 0.15)',
+            : (() => {
+              const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(theme.palette.primary.main);
+              if (rgb) {
+                const r = parseInt(rgb[1], 16);
+                const g = parseInt(rgb[2], 16);
+                const b = parseInt(rgb[3], 16);
+                return `0 8px 32px rgba(${r}, ${g}, ${b}, 0.15)`;
+              }
+              return '0 8px 32px rgba(34, 197, 94, 0.15)';
+            })(),
           transition: 'all 0.3s ease',
           '&:hover': {
             boxShadow: isDark
               ? '0 24px 48px rgba(0, 0, 0, 0.5)'
-              : '0 12px 40px rgba(34, 197, 94, 0.25)',
+              : (() => {
+                const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(theme.palette.primary.main);
+                if (rgb) {
+                  const r = parseInt(rgb[1], 16);
+                  const g = parseInt(rgb[2], 16);
+                  const b = parseInt(rgb[3], 16);
+                  return `0 12px 40px rgba(${r}, ${g}, ${b}, 0.25)`;
+                }
+                return '0 12px 40px rgba(34, 197, 94, 0.25)';
+              })(),
             transform: 'translateY(-4px)',
             borderColor: trade.status === 'REJECTED'
               ? alpha(theme.palette.error.main, 0.8)
