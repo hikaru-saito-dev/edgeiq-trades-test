@@ -117,6 +117,12 @@ interface UserData {
   secondaryColor?: string | null;
 }
 
+// Helper function to validate hex color
+const isValidHexColor = (color: string): boolean => {
+  if (!color || color.trim() === '') return false;
+  return /^#[0-9A-Fa-f]{6}$/.test(color.trim());
+};
+
 export default function ProfileForm() {
   const toast = useToast();
   const [alias, setAlias] = useState('');
@@ -509,8 +515,9 @@ export default function ProfileForm() {
         updateData.hideLeaderboardFromMembers = hideLeaderboardFromMembers;
         updateData.hideCompanyStatsFromMembers = hideCompanyStatsFromMembers;
         updateData.membershipPlans = validPlans;
-        updateData.primaryColor = primaryColor.trim() || null;
-        updateData.secondaryColor = secondaryColor.trim() || null;
+        // Only save valid hex colors
+        updateData.primaryColor = isValidHexColor(primaryColor) ? primaryColor.trim() : null;
+        updateData.secondaryColor = isValidHexColor(secondaryColor) ? secondaryColor.trim() : null;
       }
 
       const response = await apiRequest('/api/user', { userId, companyId, method: 'PATCH', body: JSON.stringify(updateData) });
@@ -1768,15 +1775,15 @@ export default function ProfileForm() {
                         p: 0,
                         border: `2px solid ${controlBorder}`,
                         borderRadius: 1,
-                        backgroundColor: primaryColor || 'transparent',
-                        backgroundImage: primaryColor
+                        backgroundColor: isValidHexColor(primaryColor) ? primaryColor : 'transparent',
+                        backgroundImage: isValidHexColor(primaryColor)
                           ? 'none'
                           : 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)',
                         backgroundSize: '8px 8px',
                         backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px',
                         '&:hover': {
                           borderColor: theme.palette.primary.main,
-                          backgroundColor: primaryColor || 'transparent',
+                          backgroundColor: isValidHexColor(primaryColor) ? primaryColor : 'transparent',
                         },
                       }}
                     >
@@ -1799,7 +1806,7 @@ export default function ProfileForm() {
                       placeholder="#3b82f6"
                       size="small"
                       InputProps={{
-                        startAdornment: primaryColor ? (
+                        startAdornment: isValidHexColor(primaryColor) ? (
                           <Box
                             sx={{
                               width: 20,
@@ -1845,7 +1852,7 @@ export default function ProfileForm() {
                       </Typography>
                       <input
                         type="color"
-                        value={primaryColor || '#3b82f6'}
+                        value={isValidHexColor(primaryColor) ? primaryColor : '#3b82f6'}
                         onChange={(e) => {
                           setPrimaryColor(e.target.value);
                         }}
@@ -1861,13 +1868,15 @@ export default function ProfileForm() {
                       <TextField
                         fullWidth
                         size="small"
-                        value={primaryColor || '#3b82f6'}
+                        value={isValidHexColor(primaryColor) ? primaryColor : '#3b82f6'}
                         onChange={(e) => {
                           const value = e.target.value;
                           if (value === '' || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
                             setPrimaryColor(value);
                           }
                         }}
+                        error={primaryColor !== '' && !isValidHexColor(primaryColor)}
+                        helperText={primaryColor !== '' && !isValidHexColor(primaryColor) ? 'Please enter a valid hex color (e.g., #3b82f6)' : ''}
                         placeholder="#3b82f6"
                         sx={{
                           mt: 1,
@@ -1894,15 +1903,15 @@ export default function ProfileForm() {
                         p: 0,
                         border: `2px solid ${controlBorder}`,
                         borderRadius: 1,
-                        backgroundColor: secondaryColor || 'transparent',
-                        backgroundImage: secondaryColor
+                        backgroundColor: isValidHexColor(secondaryColor) ? secondaryColor : 'transparent',
+                        backgroundImage: isValidHexColor(secondaryColor)
                           ? 'none'
                           : 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)',
                         backgroundSize: '8px 8px',
                         backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px',
                         '&:hover': {
                           borderColor: theme.palette.primary.main,
-                          backgroundColor: secondaryColor || 'transparent',
+                          backgroundColor: isValidHexColor(secondaryColor) ? secondaryColor : 'transparent',
                         },
                       }}
                     >
@@ -1925,7 +1934,7 @@ export default function ProfileForm() {
                       placeholder="#2563eb"
                       size="small"
                       InputProps={{
-                        startAdornment: secondaryColor ? (
+                        startAdornment: isValidHexColor(secondaryColor) ? (
                           <Box
                             sx={{
                               width: 20,
@@ -1971,7 +1980,7 @@ export default function ProfileForm() {
                       </Typography>
                       <input
                         type="color"
-                        value={secondaryColor || '#2563eb'}
+                        value={isValidHexColor(secondaryColor) ? secondaryColor : '#2563eb'}
                         onChange={(e) => {
                           setSecondaryColor(e.target.value);
                         }}
@@ -1987,13 +1996,15 @@ export default function ProfileForm() {
                       <TextField
                         fullWidth
                         size="small"
-                        value={secondaryColor || '#2563eb'}
+                        value={isValidHexColor(secondaryColor) ? secondaryColor : '#2563eb'}
                         onChange={(e) => {
                           const value = e.target.value;
                           if (value === '' || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
                             setSecondaryColor(value);
                           }
                         }}
+                        error={secondaryColor !== '' && !isValidHexColor(secondaryColor)}
+                        helperText={secondaryColor !== '' && !isValidHexColor(secondaryColor) ? 'Please enter a valid hex color (e.g., #2563eb)' : ''}
                         placeholder="#2563eb"
                         sx={{
                           mt: 1,
@@ -2009,7 +2020,7 @@ export default function ProfileForm() {
               </Box>
 
               {/* Preview */}
-              {(primaryColor || secondaryColor) && (
+              {(isValidHexColor(primaryColor) || isValidHexColor(secondaryColor)) && (
                 <Paper
                   sx={{
                     p: 3,
@@ -2026,8 +2037,8 @@ export default function ProfileForm() {
                     sx={{
                       p: 2,
                       borderRadius: 2,
-                      background: alpha(primaryColor || theme.palette.primary.main, 0.1),
-                      border: `1px solid ${alpha(primaryColor || theme.palette.primary.main, 0.3)}`,
+                      background: alpha(isValidHexColor(primaryColor) ? primaryColor : theme.palette.primary.main, 0.1),
+                      border: `1px solid ${alpha(isValidHexColor(primaryColor) ? primaryColor : theme.palette.primary.main, 0.3)}`,
                     }}
                   >
                     <Box display="flex" alignItems="center" gap={2} mb={2}>
@@ -2044,7 +2055,7 @@ export default function ProfileForm() {
                         <Typography
                           variant="body1"
                           sx={{
-                            color: primaryColor || 'var(--app-text)',
+                            color: isValidHexColor(primaryColor) ? primaryColor : 'var(--app-text)',
                             fontWeight: 600,
                           }}
                         >
@@ -2059,9 +2070,13 @@ export default function ProfileForm() {
                       sx={{
                         height: 6,
                         borderRadius: 3,
-                        background: secondaryColor
-                          ? `linear-gradient(90deg, ${primaryColor || theme.palette.primary.main}, ${secondaryColor})`
-                          : primaryColor || theme.palette.primary.main,
+                        background: isValidHexColor(secondaryColor) && isValidHexColor(primaryColor)
+                          ? `linear-gradient(90deg, ${primaryColor}, ${secondaryColor})`
+                          : isValidHexColor(primaryColor)
+                            ? primaryColor
+                            : isValidHexColor(secondaryColor)
+                              ? secondaryColor
+                              : theme.palette.primary.main,
                       }}
                     />
                   </Box>
