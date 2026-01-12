@@ -181,7 +181,7 @@ export default function TradesPage() {
                   const b = parseInt(rgb[3], 16);
                   return `drop-shadow(0 0 10px rgba(${r}, ${g}, ${b}, 0.5))`;
                 }
-                return 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))';
+                return `drop-shadow(0 0 10px ${alpha(theme.palette.primary.main, 0.5)})`;
               })(),
             }}
           />
@@ -272,7 +272,7 @@ export default function TradesPage() {
                   const b = parseInt(rgb[3], 16);
                   return `0 8px 32px rgba(${r}, ${g}, ${b}, 0.3)`;
                 }
-                return '0 8px 32px rgba(34, 197, 94, 0.3)';
+                return `0 8px 32px ${alpha(theme.palette.primary.main, 0.3)}`;
               })(),
               '&:hover': {
                 background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
@@ -284,7 +284,7 @@ export default function TradesPage() {
                     const b = parseInt(rgb[3], 16);
                     return `0 12px 40px rgba(${r}, ${g}, ${b}, 0.4)`;
                   }
-                  return '0 12px 40px rgba(34, 197, 94, 0.4)';
+                  return `0 12px 40px ${alpha(theme.palette.primary.main, 0.4)}`;
                 })(),
                 transform: 'translateY(-2px)',
               },
@@ -458,7 +458,7 @@ export default function TradesPage() {
                       const b = parseInt(rgb[3], 16);
                       return `0 8px 32px rgba(${r}, ${g}, ${b}, 0.3)`;
                     }
-                    return '0 8px 32px rgba(34, 197, 94, 0.3)';
+                    return `0 8px 32px ${alpha(theme.palette.primary.main, 0.3)}`;
                   })(),
                   '&:hover': {
                     background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
@@ -470,7 +470,7 @@ export default function TradesPage() {
                         const b = parseInt(rgb[3], 16);
                         return `0 12px 40px rgba(${r}, ${g}, ${b}, 0.4)`;
                       }
-                      return '0 12px 40px rgba(34, 197, 94, 0.4)';
+                      return `0 12px 40px ${alpha(theme.palette.primary.main, 0.4)}`;
                     })(),
                     transform: 'translateY(-2px)',
                   },

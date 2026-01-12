@@ -27,9 +27,9 @@ export default function Navigation() {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
-  // Use company colors if available, otherwise use defaults
-  const primaryColor = companyBranding.primaryColor || (isDark ? '#063021' : '#2D503D');
-  const secondaryColor = companyBranding.secondaryColor || (isDark ? '#02150B' : '#1e3a2a');
+  // Use company colors if available, otherwise use theme colors
+  const primaryColor = companyBranding.primaryColor || theme.palette.primary.main;
+  const secondaryColor = companyBranding.secondaryColor || theme.palette.secondary.main;
 
   // Create gradient from company colors or use defaults
   const navGradient = isDark

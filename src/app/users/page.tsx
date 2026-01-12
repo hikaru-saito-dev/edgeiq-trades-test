@@ -273,7 +273,7 @@ export default function UsersPage() {
                 const b = parseInt(rgb[3], 16);
                 return `drop-shadow(0 0 10px rgba(${r}, ${g}, ${b}, 0.5))`;
               }
-              return 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))';
+              return `drop-shadow(0 0 10px ${alpha(theme.palette.primary.main, 0.5)})`;
             })(),
           }} 
         />

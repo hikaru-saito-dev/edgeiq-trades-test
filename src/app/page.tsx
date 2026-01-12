@@ -143,9 +143,15 @@ function HomeContent() {
             left: 0,
             right: 0,
             height: '3px',
-            background: `linear-gradient(90deg, transparent, ${alpha(theme.palette.primary.main, 0.6)} 20%, ${alpha(theme.palette.primary.main, 0.8)} 50%, ${alpha(theme.palette.primary.main, 0.6)} 80%, transparent)`,
+            background: (() => {
+              const primary = companyBranding.primaryColor || theme.palette.primary.main;
+              return `linear-gradient(90deg, transparent, ${alpha(primary, 0.6)} 20%, ${alpha(primary, 0.8)} 50%, ${alpha(primary, 0.6)} 80%, transparent)`;
+            })(),
             filter: 'blur(3px)',
-            boxShadow: `0 0 20px ${alpha(theme.palette.primary.main, 0.6)}`,
+            boxShadow: (() => {
+              const primary = companyBranding.primaryColor || theme.palette.primary.main;
+              return `0 0 20px ${alpha(primary, 0.6)}`;
+            })(),
             animation: 'wave 8s ease-in-out infinite',
           },
           '&::after': {
@@ -155,9 +161,15 @@ function HomeContent() {
             left: 0,
             right: 0,
             height: '2px',
-            background: `linear-gradient(90deg, transparent, ${alpha(theme.palette.primary.main, 0.5)} 25%, ${alpha(theme.palette.primary.main, 0.7)} 50%, ${alpha(theme.palette.primary.main, 0.5)} 75%, transparent)`,
+            background: (() => {
+              const primary = companyBranding.primaryColor || theme.palette.primary.main;
+              return `linear-gradient(90deg, transparent, ${alpha(primary, 0.5)} 25%, ${alpha(primary, 0.7)} 50%, ${alpha(primary, 0.5)} 75%, transparent)`;
+            })(),
             filter: 'blur(2px)',
-            boxShadow: `0 0 15px ${alpha(theme.palette.primary.main, 0.5)}`,
+            boxShadow: (() => {
+              const primary = companyBranding.primaryColor || theme.palette.primary.main;
+              return `0 0 15px ${alpha(primary, 0.5)}`;
+            })(),
             animation: 'wave 10s ease-in-out infinite reverse',
           },
         }}
@@ -188,7 +200,7 @@ function HomeContent() {
                   const b = parseInt(rgb[3], 16);
                   return `0 0 20px rgba(${r}, ${g}, ${b}, 0.5), 0 0 40px rgba(${r}, ${g}, ${b}, 0.3)`;
                 }
-                return '0 0 20px rgba(34, 197, 94, 0.5), 0 0 40px rgba(34, 197, 94, 0.3)';
+                return `0 0 20px ${alpha(theme.palette.primary.main, 0.5)}, 0 0 40px ${alpha(theme.palette.primary.main, 0.3)}`;
               })(),
             }}
           >
@@ -205,8 +217,7 @@ function HomeContent() {
             variant="h5"
             sx={{
               textAlign: 'center',
-              color: (theme) =>
-                theme.palette.mode === 'dark' ? '#a7f3d0' : theme.palette.text.secondary,
+              color: theme.palette.text.secondary,
               mb: 6,
               fontWeight: 400,
               fontSize: { xs: '1.1rem', sm: '1.25rem' },
@@ -267,21 +278,19 @@ function HomeContent() {
                 component={Link}
                 href="/leaderboard"
                 sx={{
-                  borderColor: 'var(--accent-strong)',
+                  borderColor: theme.palette.primary.main,
                   borderWidth: 2,
-                  color: 'var(--accent-strong)',
+                  color: theme.palette.primary.main,
                   px: 5,
                   py: 1.75,
                   fontSize: '1.1rem',
                   fontWeight: 600,
                   borderRadius: 2,
                   textTransform: 'none',
-                  backgroundColor: (theme) =>
-                    theme.palette.mode === 'dark' ? 'transparent' : alpha(theme.palette.primary.main, 0.08),
-                  boxShadow: (theme) =>
-                    theme.palette.mode === 'dark'
-                      ? `0 0 20px ${alpha(theme.palette.primary.main, 0.2)}`
-                      : `0 0 20px ${alpha(theme.palette.primary.main, 0.12)}`,
+                  backgroundColor: theme.palette.mode === 'dark' ? 'transparent' : alpha(theme.palette.primary.main, 0.08),
+                  boxShadow: theme.palette.mode === 'dark'
+                    ? `0 0 20px ${alpha(theme.palette.primary.main, 0.2)}`
+                    : `0 0 20px ${alpha(theme.palette.primary.main, 0.12)}`,
                   '&:hover': {
                     borderColor: theme.palette.primary.light,
                     borderWidth: 2,

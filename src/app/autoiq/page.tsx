@@ -227,7 +227,7 @@ export default function AutoIQPage() {
                                 const b = parseInt(rgb[3], 16);
                                 return `0 4px 12px rgba(${r}, ${g}, ${b}, 0.3)`;
                               }
-                              return '0 4px 12px rgba(34, 197, 94, 0.3)';
+                              return `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`;
                             })(),
                             '&:hover': {
                                 background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
@@ -239,7 +239,7 @@ export default function AutoIQPage() {
                                     const b = parseInt(rgb[3], 16);
                                     return `0 6px 16px rgba(${r}, ${g}, ${b}, 0.4)`;
                                   }
-                                  return '0 6px 16px rgba(34, 197, 94, 0.4)';
+                                  return `0 6px 16px ${alpha(theme.palette.primary.main, 0.4)}`;
                                 })(),
                                 transform: 'translateY(-1px)',
                             },
