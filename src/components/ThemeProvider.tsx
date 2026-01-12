@@ -5,6 +5,7 @@ import { PaletteMode, ThemeProvider as MUIThemeProvider, useMediaQuery } from '@
 import CssBaseline from '@mui/material/CssBaseline';
 import { createAppTheme } from '@/app/theme';
 import { ToastProvider } from './ToastProvider';
+import { useAccess } from './AccessProvider';
 
 function getInitialTheme(): PaletteMode {
   if (typeof window === 'undefined') {
@@ -35,6 +36,10 @@ export default function ThemeProvider({
   const [mode, setMode] = useState<PaletteMode>(getInitialTheme);
   const systemPrefersDark = useMediaQuery('(prefers-color-scheme: dark)', { noSsr: true });
 
+  // Get company branding for dynamic theme colors
+  // Note: This will be null initially, but will update when AccessProvider loads
+  const { companyBranding } = useAccess();
+
   // Sync with system preference (no localStorage)
   useEffect(() => {
     setMode(systemPrefersDark ? 'dark' : 'light');
@@ -48,7 +53,28 @@ export default function ThemeProvider({
     }
   }, [mode]);
 
-  const theme = useMemo(() => createAppTheme(mode), [mode]);
+  // Update CSS variables when company branding changes
+  useEffect(() => {
+    if (typeof document !== 'undefined' && companyBranding.primaryColor) {
+      const primary = companyBranding.primaryColor;
+      const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
+
+      if (rgb) {
+        const r = parseInt(rgb[1], 16);
+        const g = parseInt(rgb[2], 16);
+        const b = parseInt(rgb[3], 16);
+
+        // Update CSS custom properties
+        document.documentElement.style.setProperty('--primary-color', primary);
+        document.documentElement.style.setProperty('--primary-rgb', `${r}, ${g}, ${b}`);
+      }
+    }
+  }, [companyBranding.primaryColor]);
+
+  const theme = useMemo(() =>
+    createAppTheme(mode, companyBranding.primaryColor, companyBranding.secondaryColor),
+    [mode, companyBranding.primaryColor, companyBranding.secondaryColor]
+  );
 
   return (
     <MUIThemeProvider theme={theme}>

@@ -4,6 +4,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 type AccessRole = 'companyOwner' | 'owner' | 'admin' | 'member' | 'none';
 
+type CompanyBranding = {
+  appTitle: string;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+};
+
 type AccessContextValue = {
   role: AccessRole;
   isAuthorized: boolean;
@@ -14,7 +21,15 @@ type AccessContextValue = {
   autoTradeMode?: 'auto-trade' | 'notify-only';
   hideLeaderboardFromMembers?: boolean;
   hideCompanyStatsFromMembers?: boolean;
+  companyBranding: CompanyBranding;
   refresh: () => Promise<void>;
+};
+
+const defaultBranding: CompanyBranding = {
+  appTitle: 'EdgeIQ Trades',
+  logoUrl: null,
+  primaryColor: null,
+  secondaryColor: null,
 };
 
 const AccessContext = createContext<AccessContextValue>({
@@ -27,6 +42,7 @@ const AccessContext = createContext<AccessContextValue>({
   autoTradeMode: 'notify-only',
   hideLeaderboardFromMembers: false,
   hideCompanyStatsFromMembers: false,
+  companyBranding: defaultBranding,
   refresh: async () => { },
 });
 
@@ -61,6 +77,7 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
   autoTradeMode?: 'auto-trade' | 'notify-only';
   hideLeaderboardFromMembers?: boolean;
   hideCompanyStatsFromMembers?: boolean;
+  companyBranding: CompanyBranding;
 }> {
   try {
     // Include experienceId in the URL if present (from query parameter ?experience=exp_...)
@@ -68,7 +85,7 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     if (experienceId) {
       url += `?experience=${encodeURIComponent(experienceId)}`;
     } else {
-      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
+      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false, companyBranding: defaultBranding };
     }
 
     const response = await fetch(url, {
@@ -77,7 +94,7 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     });
 
     if (!response.ok) {
-      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
+      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false, companyBranding: defaultBranding };
     }
 
     const data = await response.json();
@@ -89,15 +106,16 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     const autoTradeMode = data.autoTradeMode || 'notify-only';
     const hideLeaderboardFromMembers = data.hideLeaderboardFromMembers ?? false;
     const hideCompanyStatsFromMembers = data.hideCompanyStatsFromMembers ?? false;
+    const companyBranding: CompanyBranding = data.companyBranding || defaultBranding;
     
     if (role === 'companyOwner' || role === 'owner' || role === 'admin' || role === 'member' || role === 'none') {
-      return { role, isAuthorized, userId, companyId, hasAutoIQ, autoTradeMode, hideLeaderboardFromMembers, hideCompanyStatsFromMembers };
+      return { role, isAuthorized, userId, companyId, hasAutoIQ, autoTradeMode, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, companyBranding };
     }
 
-    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
+    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false, companyBranding: defaultBranding };
   } catch (error) {
     console.error('Failed to load access role', error);
-    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
+    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false, companyBranding: defaultBranding };
   }
 }
 
@@ -111,6 +129,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
   const [autoTradeMode, setAutoTradeMode] = useState<'auto-trade' | 'notify-only'>('notify-only');
   const [hideLeaderboardFromMembers, setHideLeaderboardFromMembers] = useState(false);
   const [hideCompanyStatsFromMembers, setHideCompanyStatsFromMembers] = useState(false);
+  const [companyBranding, setCompanyBranding] = useState<CompanyBranding>(defaultBranding);
   const [experienceId, setExperienceIdState] = useState<string | null>(null);
 
   // Listen for experienceId changes from page.tsx
@@ -140,6 +159,15 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     setAutoTradeMode(result.autoTradeMode || 'notify-only');
     setHideLeaderboardFromMembers(result.hideLeaderboardFromMembers ?? false);
     setHideCompanyStatsFromMembers(result.hideCompanyStatsFromMembers ?? false);
+    const branding = result.companyBranding || defaultBranding;
+    setCompanyBranding(branding);
+    
+    // Update document title with company branding
+    if (typeof window !== 'undefined') {
+      const title = branding.appTitle || 'EdgeIQ Trades';
+      document.title = `${title} - Trading Leaderboards`;
+    }
+    
     setLoading(false);
   }, [experienceId]);
 
@@ -158,9 +186,10 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       autoTradeMode,
       hideLeaderboardFromMembers,
       hideCompanyStatsFromMembers,
+      companyBranding,
       refresh,
     }),
-    [role, isAuthorized, loading, userId, companyId, hasAutoIQ, autoTradeMode, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, refresh],
+    [role, isAuthorized, loading, userId, companyId, hasAutoIQ, autoTradeMode, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, companyBranding, refresh],
   );
 
   return (

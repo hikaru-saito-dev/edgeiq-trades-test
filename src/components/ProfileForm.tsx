@@ -115,6 +115,8 @@ interface UserData {
   }>;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  appTitle?: string | null;
+  logoUrl?: string | null;
 }
 
 // Helper function to validate hex color
@@ -132,6 +134,8 @@ export default function ProfileForm() {
   const [hideCompanyStatsFromMembers, setHideCompanyStatsFromMembers] = useState(false);
   const [primaryColor, setPrimaryColor] = useState<string>('');
   const [secondaryColor, setSecondaryColor] = useState<string>('');
+  const [appTitle, setAppTitle] = useState<string>('');
+  const [logoUrl, setLogoUrl] = useState<string>('');
   const [primaryColorPickerAnchor, setPrimaryColorPickerAnchor] = useState<HTMLButtonElement | null>(null);
   const [secondaryColorPickerAnchor, setSecondaryColorPickerAnchor] = useState<HTMLButtonElement | null>(null);
   const [webhooks, setWebhooks] = useState<Array<{ id: string; name: string; url: string; type: 'whop' | 'discord' }>>([]);
@@ -320,6 +324,8 @@ export default function ProfileForm() {
       setHideCompanyStatsFromMembers(profileData.user.hideCompanyStatsFromMembers ?? false);
       setPrimaryColor(profileData.user.primaryColor || '');
       setSecondaryColor(profileData.user.secondaryColor || '');
+      setAppTitle(profileData.user.appTitle || '');
+      setLogoUrl(profileData.user.logoUrl || '');
       setWebhooks(profileData.user.webhooks || []);
       setNotifyOnSettlement(profileData.user.notifyOnSettlement ?? false);
       setOnlyNotifyWinningSettlements(profileData.user.onlyNotifyWinningSettlements ?? false);
@@ -498,6 +504,8 @@ export default function ProfileForm() {
         membershipPlans?: typeof membershipPlans;
         primaryColor?: string | null;
         secondaryColor?: string | null;
+        appTitle?: string | null;
+        logoUrl?: string | null;
       } = {
         alias,
         webhooks: webhooks.filter(w => w.name.trim() && w.url.trim()),
@@ -518,6 +526,8 @@ export default function ProfileForm() {
         // Only save valid hex colors
         updateData.primaryColor = isValidHexColor(primaryColor) ? primaryColor.trim() : null;
         updateData.secondaryColor = isValidHexColor(secondaryColor) ? secondaryColor.trim() : null;
+        updateData.appTitle = appTitle.trim() || null;
+        updateData.logoUrl = logoUrl.trim() || null;
       }
 
       const response = await apiRequest('/api/user', { userId, companyId, method: 'PATCH', body: JSON.stringify(updateData) });
@@ -1754,10 +1764,60 @@ export default function ProfileForm() {
             <Box sx={{ mt: 4 }}>
               <Divider sx={{ mb: 3, borderColor: 'var(--surface-border)' }} />
               <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 2, fontWeight: 600 }}>
-                Brand Colors
+                App Branding
               </Typography>
               <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
-                Customize your brand colors that will be displayed on the leaderboard and follow page. Leave empty to use default colors.
+                Customize your app branding including title, logo, and colors. These will be displayed throughout the app.
+              </Typography>
+
+              {/* App Title */}
+              <Box mb={3}>
+                <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                  App Title
+                </Typography>
+                <TextField
+                  fullWidth
+                  value={appTitle}
+                  onChange={(e) => setAppTitle(e.target.value)}
+                  placeholder="EdgeIQ Trades"
+                  size="small"
+                  helperText="This will be displayed as the app title throughout the application"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'var(--app-text)',
+                      '& fieldset': { borderColor: controlBorder },
+                    },
+                    '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
+                    '& .MuiFormHelperText-root': { color: 'var(--text-muted)' },
+                  }}
+                />
+              </Box>
+
+              {/* Logo URL */}
+              <Box mb={3}>
+                <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                  Logo URL
+                </Typography>
+                <TextField
+                  fullWidth
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://example.com/logo.png"
+                  size="small"
+                  helperText="URL to your custom logo image. Leave empty to use default logo."
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'var(--app-text)',
+                      '& fieldset': { borderColor: controlBorder },
+                    },
+                    '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
+                    '& .MuiFormHelperText-root': { color: 'var(--text-muted)' },
+                  }}
+                />
+              </Box>
+
+              <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3, mt: 3 }}>
+                Brand Colors
               </Typography>
 
               <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} gap={2} mb={3}>

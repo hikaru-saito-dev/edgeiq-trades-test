@@ -560,10 +560,10 @@ export default function LeaderboardTable() {
                             size="small"
                             onClick={() => handleViewMembership(entry)}
                             sx={{
-                              background: 'linear-gradient(135deg, #22c55e, #059669)',
+                              background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
                               color: 'white',
                               '&:hover': {
-                                background: 'linear-gradient(135deg, #16a34a, #047857)',
+                                background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.dark})`,
                               },
                             }}
                           >
@@ -768,7 +768,7 @@ export default function LeaderboardTable() {
                         onClick={() => window.open(plan.affiliateLink!, '_blank', 'noopener,noreferrer')}
                         startIcon={<LaunchIcon />}
                         sx={{
-                          background: 'linear-gradient(135deg, #22c55e, #059669)',
+                          background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
                           color: 'white',
                           py: 1.5,
                           fontWeight: 600,

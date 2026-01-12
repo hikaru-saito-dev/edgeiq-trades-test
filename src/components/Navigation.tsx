@@ -22,14 +22,19 @@ import Logo from './Logo';
 import { alpha } from '@mui/material/styles';
 
 export default function Navigation() {
-  const { isAuthorized, role, loading, hideLeaderboardFromMembers } = useAccess();
+  const { isAuthorized, role, loading, hideLeaderboardFromMembers, companyBranding } = useAccess();
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
+  // Use company colors if available, otherwise use defaults
+  const primaryColor = companyBranding.primaryColor || (isDark ? '#063021' : '#2D503D');
+  const secondaryColor = companyBranding.secondaryColor || (isDark ? '#02150B' : '#1e3a2a');
+
+  // Create gradient from company colors or use defaults
   const navGradient = isDark
-    ? 'linear-gradient(180deg, #02150B 0%, #063021 100%)'
-    : 'linear-gradient(180deg, #1e3a2a 0%, #2D503D 100%)';
+    ? `linear-gradient(180deg, ${secondaryColor} 0%, ${primaryColor} 100%)`
+    : `linear-gradient(180deg, ${secondaryColor} 0%, ${primaryColor} 100%)`;
   const navTextColor = isDark ? '#E9FFF4' : '#F0FFF4';
   const navHoverBg = alpha('#FFFFFF', isDark ? 0.12 : 0.18);
 

@@ -533,13 +533,13 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
             disabled={loading || !marketOpen}
             startIcon={loading ? <CircularProgress size={16} /> : <AddIcon />}
             sx={{
-              background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
               color: '#ffffff',
               '&:hover': {
-                background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
+                background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.dark} 100%)`,
               },
               '&:disabled': {
-                background: 'rgba(34, 197, 94, 0.3)',
+                background: alpha(theme.palette.primary.main, 0.3),
               },
             }}
           >

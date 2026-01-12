@@ -1,6 +1,6 @@
 'use client';
 
-import { Container, Typography, Box, Button, CircularProgress } from '@mui/material';
+import { Container, Typography, Box, Button, CircularProgress, useTheme } from '@mui/material';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useAccess, setExperienceId } from '@/components/AccessProvider';
@@ -10,7 +10,8 @@ import { Suspense, useEffect } from 'react';
 function HomeContent() {
   const searchParams = useSearchParams();
   const experienceId = searchParams?.get('experience') || null;
-  const { isAuthorized, loading, role, hideLeaderboardFromMembers } = useAccess();
+  const { isAuthorized, loading, role, hideLeaderboardFromMembers, companyBranding } = useAccess();
+  const theme = useTheme();
 
   // Set experienceId in AccessProvider when it's available from page.tsx
   useEffect(() => {
@@ -144,12 +145,22 @@ function HomeContent() {
               mb: 3,
               fontSize: { xs: '3rem', sm: '4rem', md: '5rem' },
               fontWeight: 800,
-              color: '#22c55e', // Bright green to match logo
+              color: companyBranding.primaryColor || theme.palette.primary.main,
               lineHeight: 1.1,
-              textShadow: '0 0 20px rgba(34, 197, 94, 0.5), 0 0 40px rgba(34, 197, 94, 0.3)',
+              textShadow: (() => {
+                const primary = companyBranding.primaryColor || theme.palette.primary.main;
+                const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
+                if (rgb) {
+                  const r = parseInt(rgb[1], 16);
+                  const g = parseInt(rgb[2], 16);
+                  const b = parseInt(rgb[3], 16);
+                  return `0 0 20px rgba(${r}, ${g}, ${b}, 0.5), 0 0 40px rgba(${r}, ${g}, ${b}, 0.3)`;
+                }
+                return '0 0 20px rgba(34, 197, 94, 0.5), 0 0 40px rgba(34, 197, 94, 0.3)';
+              })(),
             }}
           >
-            EdgeIQ Trades
+            {companyBranding.appTitle}
           </Typography>
         </motion.div>
 

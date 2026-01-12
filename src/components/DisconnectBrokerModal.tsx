@@ -12,6 +12,7 @@ import {
   TextField,
 } from '@mui/material';
 import WarningIcon from '@mui/icons-material/Warning';
+import { alpha, useTheme } from '@mui/material/styles';
 
 interface DisconnectBrokerModalProps {
   open: boolean;
@@ -28,6 +29,7 @@ export default function DisconnectBrokerModal({
   brokerName,
   loading = false,
 }: DisconnectBrokerModalProps) {
+  const theme = useTheme();
   const [confirmText, setConfirmText] = useState('');
   const isConfirmed = confirmText === 'DELETE';
 
@@ -97,14 +99,14 @@ export default function DisconnectBrokerModal({
               '& .MuiOutlinedInput-root': {
                 color: 'var(--app-text)',
                 '& fieldset': {
-                  borderColor: isConfirmed ? '#22c55e' : 'var(--surface-border)',
+                  borderColor: (theme) => isConfirmed ? theme.palette.primary.main : 'var(--surface-border)',
                   borderWidth: isConfirmed ? 2 : 1,
                 },
                 '&:hover fieldset': {
-                  borderColor: isConfirmed ? '#22c55e' : 'var(--surface-border)',
+                  borderColor: (theme) => isConfirmed ? theme.palette.primary.main : 'var(--surface-border)',
                 },
                 '&.Mui-focused fieldset': {
-                  borderColor: isConfirmed ? '#22c55e' : 'var(--surface-border)',
+                  borderColor: (theme) => isConfirmed ? theme.palette.primary.main : 'var(--surface-border)',
                 },
               },
             }}
@@ -129,14 +131,14 @@ export default function DisconnectBrokerModal({
           disabled={!isConfirmed || loading}
           variant="contained"
           sx={{
-            background: isConfirmed
-              ? 'linear-gradient(135deg, #22c55e, #059669)'
-              : 'rgba(34, 197, 94, 0.3)',
+            background: (theme) => isConfirmed
+              ? `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`
+              : alpha(theme.palette.primary.main, 0.3),
             color: 'white',
             fontWeight: 600,
             '&:hover': {
-              background: isConfirmed
-                ? 'linear-gradient(135deg, #16a34a, #047857)'
+              background: (theme) => isConfirmed
+                ? `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.dark})`
                 : 'rgba(34, 197, 94, 0.3)',
             },
             '&:disabled': {
