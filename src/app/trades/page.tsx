@@ -64,7 +64,7 @@ export default function TradesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [warningOpen, setWarningOpen] = useState(false);
   const [hasCompanyId, setHasCompanyId] = useState<boolean | null>(null);
-  const { isAuthorized, loading: accessLoading, userId, companyId, companyBranding } = useAccess();
+  const { isAuthorized, loading: accessLoading, userId, companyId } = useAccess();
   const [marketOpen, setMarketOpen] = useState(true);
 
   // Pagination & search
@@ -172,18 +172,8 @@ export default function TradesPage() {
             size={60}
             thickness={4}
             sx={{
-              color: theme.palette.primary.main,
-              filter: (() => {
-                const primary = companyBranding?.primaryColor || theme.palette.primary.main;
-                const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
-                if (rgb) {
-                  const r = parseInt(rgb[1], 16);
-                  const g = parseInt(rgb[2], 16);
-                  const b = parseInt(rgb[3], 16);
-                  return `drop-shadow(0 0 10px rgba(${r}, ${g}, ${b}, 0.5))`;
-                }
-                return `drop-shadow(0 0 10px ${alpha(theme.palette.primary.main, 0.5)})`;
-              })(),
+              color: '#22c55e',
+              filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))',
             }}
           />
           <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
@@ -231,7 +221,7 @@ export default function TradesPage() {
               fontWeight={700}
               gutterBottom
               sx={{
-                background: `linear-gradient(135deg, ${companyBranding?.primaryColor || theme.palette.primary.main} 0%, ${companyBranding?.secondaryColor || theme.palette.secondary.main} 100%)`,
+                background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
@@ -264,50 +254,15 @@ export default function TradesPage() {
               width: { xs: '100%', sm: 'auto' },
               px: { xs: 2, sm: 3 },
               py: 1.5,
-              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-              boxShadow: (() => {
-                const primary = companyBranding?.primaryColor || theme.palette.primary.main;
-                const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
-                if (rgb) {
-                  const r = parseInt(rgb[1], 16);
-                  const g = parseInt(rgb[2], 16);
-                  const b = parseInt(rgb[3], 16);
-                  return `0 8px 32px rgba(${r}, ${g}, ${b}, 0.3)`;
-                }
-                return `0 8px 32px ${alpha(theme.palette.primary.main, 0.3)}`;
-              })(),
+              background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+              boxShadow: '0 8px 32px rgba(34, 197, 94, 0.3)',
               '&:hover': {
-                background: `linear-gradient(135deg, ${(() => {
-                  const primary = companyBranding?.primaryColor || theme.palette.primary.main;
-                  const secondary = companyBranding?.secondaryColor || theme.palette.secondary.main;
-                  const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
-                  const rgb2 = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(secondary);
-                  if (rgb && rgb2) {
-                    const r1 = Math.round(parseInt(rgb[1], 16) * 0.85);
-                    const g1 = Math.round(parseInt(rgb[2], 16) * 0.85);
-                    const b1 = Math.round(parseInt(rgb[3], 16) * 0.85);
-                    const r2 = Math.round(parseInt(rgb2[1], 16) * 0.85);
-                    const g2 = Math.round(parseInt(rgb2[2], 16) * 0.85);
-                    const b2 = Math.round(parseInt(rgb2[3], 16) * 0.85);
-                    return `rgb(${r1}, ${g1}, ${b1}) 0%, rgb(${r2}, ${g2}, ${b2}) 100%`;
-                  }
-                  return `${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%`;
-                })()})`,
-                boxShadow: (() => {
-                  const primary = companyBranding?.primaryColor || theme.palette.primary.main;
-                  const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
-                  if (rgb) {
-                    const r = parseInt(rgb[1], 16);
-                    const g = parseInt(rgb[2], 16);
-                    const b = parseInt(rgb[3], 16);
-                    return `0 12px 40px rgba(${r}, ${g}, ${b}, 0.4)`;
-                  }
-                  return `0 12px 40px ${alpha(theme.palette.primary.main, 0.4)}`;
-                })(),
+                background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
+                boxShadow: '0 12px 40px rgba(34, 197, 94, 0.4)',
                 transform: 'translateY(-2px)',
               },
               '&:disabled': {
-                background: alpha(theme.palette.primary.main, 0.3),
+                background: 'rgba(34, 197, 94, 0.3)',
               },
               transition: 'all 0.3s ease',
             }}
@@ -418,8 +373,8 @@ export default function TradesPage() {
               size={60}
               thickness={4}
               sx={{
-                color: theme.palette.primary.main,
-                filter: `drop-shadow(0 0 10px ${alpha(theme.palette.primary.main, 0.5)})`,
+                color: '#22c55e',
+                filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))',
               }}
             />
           </motion.div>
@@ -467,46 +422,11 @@ export default function TradesPage() {
                 }}
                 disabled={!marketOpen}
                 sx={{
-                  background: `linear-gradient(135deg, ${companyBranding?.primaryColor || theme.palette.primary.main} 0%, ${companyBranding?.secondaryColor || theme.palette.secondary.main} 100%)`,
-                  boxShadow: (() => {
-                    const primary = companyBranding?.primaryColor || theme.palette.primary.main;
-                    const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
-                    if (rgb) {
-                      const r = parseInt(rgb[1], 16);
-                      const g = parseInt(rgb[2], 16);
-                      const b = parseInt(rgb[3], 16);
-                      return `0 8px 32px rgba(${r}, ${g}, ${b}, 0.3)`;
-                    }
-                    return `0 8px 32px ${alpha(theme.palette.primary.main, 0.3)}`;
-                  })(),
+                  background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+                  boxShadow: '0 8px 32px rgba(34, 197, 94, 0.3)',
                   '&:hover': {
-                    background: `linear-gradient(135deg, ${(() => {
-                      const primary = companyBranding?.primaryColor || theme.palette.primary.main;
-                      const secondary = companyBranding?.secondaryColor || theme.palette.secondary.main;
-                      const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
-                      const rgb2 = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(secondary);
-                      if (rgb && rgb2) {
-                        const r1 = Math.round(parseInt(rgb[1], 16) * 0.85);
-                        const g1 = Math.round(parseInt(rgb[2], 16) * 0.85);
-                        const b1 = Math.round(parseInt(rgb[3], 16) * 0.85);
-                        const r2 = Math.round(parseInt(rgb2[1], 16) * 0.85);
-                        const g2 = Math.round(parseInt(rgb2[2], 16) * 0.85);
-                        const b2 = Math.round(parseInt(rgb2[3], 16) * 0.85);
-                        return `rgb(${r1}, ${g1}, ${b1}) 0%, rgb(${r2}, ${g2}, ${b2}) 100%`;
-                      }
-                      return `${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%`;
-                    })()})`,
-                    boxShadow: (() => {
-                      const primary = companyBranding?.primaryColor || theme.palette.primary.main;
-                      const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
-                      if (rgb) {
-                        const r = parseInt(rgb[1], 16);
-                        const g = parseInt(rgb[2], 16);
-                        const b = parseInt(rgb[3], 16);
-                        return `0 12px 40px rgba(${r}, ${g}, ${b}, 0.4)`;
-                      }
-                      return `0 12px 40px ${alpha(theme.palette.primary.main, 0.4)}`;
-                    })(),
+                    background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
+                    boxShadow: '0 12px 40px rgba(34, 197, 94, 0.4)',
                     transform: 'translateY(-2px)',
                   },
                   transition: 'all 0.3s ease',
@@ -618,25 +538,10 @@ export default function TradesPage() {
               window.location.href = '/profile';
             }}
             sx={{
-              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+              background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
               color: '#ffffff',
               '&:hover': {
-                background: `linear-gradient(135deg, ${(() => {
-                  const primary = companyBranding?.primaryColor || theme.palette.primary.main;
-                  const secondary = companyBranding?.secondaryColor || theme.palette.secondary.main;
-                  const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
-                  const rgb2 = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(secondary);
-                  if (rgb && rgb2) {
-                    const r1 = Math.round(parseInt(rgb[1], 16) * 0.85);
-                    const g1 = Math.round(parseInt(rgb[2], 16) * 0.85);
-                    const b1 = Math.round(parseInt(rgb[3], 16) * 0.85);
-                    const r2 = Math.round(parseInt(rgb2[1], 16) * 0.85);
-                    const g2 = Math.round(parseInt(rgb2[2], 16) * 0.85);
-                    const b2 = Math.round(parseInt(rgb2[3], 16) * 0.85);
-                    return `rgb(${r1}, ${g1}, ${b1}) 0%, rgb(${r2}, ${g2}, ${b2}) 100%`;
-                  }
-                  return `${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%`;
-                })()})`,
+                background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
               },
             }}
           >

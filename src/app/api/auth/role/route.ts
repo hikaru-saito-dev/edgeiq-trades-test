@@ -167,29 +167,6 @@ export async function GET(request: NextRequest) {
     const hasAutoIQ = userResult.user.hasAutoIQ ?? false;
     const autoTradeMode = userResult.user.autoTradeMode || 'notify-only';
 
-    // Get company branding
-    let companyBranding = null;
-    try {
-      const company = await Company.findOne({ companyId }).select('appTitle logoUrl primaryColor secondaryColor').lean();
-      if (company && !Array.isArray(company)) {
-        companyBranding = {
-          appTitle: (company as { appTitle?: string }).appTitle || 'EdgeIQ Trades',
-          logoUrl: (company as { logoUrl?: string }).logoUrl || null,
-          primaryColor: (company as { primaryColor?: string }).primaryColor || null,
-          secondaryColor: (company as { secondaryColor?: string }).secondaryColor || null,
-        };
-      }
-    } catch (error) {
-      console.error('Error fetching company branding:', error);
-      // Use defaults if company lookup fails
-      companyBranding = {
-        appTitle: 'EdgeIQ Trades',
-        logoUrl: null,
-        primaryColor: null,
-        secondaryColor: null,
-      };
-    }
-
     return NextResponse.json({
       role,
       userId,
@@ -198,13 +175,7 @@ export async function GET(request: NextRequest) {
       hasAutoIQ,
       autoTradeMode,
       hideLeaderboardFromMembers: role === 'member' ? hideLeaderboardFromMembers : undefined,
-      hideCompanyStatsFromMembers: (role === 'member' || role === 'admin') ? hideCompanyStatsFromMembers : undefined,
-      companyBranding: companyBranding || {
-        appTitle: 'EdgeIQ Trades',
-        logoUrl: null,
-        primaryColor: null,
-        secondaryColor: null,
-      },
+      hideCompanyStatsFromMembers: (role === 'member' || role === 'admin') ? hideCompanyStatsFromMembers : undefined
     });
   } catch (error) {
     console.error('Error in /api/auth/role:', error);

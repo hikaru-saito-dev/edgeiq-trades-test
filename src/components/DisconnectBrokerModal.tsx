@@ -12,7 +12,6 @@ import {
   TextField,
 } from '@mui/material';
 import WarningIcon from '@mui/icons-material/Warning';
-import { alpha } from '@mui/material/styles';
 
 interface DisconnectBrokerModalProps {
   open: boolean;
@@ -98,14 +97,14 @@ export default function DisconnectBrokerModal({
               '& .MuiOutlinedInput-root': {
                 color: 'var(--app-text)',
                 '& fieldset': {
-                  borderColor: (theme) => isConfirmed ? theme.palette.primary.main : 'var(--surface-border)',
+                  borderColor: isConfirmed ? '#22c55e' : 'var(--surface-border)',
                   borderWidth: isConfirmed ? 2 : 1,
                 },
                 '&:hover fieldset': {
-                  borderColor: (theme) => isConfirmed ? theme.palette.primary.main : 'var(--surface-border)',
+                  borderColor: isConfirmed ? '#22c55e' : 'var(--surface-border)',
                 },
                 '&.Mui-focused fieldset': {
-                  borderColor: (theme) => isConfirmed ? theme.palette.primary.main : 'var(--surface-border)',
+                  borderColor: isConfirmed ? '#22c55e' : 'var(--surface-border)',
                 },
               },
             }}
@@ -130,18 +129,18 @@ export default function DisconnectBrokerModal({
           disabled={!isConfirmed || loading}
           variant="contained"
           sx={{
-            background: (theme) => isConfirmed
-              ? `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`
-              : alpha(theme.palette.primary.main, 0.3),
+            background: isConfirmed
+              ? 'linear-gradient(135deg, #22c55e, #059669)'
+              : 'rgba(34, 197, 94, 0.3)',
             color: 'white',
             fontWeight: 600,
             '&:hover': {
-              background: (theme) => isConfirmed
-                ? `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`
-                : alpha(theme.palette.primary.main, 0.3),
+              background: isConfirmed
+                ? 'linear-gradient(135deg, #16a34a, #047857)'
+                : 'rgba(34, 197, 94, 0.3)',
             },
             '&:disabled': {
-              background: (theme) => alpha(theme.palette.primary.main, 0.3),
+              background: 'rgba(34, 197, 94, 0.3)',
               color: 'rgba(255, 255, 255, 0.5)',
             },
           }}

@@ -1,16 +1,13 @@
 'use client';
 
-import { Box, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useAccess } from './AccessProvider';
 
 
 export default function Logo() {
-  const { companyBranding } = useAccess();
+  // Determine text color
   const logoWidth = 160;
-  const logoUrl = companyBranding.logoUrl || '/logo.webp';
-  const appTitle = companyBranding.appTitle || 'EdgeIQ Trades';
 
   return (
     <Box
@@ -35,8 +32,8 @@ export default function Logo() {
         }}
       >
         <Image
-          src={logoUrl}
-          alt={`${appTitle} Logo`}
+          src="/logo.webp"
+          alt="EdgeIQ Logo"
           width={logoWidth}
           height={logoWidth}
           style={{
@@ -46,27 +43,8 @@ export default function Logo() {
             left: 0,
           }}
           priority
-          onError={(e) => {
-            // Fallback to default logo if custom logo fails to load
-            if (logoUrl !== '/logo.webp') {
-              (e.target as HTMLImageElement).src = '/logo.webp';
-            }
-          }}
         />
       </Box>
-      {/* App Title (optional, can be shown next to logo) */}
-      {companyBranding.logoUrl && (
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 700,
-            color: 'inherit',
-            display: { xs: 'none', sm: 'block' },
-          }}
-        >
-          {appTitle}
-        </Typography>
-      )}
     </Box>
   );
 }

@@ -37,21 +37,6 @@ export default function RootLayout({
             `,
           }}
         />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                // Update document title when company branding is loaded
-                // This will be set by AccessProvider after fetching company data
-                if (window.updateDocumentTitle) {
-                  window.updateDocumentTitle = function(title) {
-                    document.title = title;
-                  };
-                }
-              })();
-            `,
-          }}
-        />
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider>

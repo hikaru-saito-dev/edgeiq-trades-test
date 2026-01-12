@@ -139,7 +139,7 @@ function buildCalendar(days: CalendarDay[], monthAnchor: Date) {
 }
 
 export default function StatsCalendarPage() {
-  const { userId, companyId, role, hideCompanyStatsFromMembers, companyBranding } = useAccess();
+  const { userId, companyId, role, hideCompanyStatsFromMembers } = useAccess();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
@@ -348,7 +348,7 @@ export default function StatsCalendarPage() {
 
         <Card
           sx={{
-            border: `1px solid ${alpha(companyBranding?.primaryColor || theme.palette.primary.main, isDark ? 0.12 : 0.1)}`,
+            border: `1px solid ${alpha(theme.palette.primary.main, isDark ? 0.12 : 0.1)}`,
             background: alpha(theme.palette.background.default, isDark ? 0.5 : 0.9),
             borderRadius: 1,
             boxShadow: 'none',
@@ -430,7 +430,7 @@ export default function StatsCalendarPage() {
                           borderRadius: 0,
                           minHeight: { xs: 92, md: 110 },
                           border: `1px solid ${isToday
-                            ? alpha(companyBranding?.primaryColor || theme.palette.primary.main, 0.8)
+                            ? alpha(theme.palette.primary.main, 0.8)
                             : alpha(theme.palette.divider, 0.35)
                             }`,
                           backgroundColor: isEmpty

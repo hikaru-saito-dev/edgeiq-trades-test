@@ -15,7 +15,6 @@ import {
 import { useToast } from './ToastProvider';
 import { apiRequest } from '@/lib/apiClient';
 import { useAccess } from './AccessProvider';
-import { alpha } from '@mui/material/styles';
 
 interface ConnectAccountModalProps {
     open: boolean;
@@ -381,13 +380,13 @@ export default function ConnectAccountModal({
                     disabled={loading || !!redirectUri}
                     variant="contained"
                     sx={{
-                        background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                        background: 'linear-gradient(135deg, #22c55e, #059669)',
                         color: 'white',
                         '&:hover': {
-                            background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
+                            background: 'linear-gradient(135deg, #16a34a, #047857)',
                         },
                         '&:disabled': {
-                            background: (theme) => alpha(theme.palette.primary.main, 0.3),
+                            background: 'rgba(34, 197, 94, 0.3)',
                         },
                     }}
                 >
