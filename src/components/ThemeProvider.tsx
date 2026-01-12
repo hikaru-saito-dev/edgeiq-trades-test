@@ -90,6 +90,13 @@ export default function ThemeProvider({
         ? companyBranding.primaryColor
         : '#22c55e'; // Default green fallback
 
+      // Debug: Log the primary color being used
+      console.log('[ThemeProvider] Company branding:', {
+        primaryColor: companyBranding?.primaryColor,
+        secondaryColor: companyBranding?.secondaryColor,
+        usingPrimary: primary,
+      });
+
       const secondary = (companyBranding?.secondaryColor && /^#[0-9A-Fa-f]{6}$/.test(companyBranding.secondaryColor))
         ? companyBranding.secondaryColor
         : (mode === 'light' ? darkenColor(primary, 20) : lightenColor(primary, 15));
@@ -154,10 +161,17 @@ export default function ThemeProvider({
     }
   }, [companyBranding.primaryColor, companyBranding.secondaryColor, mode]);
 
-  const theme = useMemo(() =>
-    createAppTheme(mode, companyBranding.primaryColor, companyBranding.secondaryColor),
-    [mode, companyBranding.primaryColor, companyBranding.secondaryColor]
-  );
+  const theme = useMemo(() => {
+    const primary = companyBranding?.primaryColor || null;
+    const secondary = companyBranding?.secondaryColor || null;
+
+    // Debug: Log theme creation
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ThemeProvider] Creating theme with:', { primary, secondary, mode });
+    }
+
+    return createAppTheme(mode, primary, secondary);
+  }, [mode, companyBranding?.primaryColor, companyBranding?.secondaryColor]);
 
   return (
     <MUIThemeProvider theme={theme}>
