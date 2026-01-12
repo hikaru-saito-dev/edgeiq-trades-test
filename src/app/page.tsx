@@ -52,10 +52,41 @@ function HomeContent() {
         position: 'relative',
         py: { xs: 4, md: 8 },
         px: { xs: 2, sm: 4 },
-        background:
-          theme.palette.mode === 'dark'
-            ? 'linear-gradient(180deg, #02150B 0%, #0a1f0f 50%, #1a3a2a 100%)'
-            : 'linear-gradient(180deg, #f5fdf8 0%, #d9fbe9 50%, #a7f3d0 100%)',
+        background: (() => {
+          const primary = companyBranding.primaryColor || theme.palette.primary.main;
+          const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(primary);
+          if (!rgb) {
+            return theme.palette.mode === 'dark'
+              ? 'linear-gradient(180deg, #02150B 0%, #0a1f0f 50%, #1a3a2a 100%)'
+              : 'linear-gradient(180deg, #f5fdf8 0%, #d9fbe9 50%, #a7f3d0 100%)';
+          }
+          const r = parseInt(rgb[1], 16);
+          const g = parseInt(rgb[2], 16);
+          const b = parseInt(rgb[3], 16);
+          if (theme.palette.mode === 'dark') {
+            const darkR = Math.max(0, Math.round(r * 0.1));
+            const darkG = Math.max(0, Math.round(g * 0.1));
+            const darkB = Math.max(0, Math.round(b * 0.1));
+            const midR = Math.max(0, Math.round(r * 0.15));
+            const midG = Math.max(0, Math.round(g * 0.15));
+            const midB = Math.max(0, Math.round(b * 0.15));
+            const lightR = Math.max(0, Math.round(r * 0.25));
+            const lightG = Math.max(0, Math.round(g * 0.25));
+            const lightB = Math.max(0, Math.round(b * 0.25));
+            return `linear-gradient(180deg, rgb(${darkR}, ${darkG}, ${darkB}) 0%, rgb(${midR}, ${midG}, ${midB}) 50%, rgb(${lightR}, ${lightG}, ${lightB}) 100%)`;
+          } else {
+            const lightR = Math.round(255 - (255 - r) * 0.95);
+            const lightG = Math.round(255 - (255 - g) * 0.95);
+            const lightB = Math.round(255 - (255 - b) * 0.95);
+            const midR = Math.round(255 - (255 - r) * 0.9);
+            const midG = Math.round(255 - (255 - g) * 0.9);
+            const midB = Math.round(255 - (255 - b) * 0.9);
+            const lighterR = Math.round(255 - (255 - r) * 0.85);
+            const lighterG = Math.round(255 - (255 - g) * 0.85);
+            const lighterB = Math.round(255 - (255 - b) * 0.85);
+            return `linear-gradient(180deg, rgba(${lightR}, ${lightG}, ${lightB}, 0.95) 0%, rgba(${midR}, ${midG}, ${midB}, 0.9) 50%, rgba(${lighterR}, ${lighterG}, ${lighterB}, 0.85) 100%)`;
+          }
+        })(),
         overflow: 'hidden',
         transition: 'background 0.3s ease',
         '&::before': {

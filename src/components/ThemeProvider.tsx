@@ -84,13 +84,16 @@ export default function ThemeProvider({
   // Update ALL CSS variables when company branding changes
   useEffect(() => {
     if (typeof document !== 'undefined') {
-      const primary = companyBranding.primaryColor && /^#[0-9A-Fa-f]{6}$/.test(companyBranding.primaryColor)
+      // Always update CSS variables, even if companyBranding is not loaded yet
+      // This ensures the variables are set immediately
+      const primary = (companyBranding?.primaryColor && /^#[0-9A-Fa-f]{6}$/.test(companyBranding.primaryColor))
         ? companyBranding.primaryColor
         : '#22c55e'; // Default green fallback
 
-      const secondary = companyBranding.secondaryColor && /^#[0-9A-Fa-f]{6}$/.test(companyBranding.secondaryColor)
+      const secondary = (companyBranding?.secondaryColor && /^#[0-9A-Fa-f]{6}$/.test(companyBranding.secondaryColor))
         ? companyBranding.secondaryColor
         : (mode === 'light' ? darkenColor(primary, 20) : lightenColor(primary, 15));
+
 
       const rgb = hexToRgb(primary);
       if (!rgb) return;

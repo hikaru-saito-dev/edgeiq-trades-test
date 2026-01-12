@@ -52,13 +52,17 @@ body[data-theme='dark'] {
     linear-gradient(180deg, rgba(3, 23, 16, 0.8) 0%, rgba(6, 44, 32, 0.8) 100%);
 }
 
-html,
+html {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 body {
   max-width: 100vw;
   overflow-x: hidden;
   font-family: 'Inter', sans-serif;
-  background: var(--app-bg);
-  color: var(--app-text);
+  background: var(--app-bg) !important;
+  color: var(--app-text) !important;
   transition: background 0.3s ease, color 0.3s ease;
   min-height: 100vh;
 }
