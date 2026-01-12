@@ -7,6 +7,7 @@
 }
 
 :root {
+  /* Default green values - will be overridden by ThemeProvider when company colors are loaded */
   --app-bg: #f5fdf8;
   --app-text: #064e3b;
   --text-secondary: #166534;
@@ -29,6 +30,7 @@
 }
 
 body[data-theme='dark'] {
+  /* Default green values - will be overridden by ThemeProvider when company colors are loaded */
   --app-bg: #02150B;
   --app-text: #E9FFF4;
   --text-secondary: #B1FBD8;
@@ -82,7 +84,8 @@ a {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #16a34a 0%, #047857 100%);
+  background: linear-gradient(135deg, var(--scroll-thumb-start) 0%, var(--scroll-thumb-end) 100%);
+  filter: brightness(1.1);
 }
 
 /* Animations */
@@ -97,8 +100,8 @@ a {
 }
 
 @keyframes glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(34, 197, 94, 0.6); }
+  0%, 100% { box-shadow: 0 0 20px rgba(var(--primary-rgb, 34, 197, 94), 0.3); }
+  50% { box-shadow: 0 0 40px rgba(var(--primary-rgb, 34, 197, 94), 0.6); }
 }
 
 @keyframes pulse {
@@ -127,7 +130,7 @@ a {
 
 /* Utility classes */
 .gradient-text {
-  background: linear-gradient(135deg, #22c55e 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--scroll-thumb-start) 0%, var(--scroll-thumb-end) 100%);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
