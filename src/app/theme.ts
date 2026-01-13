@@ -40,6 +40,7 @@ const getDesignTokens = (mode: PaletteMode, palette: ColorPalette): ThemeOptions
             text: {
                 primary: isLight ? palette.text.primary : '#E9FFF4',
                 secondary: isLight ? palette.text.secondary : '#9FE3C6',
+                disabled: isLight ? palette.text.muted : 'rgba(233, 255, 244, 0.5)',
             },
             divider: isLight ? palette.borders.default : 'rgba(233, 255, 244, 0.15)',
         },

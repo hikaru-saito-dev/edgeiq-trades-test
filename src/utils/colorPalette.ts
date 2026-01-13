@@ -404,10 +404,44 @@ export function generateColorPalette(
   const overlayLight = alpha(primaryColor, 0.35);
   const overlayDark = alpha(primaryColor, 0.45);
 
-  // Generate text colors
-  const textPrimary = getTextColor(appBg);
-  const textSecondary = darkenColor(primaryColor, 25);
-  const textMuted = darkenColor(primaryColor, 40);
+  // Generate text colors for light mode
+  // For light backgrounds, we need dark text with good contrast
+  // Convert primary to HSL to generate appropriate dark text colors
+  let textPrimary: string;
+  let textSecondary: string;
+  let textMuted: string;
+
+  const primaryRgbForText = hexToRgb(primaryColor);
+  if (!primaryRgbForText) {
+    // Fallback to default text colors if conversion fails
+    textPrimary = '#064e3b';
+    textSecondary = '#166534';
+    textMuted = '#6b7280';
+  } else {
+    const [h, s, l] = rgbToHsl(primaryRgbForText.r, primaryRgbForText.g, primaryRgbForText.b);
+
+    // Primary text: Dark color with same hue as brand, low lightness for contrast
+    // Keep some saturation to maintain brand connection, but ensure it's dark enough
+    // Target: 12-18% lightness for strong contrast on light backgrounds
+    const targetLightnessPrimary = Math.max(12, Math.min(18, l * 0.2));
+    const textPrimaryHsl = [h, Math.min(50, s * 0.8), targetLightnessPrimary];
+    const [r1, g1, b1] = hslToRgb(textPrimaryHsl[0], textPrimaryHsl[1], textPrimaryHsl[2]);
+    textPrimary = rgbToHex(r1, g1, b1);
+
+    // Secondary text: Darker, more desaturated version
+    // Target: 18-24% lightness
+    const targetLightnessSecondary = Math.max(18, Math.min(24, l * 0.3));
+    const textSecondaryHsl = [h, Math.min(35, s * 0.4), targetLightnessSecondary];
+    const [r2, g2, b2] = hslToRgb(textSecondaryHsl[0], textSecondaryHsl[1], textSecondaryHsl[2]);
+    textSecondary = rgbToHex(r2, g2, b2);
+
+    // Muted text: Very dark, low saturation (grayish)
+    // Target: 30-38% lightness for muted appearance but still readable
+    const targetLightnessMuted = Math.max(30, Math.min(38, l * 0.45));
+    const textMutedHsl = [h, Math.min(15, s * 0.2), targetLightnessMuted];
+    const [r3, g3, b3] = hslToRgb(textMutedHsl[0], textMutedHsl[1], textMutedHsl[2]);
+    textMuted = rgbToHex(r3, g3, b3);
+  }
 
   // Generate borders
   const borderDefault = alpha(primaryColor, 0.2);

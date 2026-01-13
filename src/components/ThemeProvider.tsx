@@ -53,7 +53,6 @@ export default function ThemeProvider({
     // Update CSS variables dynamically based on palette
     useEffect(() => {
         if (typeof document !== 'undefined') {
-            const root = document.documentElement;
             const isDark = mode === 'dark';
 
             // Extract RGB values from primary color for overlay generation
@@ -65,6 +64,14 @@ export default function ThemeProvider({
             };
 
             const primaryRgb = hexToRgb(palette.primary.main);
+
+            // Get or create style element for dynamic CSS variables
+            let styleElement = document.getElementById('dynamic-theme-variables') as HTMLStyleElement;
+            if (!styleElement) {
+                styleElement = document.createElement('style');
+                styleElement.id = 'dynamic-theme-variables';
+                document.head.appendChild(styleElement);
+            }
 
             // Generate background overlay pattern dynamically
             // Extract RGB from palette's overlay color (already calculated from brand color)
@@ -108,38 +115,51 @@ export default function ThemeProvider({
 
             const scrollTrackDark = `rgba(${darkBgRgb[0]}, ${darkBgRgb[1]}, ${darkBgRgb[2]}, 0.65)`;
 
-            // Set CSS variables on both html and body to ensure they override CSS defaults
-            const setVar = (name: string, value: string) => {
-                root.style.setProperty(name, value);
-                if (document.body) {
-                    document.body.style.setProperty(name, value);
-                }
-            };
-
-            setVar('--app-bg', isDark ? darkBg : palette.gradients.backgroundGradient);
             // For dark mode, use light colors that work with any brand color
-            // Generate light text colors from brand color for dark mode
-            const darkTextPrimary = isDark
+            // For light mode, use the palette text colors directly (they're already dark for contrast)
+            const appTextColor = isDark
                 ? (primaryRgb ? `rgb(${Math.min(255, primaryRgb[0] + 220)}, ${Math.min(255, primaryRgb[1] + 220)}, ${Math.min(255, primaryRgb[2] + 220)})` : '#E9FFF4')
                 : palette.text.primary;
-            const darkTextSecondary = isDark
+            const appTextSecondary = isDark
                 ? (primaryRgb ? `rgb(${Math.min(255, primaryRgb[0] + 180)}, ${Math.min(255, primaryRgb[1] + 200)}, ${Math.min(255, primaryRgb[2] + 180)})` : '#B1FBD8')
                 : palette.text.secondary;
 
-            setVar('--app-text', darkTextPrimary);
-            setVar('--text-secondary', darkTextSecondary);
-            setVar('--text-muted', palette.text.muted);
-            setVar('--accent-strong', isDark ? palette.primary.light : palette.secondary.dark);
-            setVar('--surface-bg', isDark ? `rgba(${hexToRgb(darkBg)?.join(', ') || '4, 32, 24'}, 0.92)` : palette.backgrounds.surfaceBg);
             // For dark mode border, use a lightened version of the brand color
             const darkBorder = isDark
                 ? (primaryRgb ? `rgba(${Math.min(255, primaryRgb[0] + 200)}, ${Math.min(255, primaryRgb[1] + 200)}, ${Math.min(255, primaryRgb[2] + 200)}, 0.15)` : 'rgba(233, 255, 244, 0.15)')
                 : palette.borders.default;
-            setVar('--surface-border', darkBorder);
-            setVar('--scroll-track', isDark ? scrollTrackDark : scrollTrackLight);
-            setVar('--scroll-thumb-start', isDark ? palette.secondary.light : palette.primary.main);
-            setVar('--scroll-thumb-end', isDark ? palette.secondary.main : palette.secondary.dark);
-            setVar('--background-overlay', isDark ? overlayDark : overlayLight);
+
+            // Build CSS string with all variables - this will override globals.css
+            const cssVars = `
+                :root {
+                    --app-bg: ${isDark ? darkBg : palette.gradients.backgroundGradient};
+                    --app-text: ${appTextColor};
+                    --text-secondary: ${appTextSecondary};
+                    --text-muted: ${palette.text.muted};
+                    --accent-strong: ${isDark ? palette.primary.light : palette.secondary.dark};
+                    --surface-bg: ${isDark ? `rgba(${hexToRgb(darkBg)?.join(', ') || '4, 32, 24'}, 0.92)` : palette.backgrounds.surfaceBg};
+                    --surface-border: ${darkBorder};
+                    --scroll-track: ${isDark ? scrollTrackDark : scrollTrackLight};
+                    --scroll-thumb-start: ${isDark ? palette.secondary.light : palette.primary.main};
+                    --scroll-thumb-end: ${isDark ? palette.secondary.main : palette.secondary.dark};
+                    --background-overlay: ${isDark ? overlayDark : overlayLight};
+                }
+                body[data-theme='${mode}'] {
+                    --app-bg: ${isDark ? darkBg : palette.gradients.backgroundGradient};
+                    --app-text: ${appTextColor};
+                    --text-secondary: ${appTextSecondary};
+                    --text-muted: ${palette.text.muted};
+                    --accent-strong: ${isDark ? palette.primary.light : palette.secondary.dark};
+                    --surface-bg: ${isDark ? `rgba(${hexToRgb(darkBg)?.join(', ') || '4, 32, 24'}, 0.92)` : palette.backgrounds.surfaceBg};
+                    --surface-border: ${darkBorder};
+                    --scroll-track: ${isDark ? scrollTrackDark : scrollTrackLight};
+                    --scroll-thumb-start: ${isDark ? palette.secondary.light : palette.primary.main};
+                    --scroll-thumb-end: ${isDark ? palette.secondary.main : palette.secondary.dark};
+                    --background-overlay: ${isDark ? overlayDark : overlayLight};
+                }
+            `;
+
+            styleElement.textContent = cssVars;
         }
     }, [palette, mode]);
 
