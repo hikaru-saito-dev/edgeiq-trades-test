@@ -3,9 +3,9 @@
  * from primary and secondary brand colors
  */
 
-// Default colors
+// Default colors (matching original site exactly)
 const DEFAULT_PRIMARY = '#22c55e';
-const DEFAULT_SECONDARY = '#059669';
+const DEFAULT_SECONDARY = '#10b981'; // Secondary main color (not #059669 which is the dark variant)
 
 /**
  * Convert hex color to RGB
@@ -118,6 +118,58 @@ export function isValidHexColor(color: string): boolean {
 }
 
 /**
+ * Default color palette matching the original site exactly
+ * This is used when default colors are provided
+ */
+const DEFAULT_COLOR_PALETTE_EXACT: ColorPalette = {
+  primary: {
+    main: '#22c55e',
+    light: '#4ade80',
+    dark: '#16a34a',
+    alpha10: 'rgba(34, 197, 94, 0.1)',
+    alpha20: 'rgba(34, 197, 94, 0.2)',
+    alpha30: 'rgba(34, 197, 94, 0.3)',
+    alpha40: 'rgba(34, 197, 94, 0.4)',
+    alpha50: 'rgba(34, 197, 94, 0.5)',
+  },
+  secondary: {
+    main: '#10b981',
+    light: '#34d399',
+    dark: '#059669',
+    alpha10: 'rgba(16, 185, 129, 0.1)',
+    alpha20: 'rgba(16, 185, 129, 0.2)',
+    alpha30: 'rgba(16, 185, 129, 0.3)',
+    alpha40: 'rgba(16, 185, 129, 0.4)',
+    alpha50: 'rgba(16, 185, 129, 0.5)',
+  },
+  gradients: {
+    primaryToSecondary: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+    buttonGradient: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+    headerGradient: 'linear-gradient(180deg, #02150B 0%, #063021 100%)',
+    backgroundGradient: 'linear-gradient(180deg, #f5fdf8 0%, #d9fbe9 50%, #a7f3d0 100%)',
+  },
+  backgrounds: {
+    appBg: '#f5fdf8',
+    surfaceBg: 'rgba(255, 255, 255, 0.94)',
+    overlay: 'rgba(200, 230, 201, 0.35)',
+  },
+  text: {
+    primary: '#064e3b',
+    secondary: '#166534',
+    muted: '#6b7280',
+  },
+  borders: {
+    default: 'rgba(34, 197, 94, 0.2)',
+    accent: 'rgba(34, 197, 94, 0.3)',
+  },
+  shadows: {
+    light: 'rgba(34, 197, 94, 0.08)',
+    medium: 'rgba(34, 197, 94, 0.2)',
+    strong: 'rgba(34, 197, 94, 0.4)',
+  },
+};
+
+/**
  * Generate a complete color palette from primary and secondary colors
  */
 export interface ColorPalette {
@@ -175,6 +227,11 @@ export function generateColorPalette(
   // Use defaults if colors are not provided or invalid
   const primaryColor = isValidHexColor(primary || '') ? primary! : DEFAULT_PRIMARY;
   const secondaryColor = isValidHexColor(secondary || '') ? secondary! : DEFAULT_SECONDARY;
+
+  // If using default colors, return the exact palette that matches the original site
+  if (primaryColor === DEFAULT_PRIMARY && secondaryColor === DEFAULT_SECONDARY) {
+    return DEFAULT_COLOR_PALETTE_EXACT;
+  }
 
   // Generate primary color variants
   const primaryLight = lightenColor(primaryColor, 20);
