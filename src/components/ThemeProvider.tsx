@@ -35,7 +35,7 @@ export default function ThemeProvider({
     // Initialize with the theme from the blocking script (prevents flash)
     const [mode, setMode] = useState<PaletteMode>(getInitialTheme);
     const systemPrefersDark = useMediaQuery('(prefers-color-scheme: dark)', { noSsr: true });
-    const { palette } = useBranding();
+    const { palette, brandColor } = useBranding();
 
     // Sync with system preference (no localStorage)
     useEffect(() => {
@@ -108,24 +108,45 @@ export default function ThemeProvider({
 
             const scrollTrackDark = `rgba(${darkBgRgb[0]}, ${darkBgRgb[1]}, ${darkBgRgb[2]}, 0.65)`;
 
-            root.style.setProperty('--app-bg', isDark ? darkBg : palette.gradients.backgroundGradient);
-            root.style.setProperty('--app-text', isDark ? '#E9FFF4' : palette.text.primary);
-            root.style.setProperty('--text-secondary', isDark ? '#B1FBD8' : palette.text.secondary);
-            root.style.setProperty('--text-muted', palette.text.muted);
-            root.style.setProperty('--accent-strong', isDark ? palette.primary.light : palette.secondary.dark);
-            root.style.setProperty('--surface-bg', isDark ? `rgba(${hexToRgb(darkBg)?.join(', ') || '4, 32, 24'}, 0.92)` : palette.backgrounds.surfaceBg);
-            root.style.setProperty('--surface-border', isDark ? 'rgba(233, 255, 244, 0.15)' : palette.borders.default);
-            root.style.setProperty('--scroll-track', isDark ? scrollTrackDark : scrollTrackLight);
-            root.style.setProperty('--scroll-thumb-start', isDark ? palette.secondary.light : palette.primary.main);
-            root.style.setProperty('--scroll-thumb-end', isDark ? palette.secondary.main : palette.secondary.dark);
-            root.style.setProperty('--background-overlay', isDark ? overlayDark : overlayLight);
+            // Set CSS variables on both html and body to ensure they override CSS defaults
+            const setVar = (name: string, value: string) => {
+                root.style.setProperty(name, value);
+                if (document.body) {
+                    document.body.style.setProperty(name, value);
+                }
+            };
+
+            setVar('--app-bg', isDark ? darkBg : palette.gradients.backgroundGradient);
+            // For dark mode, use light colors that work with any brand color
+            // Generate light text colors from brand color for dark mode
+            const darkTextPrimary = isDark
+                ? (primaryRgb ? `rgb(${Math.min(255, primaryRgb[0] + 220)}, ${Math.min(255, primaryRgb[1] + 220)}, ${Math.min(255, primaryRgb[2] + 220)})` : '#E9FFF4')
+                : palette.text.primary;
+            const darkTextSecondary = isDark
+                ? (primaryRgb ? `rgb(${Math.min(255, primaryRgb[0] + 180)}, ${Math.min(255, primaryRgb[1] + 200)}, ${Math.min(255, primaryRgb[2] + 180)})` : '#B1FBD8')
+                : palette.text.secondary;
+
+            setVar('--app-text', darkTextPrimary);
+            setVar('--text-secondary', darkTextSecondary);
+            setVar('--text-muted', palette.text.muted);
+            setVar('--accent-strong', isDark ? palette.primary.light : palette.secondary.dark);
+            setVar('--surface-bg', isDark ? `rgba(${hexToRgb(darkBg)?.join(', ') || '4, 32, 24'}, 0.92)` : palette.backgrounds.surfaceBg);
+            // For dark mode border, use a lightened version of the brand color
+            const darkBorder = isDark
+                ? (primaryRgb ? `rgba(${Math.min(255, primaryRgb[0] + 200)}, ${Math.min(255, primaryRgb[1] + 200)}, ${Math.min(255, primaryRgb[2] + 200)}, 0.15)` : 'rgba(233, 255, 244, 0.15)')
+                : palette.borders.default;
+            setVar('--surface-border', darkBorder);
+            setVar('--scroll-track', isDark ? scrollTrackDark : scrollTrackLight);
+            setVar('--scroll-thumb-start', isDark ? palette.secondary.light : palette.primary.main);
+            setVar('--scroll-thumb-end', isDark ? palette.secondary.main : palette.secondary.dark);
+            setVar('--background-overlay', isDark ? overlayDark : overlayLight);
         }
     }, [palette, mode]);
 
     const theme = useMemo(() => createAppTheme(mode, palette), [mode, palette]);
 
     return (
-        <MUIThemeProvider theme={theme}>
+        <MUIThemeProvider theme={theme} key={brandColor || 'default'}>
             <CssBaseline />
             <ToastProvider>{children}</ToastProvider>
         </MUIThemeProvider>

@@ -150,8 +150,8 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     setAutoTradeMode(result.autoTradeMode || 'notify-only');
     setHideLeaderboardFromMembers(result.hideLeaderboardFromMembers ?? false);
     setHideCompanyStatsFromMembers(result.hideCompanyStatsFromMembers ?? false);
-    setBrandColor(result.brandColor ?? null);
-    setLogoUrl(result.logoUrl ?? null);
+    setBrandColor(result.brandColor?.trim() || null);
+    setLogoUrl(result.logoUrl?.trim() || null);
     setLoading(false);
   }, [experienceId]);
 
