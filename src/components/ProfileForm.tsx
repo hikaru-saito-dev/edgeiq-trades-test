@@ -55,6 +55,7 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import { downloadBlob, generateStatsSnapshot, type StatsSnapshotData } from '@/utils/snapshotGenerator';
 import ConnectAccountModal from './ConnectAccountModal';
 import DisconnectBrokerModal from './DisconnectBrokerModal';
+import ThemeColorPicker from './ThemeColorPicker';
 
 interface UserStats {
   totalTrades: number;
@@ -115,6 +116,10 @@ interface UserData {
   }>;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  appTitle?: string | null;
+  themePrimaryColor?: string | null;
+  themeGradientDirection?: number;
+  themeColorIntensity?: number;
 }
 
 // Helper function to validate hex color
@@ -134,6 +139,11 @@ export default function ProfileForm() {
   const [secondaryColor, setSecondaryColor] = useState<string>('');
   const [primaryColorPickerAnchor, setPrimaryColorPickerAnchor] = useState<HTMLButtonElement | null>(null);
   const [secondaryColorPickerAnchor, setSecondaryColorPickerAnchor] = useState<HTMLButtonElement | null>(null);
+  // App theme customization
+  const [appTitle, setAppTitle] = useState<string>('');
+  const [themePrimaryColor, setThemePrimaryColor] = useState<string>('');
+  const [themeGradientDirection, setThemeGradientDirection] = useState<number>(135);
+  const [themeColorIntensity, setThemeColorIntensity] = useState<number>(60);
   const [webhooks, setWebhooks] = useState<Array<{ id: string; name: string; url: string; type: 'whop' | 'discord' }>>([]);
   const [notifyOnSettlement, setNotifyOnSettlement] = useState(false);
   const [onlyNotifyWinningSettlements, setOnlyNotifyWinningSettlements] = useState(false);
@@ -320,6 +330,10 @@ export default function ProfileForm() {
       setHideCompanyStatsFromMembers(profileData.user.hideCompanyStatsFromMembers ?? false);
       setPrimaryColor(profileData.user.primaryColor || '');
       setSecondaryColor(profileData.user.secondaryColor || '');
+      setAppTitle(profileData.user.appTitle || '');
+      setThemePrimaryColor(profileData.user.themePrimaryColor || '');
+      setThemeGradientDirection(profileData.user.themeGradientDirection ?? 135);
+      setThemeColorIntensity(profileData.user.themeColorIntensity ?? 60);
       setWebhooks(profileData.user.webhooks || []);
       setNotifyOnSettlement(profileData.user.notifyOnSettlement ?? false);
       setOnlyNotifyWinningSettlements(profileData.user.onlyNotifyWinningSettlements ?? false);
@@ -498,6 +512,10 @@ export default function ProfileForm() {
         membershipPlans?: typeof membershipPlans;
         primaryColor?: string | null;
         secondaryColor?: string | null;
+        appTitle?: string | null;
+        themePrimaryColor?: string | null;
+        themeGradientDirection?: number;
+        themeColorIntensity?: number;
       } = {
         alias,
         webhooks: webhooks.filter(w => w.name.trim() && w.url.trim()),
@@ -518,6 +536,11 @@ export default function ProfileForm() {
         // Only save valid hex colors
         updateData.primaryColor = isValidHexColor(primaryColor) ? primaryColor.trim() : null;
         updateData.secondaryColor = isValidHexColor(secondaryColor) ? secondaryColor.trim() : null;
+        // App theme customization
+        updateData.appTitle = appTitle.trim() || null;
+        updateData.themePrimaryColor = isValidHexColor(themePrimaryColor) ? themePrimaryColor.trim() : null;
+        updateData.themeGradientDirection = themeGradientDirection;
+        updateData.themeColorIntensity = themeColorIntensity;
       }
 
       const response = await apiRequest('/api/user', { userId, companyId, method: 'PATCH', body: JSON.stringify(updateData) });
@@ -1803,7 +1826,7 @@ export default function ProfileForm() {
                           setPrimaryColor(value);
                         }
                       }}
-                      placeholder="#3b82f6"
+                      placeholder="#22c55e"
                       size="small"
                       InputProps={{
                         startAdornment: isValidHexColor(primaryColor) ? (
@@ -1852,7 +1875,7 @@ export default function ProfileForm() {
                       </Typography>
                       <input
                         type="color"
-                        value={isValidHexColor(primaryColor) ? primaryColor : '#3b82f6'}
+                        value={isValidHexColor(primaryColor) ? primaryColor : '#22c55e'}
                         onChange={(e) => {
                           setPrimaryColor(e.target.value);
                         }}
@@ -1868,7 +1891,7 @@ export default function ProfileForm() {
                       <TextField
                         fullWidth
                         size="small"
-                        value={isValidHexColor(primaryColor) ? primaryColor : '#3b82f6'}
+                        value={isValidHexColor(primaryColor) ? primaryColor : '#22c55e'}
                         onChange={(e) => {
                           const value = e.target.value;
                           if (value === '' || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
@@ -1876,8 +1899,8 @@ export default function ProfileForm() {
                           }
                         }}
                         error={primaryColor !== '' && !isValidHexColor(primaryColor)}
-                        helperText={primaryColor !== '' && !isValidHexColor(primaryColor) ? 'Please enter a valid hex color (e.g., #3b82f6)' : ''}
-                        placeholder="#3b82f6"
+                        helperText={primaryColor !== '' && !isValidHexColor(primaryColor) ? 'Please enter a valid hex color (e.g., #22c55e)' : ''}
+                        placeholder="#22c55e"
                         sx={{
                           mt: 1,
                           '& .MuiOutlinedInput-root': {
@@ -1931,7 +1954,7 @@ export default function ProfileForm() {
                           setSecondaryColor(value);
                         }
                       }}
-                      placeholder="#2563eb"
+                      placeholder="#10b981"
                       size="small"
                       InputProps={{
                         startAdornment: isValidHexColor(secondaryColor) ? (
@@ -1980,7 +2003,7 @@ export default function ProfileForm() {
                       </Typography>
                       <input
                         type="color"
-                        value={isValidHexColor(secondaryColor) ? secondaryColor : '#2563eb'}
+                        value={isValidHexColor(secondaryColor) ? secondaryColor : '#10b981'}
                         onChange={(e) => {
                           setSecondaryColor(e.target.value);
                         }}
@@ -1996,7 +2019,7 @@ export default function ProfileForm() {
                       <TextField
                         fullWidth
                         size="small"
-                        value={isValidHexColor(secondaryColor) ? secondaryColor : '#2563eb'}
+                        value={isValidHexColor(secondaryColor) ? secondaryColor : '#10b981'}
                         onChange={(e) => {
                           const value = e.target.value;
                           if (value === '' || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
@@ -2004,8 +2027,8 @@ export default function ProfileForm() {
                           }
                         }}
                         error={secondaryColor !== '' && !isValidHexColor(secondaryColor)}
-                        helperText={secondaryColor !== '' && !isValidHexColor(secondaryColor) ? 'Please enter a valid hex color (e.g., #2563eb)' : ''}
-                        placeholder="#2563eb"
+                        helperText={secondaryColor !== '' && !isValidHexColor(secondaryColor) ? 'Please enter a valid hex color (e.g., #10b981)' : ''}
+                        placeholder="#10b981"
                         sx={{
                           mt: 1,
                           '& .MuiOutlinedInput-root': {
@@ -2083,6 +2106,60 @@ export default function ProfileForm() {
                 </Paper>
               )}
             </Box>
+          )}
+
+          {/* App Customization Section */}
+          {role === 'companyOwner' && (
+            <>
+              <Divider sx={{ my: 4, borderColor: 'var(--surface-border)' }} />
+              <Box mb={3}>
+                <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 2, fontWeight: 600 }}>
+                  App Customization
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
+                  Customize the app&apos;s appearance including title, theme colors, and gradients. These settings apply to the entire app UI.
+                </Typography>
+
+                {/* App Title */}
+                <Box mb={3}>
+                  <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                    App Title
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    value={appTitle}
+                    onChange={(e) => setAppTitle(e.target.value)}
+                    placeholder="EdgeIQ Trades"
+                    helperText="Custom app title displayed throughout the application"
+                    inputProps={{ maxLength: 100 }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        color: 'var(--app-text)',
+                        '& fieldset': { borderColor: controlBorder },
+                      },
+                      '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
+                      '& .MuiFormHelperText-root': { color: 'var(--text-muted)' },
+                    }}
+                  />
+                </Box>
+
+                {/* Theme Color Picker */}
+                <ThemeColorPicker
+                  primaryColor={isValidHexColor(themePrimaryColor) ? themePrimaryColor : '#22c55e'}
+                  gradientDirection={themeGradientDirection}
+                  colorIntensity={themeColorIntensity}
+                  onColorChange={(color) => setThemePrimaryColor(color)}
+                  onGradientDirectionChange={(direction) => setThemeGradientDirection(direction)}
+                  onColorIntensityChange={(intensity) => setThemeColorIntensity(intensity)}
+                  onReset={() => {
+                    setThemePrimaryColor('');
+                    setThemeGradientDirection(135);
+                    setThemeColorIntensity(60);
+                  }}
+                />
+              </Box>
+            </>
           )}
 
           {/* Membership Plans Section */}

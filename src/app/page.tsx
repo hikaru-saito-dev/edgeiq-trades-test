@@ -6,13 +6,14 @@ import { motion } from 'framer-motion';
 import { useAccess, setExperienceId } from '@/components/AccessProvider';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
+import { useCompanyTheme } from '@/components/CompanyThemeProvider';
 
 function HomeContent() {
   const searchParams = useSearchParams();
   const experienceId = searchParams?.get('experience') || null;
   const { isAuthorized, loading, role, hideLeaderboardFromMembers } = useAccess();
+  const companyTheme = useCompanyTheme();
 
-  // Set experienceId in AccessProvider when it's available from page.tsx
   useEffect(() => {
     if (experienceId) {
       setExperienceId(experienceId);
@@ -52,8 +53,8 @@ function HomeContent() {
         px: { xs: 2, sm: 4 },
         background:
           theme.palette.mode === 'dark'
-            ? 'linear-gradient(180deg, #02150B 0%, #0a1f0f 50%, #1a3a2a 100%)'
-            : 'linear-gradient(180deg, #f5fdf8 0%, #d9fbe9 50%, #a7f3d0 100%)',
+            ? companyTheme.palette.gradients.backgroundGradientDark
+            : companyTheme.palette.gradients.backgroundGradient,
         overflow: 'hidden',
         transition: 'background 0.3s ease',
         '&::before': {
@@ -68,8 +69,8 @@ function HomeContent() {
               90deg,
               transparent,
               transparent 20px,
-              rgba(34, 197, 94, ${theme.palette.mode === 'dark' ? 0.08 : 0.12}) 20px,
-              rgba(34, 197, 94, ${theme.palette.mode === 'dark' ? 0.08 : 0.12}) 22px
+              ${companyTheme.palette.primary.alpha20} 20px,
+              ${companyTheme.palette.primary.alpha20} 22px
             )
           `,
           zIndex: 0,
@@ -82,9 +83,9 @@ function HomeContent() {
           right: 0,
           height: '200px',
           background: `
-            radial-gradient(ellipse at 20% 50%, rgba(34, 197, 94, 0.25) 0%, transparent 50%),
-            radial-gradient(ellipse at 50% 30%, rgba(34, 197, 94, 0.2) 0%, transparent 50%),
-            radial-gradient(ellipse at 80% 60%, rgba(34, 197, 94, 0.15) 0%, transparent 50%)
+            radial-gradient(ellipse at 20% 50%, ${companyTheme.palette.primary.alpha30} 0%, transparent 50%),
+            radial-gradient(ellipse at 50% 30%, ${companyTheme.palette.primary.alpha20} 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 60%, ${companyTheme.palette.primary.alpha10} 0%, transparent 50%)
           `,
           zIndex: 0,
           animation: 'pulse 4s ease-in-out infinite',
@@ -92,7 +93,6 @@ function HomeContent() {
         },
       })}
     >
-      {/* Animated glowing wavy lines at bottom */}
       <Box
         className="wavy-lines"
         sx={{
@@ -110,7 +110,8 @@ function HomeContent() {
             left: 0,
             right: 0,
             height: '3px',
-            background: 'linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.6) 20%, rgba(34, 197, 94, 0.8) 50%, rgba(34, 197, 94, 0.6) 80%, transparent)',
+            background:
+              'linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.6) 20%, rgba(34, 197, 94, 0.8) 50%, rgba(34, 197, 94, 0.6) 80%, transparent)',
             filter: 'blur(3px)',
             boxShadow: '0 0 20px rgba(34, 197, 94, 0.6)',
             animation: 'wave 8s ease-in-out infinite',
@@ -122,7 +123,8 @@ function HomeContent() {
             left: 0,
             right: 0,
             height: '2px',
-            background: 'linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.5) 25%, rgba(34, 197, 94, 0.7) 50%, rgba(34, 197, 94, 0.5) 75%, transparent)',
+            background:
+              'linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.5) 25%, rgba(34, 197, 94, 0.7) 50%, rgba(34, 197, 94, 0.5) 75%, transparent)',
             filter: 'blur(2px)',
             boxShadow: '0 0 15px rgba(34, 197, 94, 0.5)',
             animation: 'wave 10s ease-in-out infinite reverse',
@@ -134,7 +136,7 @@ function HomeContent() {
         <motion.div
           initial={{ opacity: 0, y: -30, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.8, type: "spring", stiffness: 100 }}
+          transition={{ duration: 0.8, type: 'spring', stiffness: 100 }}
         >
           <Typography
             variant="h1"
@@ -144,12 +146,12 @@ function HomeContent() {
               mb: 3,
               fontSize: { xs: '3rem', sm: '4rem', md: '5rem' },
               fontWeight: 800,
-              color: '#22c55e', // Bright green to match logo
+              color: companyTheme.palette.primary.main,
               lineHeight: 1.1,
-              textShadow: '0 0 20px rgba(34, 197, 94, 0.5), 0 0 40px rgba(34, 197, 94, 0.3)',
+              textShadow: `0 0 20px ${companyTheme.palette.primary.alpha50}, 0 0 40px ${companyTheme.palette.primary.alpha30}`,
             }}
           >
-            EdgeIQ Trades
+            {companyTheme.appTitle}
           </Typography>
         </motion.div>
 
@@ -162,8 +164,7 @@ function HomeContent() {
             variant="h5"
             sx={{
               textAlign: 'center',
-              color: (theme) =>
-                theme.palette.mode === 'dark' ? '#a7f3d0' : theme.palette.text.secondary,
+              color: companyTheme.palette.text.secondary,
               mb: 6,
               fontWeight: 400,
               fontSize: { xs: '1.1rem', sm: '1.25rem' },
@@ -197,18 +198,18 @@ function HomeContent() {
                 component={Link}
                 href="/trades"
                 sx={{
-                  background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+                  background: companyTheme.palette.gradients.buttonGradient,
                   color: 'white',
                   px: 5,
                   py: 1.75,
                   fontSize: '1.1rem',
                   fontWeight: 600,
                   borderRadius: 3,
-                  boxShadow: '0 8px 24px rgba(34, 197, 94, 0.3)',
+                  boxShadow: `0 8px 24px ${companyTheme.palette.shadows.medium}`,
                   textTransform: 'none',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
-                    boxShadow: '0 12px 32px rgba(34, 197, 94, 0.4)',
+                    background: companyTheme.palette.gradients.primaryToSecondary,
+                    boxShadow: `0 12px 32px ${companyTheme.palette.shadows.strong}`,
                     transform: 'translateY(-2px)',
                   },
                   transition: 'all 0.3s ease',
@@ -224,9 +225,9 @@ function HomeContent() {
                 component={Link}
                 href="/leaderboard"
                 sx={{
-                  borderColor: 'var(--accent-strong)',
+                  borderColor: companyTheme.palette.primary.main,
                   borderWidth: 2,
-                  color: 'var(--accent-strong)',
+                  color: companyTheme.palette.primary.main,
                   px: 5,
                   py: 1.75,
                   fontSize: '1.1rem',
@@ -234,18 +235,15 @@ function HomeContent() {
                   borderRadius: 2,
                   textTransform: 'none',
                   backgroundColor: (theme) =>
-                    theme.palette.mode === 'dark' ? 'transparent' : 'rgba(34, 197, 94, 0.08)',
-                  boxShadow: (theme) =>
-                    theme.palette.mode === 'dark'
-                      ? '0 0 20px rgba(34, 197, 94, 0.2)'
-                      : '0 0 20px rgba(34, 197, 94, 0.12)',
+                    theme.palette.mode === 'dark' ? 'transparent' : companyTheme.palette.primary.alpha10,
+                  boxShadow: `0 0 20px ${companyTheme.palette.shadows.light}`,
                   '&:hover': {
-                    borderColor: '#34d399',
+                    borderColor: companyTheme.palette.primary.light,
                     borderWidth: 2,
-                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    backgroundColor: companyTheme.palette.primary.alpha20,
                     transform: 'translateY(-2px)',
-                    color: '#34d399',
-                    boxShadow: '0 0 30px rgba(34, 197, 94, 0.3)',
+                    color: companyTheme.palette.primary.light,
+                    boxShadow: `0 0 30px ${companyTheme.palette.shadows.medium}`,
                   },
                   transition: 'all 0.3s ease',
                 }}
@@ -262,15 +260,16 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={
-      <Container maxWidth="lg" sx={{ py: 8 }}>
-        <Typography variant="h1" sx={{ textAlign: 'center' }}>
-          Loading...
-        </Typography>
-      </Container>
-    }>
+    <Suspense
+      fallback={
+        <Container maxWidth="lg" sx={{ py: 8 }}>
+          <Typography variant="h1" sx={{ textAlign: 'center' }}>
+            Loading...
+          </Typography>
+        </Container>
+      }
+    >
       <HomeContent />
     </Suspense>
   );
 }
-
