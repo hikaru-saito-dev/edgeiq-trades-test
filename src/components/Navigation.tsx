@@ -27,9 +27,13 @@ export default function Navigation() {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
-  const navGradient = colorPalette.gradients.headerGradient;
-  const navTextColor = isDark ? colorPalette.text.primary : colorPalette.text.primary;
-  const navHoverBg = alpha(colorPalette.primary.main, isDark ? 0.12 : 0.18);
+  // Navigation header gradient - light mode should be dark green, dark mode should be very dark
+  const navGradient = isDark
+    ? colorPalette.gradients.headerGradient
+    : colorPalette.gradients.headerGradientLight;
+  // Navigation text should be white/light in both modes (not dark text)
+  const navTextColor = isDark ? '#E9FFF4' : '#F0FFF4';
+  const navHoverBg = alpha('#FFFFFF', isDark ? 0.12 : 0.18);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

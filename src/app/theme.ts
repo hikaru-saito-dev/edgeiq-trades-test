@@ -29,7 +29,9 @@ const DEFAULT_COLOR_PALETTE: ColorPalette = {
     primaryToSecondary: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
     buttonGradient: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
     headerGradient: 'linear-gradient(180deg, #02150B 0%, #063021 100%)',
+    headerGradientLight: 'linear-gradient(180deg, #1e3a2a 0%, #2D503D 100%)',
     backgroundGradient: 'linear-gradient(180deg, #f5fdf8 0%, #d9fbe9 50%, #a7f3d0 100%)',
+    backgroundGradientDark: 'linear-gradient(180deg, #02150B 0%, #0a1f0f 50%, #1a3a2a 100%)',
   },
   backgrounds: {
     appBg: '#f5fdf8',

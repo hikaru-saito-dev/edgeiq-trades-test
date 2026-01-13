@@ -127,6 +127,36 @@ export function darkenColor(hex: string, amount: number): string {
 }
 
 /**
+ * Generate a light background color from primary color
+ * Based on pattern: increase lightness significantly while maintaining hue
+ */
+function generateLightBackgroundColor(hex: string, lightnessIncrease: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  const [h, s, l] = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  // Increase lightness significantly, slightly adjust saturation
+  const newL = Math.min(100, l + lightnessIncrease);
+  const newS = Math.max(60, Math.min(85, s - 5)); // Keep saturation in range 60-85
+  const [r, g, b] = hslToRgb(h, newS, newL);
+  return rgbToHex(r, g, b);
+}
+
+/**
+ * Generate a dark background color from primary color
+ * Based on pattern: decrease lightness significantly while maintaining hue
+ */
+function generateDarkBackgroundColor(hex: string, lightnessDecrease: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  const [h, s, l] = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  // Decrease lightness significantly, adjust saturation
+  const newL = Math.max(0, l - lightnessDecrease);
+  const newS = Math.max(35, Math.min(85, s + 10)); // Keep saturation in range 35-85
+  const [r, g, b] = hslToRgb(h, newS, newL);
+  return rgbToHex(r, g, b);
+}
+
+/**
  * Add alpha transparency to a hex color
  */
 export function alpha(hex: string, opacity: number): string {
@@ -211,7 +241,9 @@ const DEFAULT_COLOR_PALETTE_EXACT: ColorPalette = {
     primaryToSecondary: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
     buttonGradient: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
     headerGradient: 'linear-gradient(180deg, #02150B 0%, #063021 100%)',
+    headerGradientLight: 'linear-gradient(180deg, #1e3a2a 0%, #2D503D 100%)', // Light mode header
     backgroundGradient: 'linear-gradient(180deg, #f5fdf8 0%, #d9fbe9 50%, #a7f3d0 100%)',
+    backgroundGradientDark: 'linear-gradient(180deg, #02150B 0%, #0a1f0f 50%, #1a3a2a 100%)',
   },
   backgrounds: {
     appBg: '#f5fdf8',
@@ -262,7 +294,9 @@ export interface ColorPalette {
     primaryToSecondary: string;
     buttonGradient: string;
     headerGradient: string;
+    headerGradientLight: string;
     backgroundGradient: string;
+    backgroundGradientDark: string;
   };
   backgrounds: {
     appBg: string;
@@ -310,7 +344,22 @@ export function generateColorPalette(
   const primaryToSecondary = `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryDark} 100%)`;
   const buttonGradient = `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryDark} 100%)`;
   const headerGradient = `linear-gradient(180deg, ${darkenColor(primaryColor, 40)} 0%, ${darkenColor(primaryColor, 20)} 100%)`;
-  const backgroundGradient = `linear-gradient(180deg, ${lightenColor(primaryColor, 45)} 0%, ${lightenColor(primaryColor, 35)} 50%, ${lightenColor(primaryColor, 25)} 100%)`;
+  // Light mode header: darker green gradient (pattern from original: #1e3a2a to #2D503D)
+  const headerGradientLight = `linear-gradient(180deg, ${darkenColor(primaryColor, 50)} 0%, ${darkenColor(primaryColor, 45)} 100%)`;
+
+  // Generate light mode background gradient
+  // Pattern: Very light (52% lightness increase) -> Light (46% increase) -> Medium light (35% increase)
+  const lightBg1 = generateLightBackgroundColor(primaryColor, 52.4);
+  const lightBg2 = generateLightBackgroundColor(primaryColor, 46.5);
+  const lightBg3 = generateLightBackgroundColor(primaryColor, 35.1);
+  const backgroundGradient = `linear-gradient(180deg, ${lightBg1} 0%, ${lightBg2} 50%, ${lightBg3} 100%)`;
+
+  // Generate dark mode background gradient
+  // Pattern: Very dark (41% lightness decrease) -> Dark (37% decrease) -> Medium dark (29% decrease)
+  const darkBg1 = generateDarkBackgroundColor(primaryColor, 40.8);
+  const darkBg2 = generateDarkBackgroundColor(primaryColor, 37.3);
+  const darkBg3 = generateDarkBackgroundColor(primaryColor, 28.8);
+  const backgroundGradientDark = `linear-gradient(180deg, ${darkBg1} 0%, ${darkBg2} 50%, ${darkBg3} 100%)`;
 
   // Get primary RGB for calculations
   const primaryRgb = hexToRgb(primaryColor)!;
@@ -360,7 +409,9 @@ export function generateColorPalette(
       primaryToSecondary,
       buttonGradient,
       headerGradient,
+      headerGradientLight,
       backgroundGradient,
+      backgroundGradientDark,
     },
     backgrounds: {
       appBg,

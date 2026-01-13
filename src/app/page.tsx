@@ -65,7 +65,7 @@ function HomeContent() {
           py: { xs: 4, md: 8 },
           px: { xs: 2, sm: 4 },
           background: isDark
-            ? `linear-gradient(180deg, ${colorPalette.primary.dark} 0%, ${colorPalette.secondary.dark} 50%, ${colorPalette.secondary.main} 100%)`
+            ? colorPalette.gradients.backgroundGradientDark
             : colorPalette.gradients.backgroundGradient,
           overflow: 'hidden',
           transition: 'background 0.3s ease',
