@@ -2,47 +2,39 @@
 
 import { PaletteMode, ThemeOptions, createTheme } from '@mui/material/styles';
 import { alpha } from '@mui/material';
-import type { ColorPalette } from '@/utils/colorUtils';
 
-const getDesignTokens = (mode: PaletteMode, companyTheme?: ColorPalette): ThemeOptions => {
+const getDesignTokens = (mode: PaletteMode): ThemeOptions => {
     const isLight = mode === 'light';
-    const palette = companyTheme || {
-        primary: { main: '#22c55e', light: '#4ade80', dark: '#16a34a' },
-        secondary: { main: '#10b981', light: '#34d399', dark: '#059669' },
-        backgrounds: { appBg: isLight ? '#f5fdf8' : '#02150B', surfaceBg: isLight ? 'rgba(255, 255, 255, 0.94)' : 'rgba(4, 32, 24, 0.92)', overlay: '' },
-        text: { primary: isLight ? '#064e3b' : '#E9FFF4', secondary: isLight ? '#166534' : '#9FE3C6', muted: '' },
-        borders: { default: isLight ? 'rgba(34, 197, 94, 0.2)' : 'rgba(233, 255, 244, 0.15)', accent: '' },
-    };
 
     return {
         palette: {
             mode,
             primary: {
-                main: palette.primary.main,
-                light: palette.primary.light,
-                dark: palette.primary.dark,
+                main: '#22c55e',
+                light: '#4ade80',
+                dark: '#16a34a',
             },
             secondary: {
-                main: palette.secondary.main,
-                light: palette.secondary.light,
-                dark: palette.secondary.dark,
+                main: '#10b981',
+                light: '#34d399',
+                dark: '#059669',
             },
             background: {
-                default: palette.backgrounds.appBg,
-                paper: palette.backgrounds.surfaceBg,
+                default: isLight ? '#f5fdf8' : '#02150B',
+                paper: isLight ? 'rgba(255, 255, 255, 0.94)' : 'rgba(4, 32, 24, 0.92)',
             },
             text: {
-                primary: palette.text.primary,
-                secondary: palette.text.secondary,
+                primary: isLight ? '#064e3b' : '#E9FFF4',
+                secondary: isLight ? '#166534' : '#9FE3C6',
             },
-            divider: palette.borders.default,
+            divider: isLight ? 'rgba(34, 197, 94, 0.2)' : 'rgba(233, 255, 244, 0.15)',
         },
         typography: {
             fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
             h1: {
                 fontSize: '3rem',
                 fontWeight: 800,
-                background: companyTheme?.gradients.buttonGradient || 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+                background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
@@ -159,5 +151,5 @@ const getDesignTokens = (mode: PaletteMode, companyTheme?: ColorPalette): ThemeO
     };
 };
 
-export const createAppTheme = (mode: PaletteMode, companyTheme?: ColorPalette) => createTheme(getDesignTokens(mode, companyTheme));
+export const createAppTheme = (mode: PaletteMode) => createTheme(getDesignTokens(mode));
 

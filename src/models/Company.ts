@@ -11,13 +11,8 @@ export interface ICompany extends Document {
   hideCompanyStatsFromMembers?: boolean; // Company owner setting to hide company stats toggle from members and admins
   companyOwnerWhopUserId: string; // Reference to owner (person-level)
   // White-label customization (companyOwner only)
-  primaryColor?: string; // Primary brand color (hex) - for leaderboard/follow pages
-  secondaryColor?: string; // Secondary brand color (hex) - for leaderboard/follow pages
-  // App theme customization (companyOwner only)
-  appTitle?: string; // Customizable app title (default: "EdgeIQ Trades")
-  themePrimaryColor?: string; // Primary theme color (hex, e.g., "#22c55e")
-  themeGradientDirection?: number; // Gradient direction in degrees (0-360, default: 135)
-  themeColorIntensity?: number; // Color intensity percentage (0-100, default: 60)
+  primaryColor?: string; // Primary brand color (hex)
+  secondaryColor?: string; // Secondary brand color (hex)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -46,32 +41,8 @@ const CompanySchema = new Schema<ICompany>({
   hideCompanyStatsFromMembers: { type: Boolean, default: false },
   companyOwnerWhopUserId: { type: String, required: true },
   // White-label customization (companyOwner only)
-  primaryColor: { type: String, trim: true }, // Hex color code - for leaderboard/follow pages
-  secondaryColor: { type: String, trim: true }, // Hex color code - for leaderboard/follow pages
-  // App theme customization (companyOwner only)
-  appTitle: { type: String, trim: true, maxlength: 100 },
-  themePrimaryColor: { 
-    type: String, 
-    trim: true,
-    validate: {
-      validator: function(v: string) {
-        return !v || /^#[0-9A-Fa-f]{6}$/i.test(v);
-      },
-      message: 'themePrimaryColor must be a valid hex color code (e.g., #22c55e)'
-    }
-  },
-  themeGradientDirection: { 
-    type: Number, 
-    min: 0, 
-    max: 360,
-    default: 135
-  },
-  themeColorIntensity: { 
-    type: Number, 
-    min: 0, 
-    max: 100,
-    default: 60
-  },
+  primaryColor: { type: String, trim: true }, // Hex color code
+  secondaryColor: { type: String, trim: true }, // Hex color code
 }, {
   timestamps: true,
 });

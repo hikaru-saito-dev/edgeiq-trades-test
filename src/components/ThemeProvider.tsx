@@ -5,7 +5,6 @@ import { PaletteMode, ThemeProvider as MUIThemeProvider, useMediaQuery } from '@
 import CssBaseline from '@mui/material/CssBaseline';
 import { createAppTheme } from '@/app/theme';
 import { ToastProvider } from './ToastProvider';
-import { CompanyThemeProvider, useCompanyTheme } from './CompanyThemeProvider';
 
 function getInitialTheme(): PaletteMode {
     if (typeof window === 'undefined') {
@@ -27,10 +26,13 @@ function getInitialTheme(): PaletteMode {
     return 'light';
 }
 
-// Inner component that can use CompanyThemeProvider context
-function ThemedContent({ children }: { children: React.ReactNode }) {
-    const companyTheme = useCompanyTheme();
-    const [mode, setMode] = useState<PaletteMode>(getInitialTheme());
+export default function ThemeProvider({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    // Initialize with the theme from the blocking script (prevents flash)
+    const [mode, setMode] = useState<PaletteMode>(getInitialTheme);
     const systemPrefersDark = useMediaQuery('(prefers-color-scheme: dark)', { noSsr: true });
 
     // Sync with system preference (no localStorage)
@@ -46,27 +48,12 @@ function ThemedContent({ children }: { children: React.ReactNode }) {
         }
     }, [mode]);
 
-    const theme = useMemo(() => {
-        const currentPalette = mode === 'dark' ? companyTheme.paletteDark : companyTheme.paletteLight;
-        return createAppTheme(mode, currentPalette);
-    }, [mode, companyTheme.paletteLight, companyTheme.paletteDark]);
+    const theme = useMemo(() => createAppTheme(mode), [mode]);
 
     return (
         <MUIThemeProvider theme={theme}>
             <CssBaseline />
             <ToastProvider>{children}</ToastProvider>
         </MUIThemeProvider>
-    );
-}
-
-export default function ThemeProvider({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-    return (
-        <CompanyThemeProvider>
-            <ThemedContent>{children}</ThemedContent>
-        </CompanyThemeProvider>
     );
 }
