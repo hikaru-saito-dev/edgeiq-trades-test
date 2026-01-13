@@ -435,12 +435,12 @@ export default function StatsCalendarPage() {
                             : alpha(theme.palette.divider, 0.35)
                             }`,
                           backgroundColor: isEmpty
-                            ? alpha(theme.palette.background.default, isDark ? 0.55 : 0.9)
+                            ? alpha(theme.palette.background.default, isDark ? 0.55 : 0.09)
                             : effectivePnl > 0
                               ? alpha(theme.palette.success.main, 0.2)
                               : effectivePnl < 0
                                 ? alpha(theme.palette.error.main, 0.25)
-                                : alpha(theme.palette.background.default, isDark ? 0.55 : 0.9),
+                                : alpha(theme.palette.background.default, isDark ? 0.55 : 0.09),
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
