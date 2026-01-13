@@ -3,6 +3,7 @@
 import { Container, Box, Typography, Paper, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel, Button, CircularProgress, Alert, Select, MenuItem, InputLabel } from '@mui/material';
 import { useState, useEffect, useCallback } from 'react';
 import { useAccess } from '@/components/AccessProvider';
+import { useBranding } from '@/components/BrandingProvider';
 import { useToast } from '@/components/ToastProvider';
 import { apiRequest } from '@/lib/apiClient';
 
@@ -16,6 +17,7 @@ interface BrokerAccount {
 
 export default function AutoIQPage() {
     const { isAuthorized, userId, companyId, hasAutoIQ, loading: accessLoading } = useAccess();
+    const { palette } = useBranding();
     const toast = useToast();
     const [autoTradeMode, setAutoTradeMode] = useState<'auto-trade' | 'notify-only'>('notify-only');
     const [defaultBrokerConnectionId, setDefaultBrokerConnectionId] = useState<string | null>(null);
@@ -172,7 +174,7 @@ export default function AutoIQPage() {
                         sx={{
                             fontWeight: 700,
                             mb: 1,
-                            background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+                            background: palette.gradients.primaryToSecondary,
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
                             backgroundClip: 'text',
@@ -210,17 +212,17 @@ export default function AutoIQPage() {
                             window.open(upgradeUrl, '_blank');
                         }}
                         sx={{
-                            background: 'linear-gradient(135deg, #22c55e, #059669)',
+                            background: palette.gradients.buttonGradient,
                             color: '#ffffff',
                             px: 6,
                             py: 1.5,
                             fontWeight: 600,
                             textTransform: 'none',
                             borderRadius: 2,
-                            boxShadow: '0 4px 12px rgba(34, 197, 94, 0.3)',
+                            boxShadow: `0 4px 12px ${palette.shadows.medium}`,
                             '&:hover': {
-                                background: 'linear-gradient(135deg, #16a34a, #047857)',
-                                boxShadow: '0 6px 16px rgba(34, 197, 94, 0.4)',
+                                background: `linear-gradient(135deg, ${palette.primary.dark}, ${palette.secondary.dark})`,
+                                boxShadow: `0 6px 16px ${palette.shadows.strong}`,
                                 transform: 'translateY(-1px)',
                             },
                             transition: 'all 0.2s ease',
@@ -242,7 +244,7 @@ export default function AutoIQPage() {
                     sx={{
                         fontWeight: 700,
                         mb: 1,
-                        background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+                        background: palette.gradients.primaryToSecondary,
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
                         backgroundClip: 'text',
@@ -288,7 +290,7 @@ export default function AutoIQPage() {
                                     sx={{
                                         color: 'var(--text-muted)',
                                         '&.Mui-checked': {
-                                            color: '#22c55e',
+                                            color: palette.primary.main,
                                         },
                                     }}
                                 />
@@ -309,10 +311,10 @@ export default function AutoIQPage() {
                                 p: 2,
                                 borderRadius: 1,
                                 border: '1px solid var(--surface-border)',
-                                bgcolor: autoTradeMode === 'auto-trade' ? 'rgba(34, 197, 94, 0.1)' : 'transparent',
+                                bgcolor: autoTradeMode === 'auto-trade' ? palette.primary.alpha10 : 'transparent',
                                 transition: 'all 0.2s ease',
                                 '&:hover': {
-                                    bgcolor: 'rgba(34, 197, 94, 0.05)',
+                                    bgcolor: palette.primary.alpha10,
                                 },
                             }}
                         />
@@ -323,7 +325,7 @@ export default function AutoIQPage() {
                                     sx={{
                                         color: 'var(--text-muted)',
                                         '&.Mui-checked': {
-                                            color: '#22c55e',
+                                            color: palette.primary.main,
                                         },
                                     }}
                                 />
@@ -343,10 +345,10 @@ export default function AutoIQPage() {
                                 p: 2,
                                 borderRadius: 1,
                                 border: '1px solid var(--surface-border)',
-                                bgcolor: autoTradeMode === 'notify-only' ? 'rgba(34, 197, 94, 0.1)' : 'transparent',
+                                bgcolor: autoTradeMode === 'notify-only' ? palette.primary.alpha10 : 'transparent',
                                 transition: 'all 0.2s ease',
                                 '&:hover': {
-                                    bgcolor: 'rgba(34, 197, 94, 0.05)',
+                                    bgcolor: palette.primary.alpha10,
                                 },
                             }}
                         />
@@ -384,10 +386,10 @@ export default function AutoIQPage() {
                                         borderColor: 'var(--surface-border)',
                                     },
                                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#22c55e',
+                                        borderColor: palette.primary.main,
                                     },
                                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#22c55e',
+                                        borderColor: palette.primary.main,
                                     },
                                 }}
                             >
@@ -408,7 +410,7 @@ export default function AutoIQPage() {
                     <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: 'var(--text-muted)' }}>
                         Risk Settings
                     </Typography>
-                    <Alert severity="info" sx={{ bgcolor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+                    <Alert severity="info" sx={{ bgcolor: palette.primary.alpha10, border: `1px solid ${palette.borders.accent}` }}>
                         <Typography variant="body2">
                             Risk settings (Trade Size, Take Profit, Stop Loss, Trailing Stop) are coming soon.
                             For now, all auto-trades will use default settings.
@@ -422,17 +424,17 @@ export default function AutoIQPage() {
                         onClick={handleSave}
                         disabled={saving}
                         sx={{
-                            background: 'linear-gradient(135deg, #22c55e, #059669)',
+                            background: palette.gradients.buttonGradient,
                             color: '#ffffff',
                             px: 4,
                             py: 1.5,
                             fontWeight: 600,
                             textTransform: 'none',
                             borderRadius: 2,
-                            boxShadow: '0 4px 12px rgba(34, 197, 94, 0.3)',
+                            boxShadow: `0 4px 12px ${palette.shadows.medium}`,
                             '&:hover': {
-                                background: 'linear-gradient(135deg, #16a34a, #047857)',
-                                boxShadow: '0 6px 16px rgba(34, 197, 94, 0.4)',
+                                background: `linear-gradient(135deg, ${palette.primary.dark}, ${palette.secondary.dark})`,
+                                boxShadow: `0 6px 16px ${palette.shadows.strong}`,
                                 transform: 'translateY(-1px)',
                             },
                             transition: 'all 0.2s ease',

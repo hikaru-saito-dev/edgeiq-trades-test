@@ -5,6 +5,7 @@ import { PaletteMode, ThemeProvider as MUIThemeProvider, useMediaQuery } from '@
 import CssBaseline from '@mui/material/CssBaseline';
 import { createAppTheme } from '@/app/theme';
 import { ToastProvider } from './ToastProvider';
+import { useBranding } from './BrandingProvider';
 
 function getInitialTheme(): PaletteMode {
     if (typeof window === 'undefined') {
@@ -34,6 +35,7 @@ export default function ThemeProvider({
     // Initialize with the theme from the blocking script (prevents flash)
     const [mode, setMode] = useState<PaletteMode>(getInitialTheme);
     const systemPrefersDark = useMediaQuery('(prefers-color-scheme: dark)', { noSsr: true });
+    const { palette } = useBranding();
 
     // Sync with system preference (no localStorage)
     useEffect(() => {
@@ -48,7 +50,22 @@ export default function ThemeProvider({
         }
     }, [mode]);
 
-    const theme = useMemo(() => createAppTheme(mode), [mode]);
+    // Update CSS variables dynamically based on palette
+    useEffect(() => {
+        if (typeof document !== 'undefined') {
+            const root = document.documentElement;
+            root.style.setProperty('--app-bg', palette.backgrounds.appBg);
+            root.style.setProperty('--app-text', palette.text.primary);
+            root.style.setProperty('--text-secondary', palette.text.secondary);
+            root.style.setProperty('--accent-strong', palette.secondary.dark);
+            root.style.setProperty('--surface-bg', palette.backgrounds.surfaceBg);
+            root.style.setProperty('--surface-border', palette.borders.default);
+            root.style.setProperty('--scroll-thumb-start', palette.primary.main);
+            root.style.setProperty('--scroll-thumb-end', palette.secondary.dark);
+        }
+    }, [palette]);
+
+    const theme = useMemo(() => createAppTheme(mode, palette), [mode, palette]);
 
     return (
         <MUIThemeProvider theme={theme}>

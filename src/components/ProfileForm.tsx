@@ -31,6 +31,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import CloseIcon from '@mui/icons-material/Close';
 import { useToast } from './ToastProvider';
+import { useBranding } from './BrandingProvider';
 import { motion } from 'framer-motion';
 import { apiRequest } from '@/lib/apiClient';
 import {
@@ -113,6 +114,8 @@ interface UserData {
     url: string;
     isPremium?: boolean;
   }>;
+  brandColor?: string | null;
+  logoUrl?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
 }
@@ -130,6 +133,9 @@ export default function ProfileForm() {
   const [optIn, setOptIn] = useState(true); // Default to true (opted in)
   const [hideLeaderboardFromMembers, setHideLeaderboardFromMembers] = useState(false);
   const [hideCompanyStatsFromMembers, setHideCompanyStatsFromMembers] = useState(false);
+  const [brandColor, setBrandColor] = useState<string>('');
+  const [logoUrl, setLogoUrl] = useState<string>('');
+  const [brandColorPickerAnchor, setBrandColorPickerAnchor] = useState<HTMLButtonElement | null>(null);
   const [primaryColor, setPrimaryColor] = useState<string>('');
   const [secondaryColor, setSecondaryColor] = useState<string>('');
   const [primaryColorPickerAnchor, setPrimaryColorPickerAnchor] = useState<HTMLButtonElement | null>(null);
@@ -175,6 +181,7 @@ export default function ProfileForm() {
   const [disconnectingBroker, setDisconnectingBroker] = useState<{ id: string; brokerName: string } | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
   const { isAuthorized, loading: accessLoading, userId, companyId, hideCompanyStatsFromMembers: hideCompanyStats } = useAccess();
+  const { palette } = useBranding();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const controlBg = alpha(theme.palette.background.paper, isDark ? 0.75 : 0.98);
@@ -318,6 +325,8 @@ export default function ProfileForm() {
       setOptIn(profileData.user.optIn !== undefined ? profileData.user.optIn : true);
       setHideLeaderboardFromMembers(profileData.user.hideLeaderboardFromMembers ?? false);
       setHideCompanyStatsFromMembers(profileData.user.hideCompanyStatsFromMembers ?? false);
+      setBrandColor(profileData.user.brandColor || '');
+      setLogoUrl(profileData.user.logoUrl || '');
       setPrimaryColor(profileData.user.primaryColor || '');
       setSecondaryColor(profileData.user.secondaryColor || '');
       setWebhooks(profileData.user.webhooks || []);
@@ -496,6 +505,8 @@ export default function ProfileForm() {
         followingDiscordWebhook?: string | null;
         followingWhopWebhook?: string | null;
         membershipPlans?: typeof membershipPlans;
+        brandColor?: string | null;
+        logoUrl?: string | null;
         primaryColor?: string | null;
         secondaryColor?: string | null;
       } = {
@@ -515,7 +526,10 @@ export default function ProfileForm() {
         updateData.hideLeaderboardFromMembers = hideLeaderboardFromMembers;
         updateData.hideCompanyStatsFromMembers = hideCompanyStatsFromMembers;
         updateData.membershipPlans = validPlans;
-        // Only save valid hex colors
+        // Branding colors - only save valid hex colors
+        updateData.brandColor = isValidHexColor(brandColor) ? brandColor.trim() : null;
+        updateData.logoUrl = logoUrl.trim() || null;
+        // Alias/progress bar colors - only save valid hex colors
         updateData.primaryColor = isValidHexColor(primaryColor) ? primaryColor.trim() : null;
         updateData.secondaryColor = isValidHexColor(secondaryColor) ? secondaryColor.trim() : null;
       }
@@ -564,8 +578,8 @@ export default function ProfileForm() {
             size={60}
             thickness={4}
             sx={{
-              color: '#22c55e',
-              filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))',
+              color: palette.primary.main,
+              filter: `drop-shadow(0 0 10px ${palette.primary.alpha50})`,
             }}
           />
         </motion.div>
@@ -579,7 +593,7 @@ export default function ProfileForm() {
             sx={{
               color: 'var(--text-muted)',
               fontWeight: 500,
-              background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+              background: palette.gradients.primaryToSecondary,
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
@@ -704,8 +718,8 @@ export default function ProfileForm() {
             width: 64,
             height: 64,
             border: '3px solid rgba(45, 80, 61, 0.4)',
-            background: 'linear-gradient(135deg, #22c55e, #059669)',
-            boxShadow: '0 4px 20px rgba(34, 197, 94, 0.3)',
+            background: palette.gradients.buttonGradient,
+            boxShadow: `0 4px 20px ${palette.shadows.medium}`,
           }}
         >
           {(userData?.whopDisplayName || userData?.alias || 'U').charAt(0).toUpperCase()}
@@ -955,12 +969,12 @@ export default function ProfileForm() {
                 size="small"
                 startIcon={<AddIcon />}
                 sx={{
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  background: `linear-gradient(135deg, ${palette.secondary.main} 0%, ${palette.secondary.dark} 100%)`,
                   color: 'white',
                   fontWeight: 600,
                   textTransform: 'none',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                    background: `linear-gradient(135deg, ${palette.secondary.dark} 0%, ${palette.primary.dark} 100%)`,
                   },
                 }}
               >
@@ -973,7 +987,7 @@ export default function ProfileForm() {
 
             {loadingBrokers ? (
               <Box display="flex" justifyContent="center" py={4}>
-                <CircularProgress size={24} sx={{ color: '#10b981' }} />
+                <CircularProgress size={24} sx={{ color: palette.secondary.main }} />
               </Box>
             ) : connectedBrokerAccounts.length === 0 ? (
               <Card
@@ -997,14 +1011,14 @@ export default function ProfileForm() {
                   variant="contained"
                   startIcon={<AddIcon />}
                   sx={{
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    background: `linear-gradient(135deg, ${palette.secondary.main} 0%, ${palette.secondary.dark} 100%)`,
                     color: 'white',
                     fontWeight: 600,
                     textTransform: 'none',
                     px: 3,
                     py: 1.5,
                     '&:hover': {
-                      background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                      background: `linear-gradient(135deg, ${palette.secondary.dark} 0%, ${palette.primary.dark} 100%)`,
                     },
                   }}
                 >
@@ -1024,8 +1038,8 @@ export default function ProfileForm() {
                       position: 'relative',
                       overflow: 'hidden',
                       '&:hover': {
-                        borderColor: 'rgba(16, 185, 129, 0.5)',
-                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.1)',
+                        borderColor: palette.secondary.alpha50,
+                        boxShadow: `0 4px 12px ${palette.secondary.alpha10}`,
                       },
                       transition: 'all 0.3s ease',
                     }}
@@ -1037,12 +1051,12 @@ export default function ProfileForm() {
                             width: 40,
                             height: 40,
                             borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            background: `linear-gradient(135deg, ${palette.secondary.main} 0%, ${palette.secondary.dark} 100%)`,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             flexShrink: 0,
-                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                            boxShadow: `0 2px 8px ${palette.secondary.alpha30}`,
                           }}
                         >
                           <CheckCircleIcon sx={{ fontSize: 24, color: 'white' }} />
@@ -1090,7 +1104,7 @@ export default function ProfileForm() {
                           label="Connected"
                           size="small"
                           sx={{
-                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            background: `linear-gradient(135deg, ${palette.secondary.main} 0%, ${palette.secondary.dark} 100%)`,
                             color: 'white',
                             fontWeight: 600,
                             height: 28,
@@ -1132,8 +1146,8 @@ export default function ProfileForm() {
                     borderRadius: 2,
                     fontWeight: 500,
                     '&:hover': {
-                      borderColor: '#10b981',
-                      background: 'rgba(16, 185, 129, 0.1)',
+                      borderColor: palette.secondary.main,
+                      background: palette.secondary.alpha10,
                     },
                   }}
                 >
@@ -1181,18 +1195,18 @@ export default function ProfileForm() {
                 onClick={handleSave}
                 disabled={saving}
                 sx={{
-                  background: 'linear-gradient(135deg, #22c55e, #059669)',
+                  background: palette.gradients.buttonGradient,
                   color: '#ffffff',
                   px: 4,
                   py: 1.5,
                   fontWeight: 600,
                   '&:hover': {
-                    background: 'linear-gradient(135deg, #16a34a, #047857)',
+                    background: `linear-gradient(135deg, ${palette.primary.dark}, ${palette.secondary.dark})`,
                     transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px rgba(34, 197, 94, 0.4)',
+                    boxShadow: `0 4px 12px ${palette.shadows.strong}`,
                   },
                   '&:disabled': {
-                    background: 'rgba(34, 197, 94, 0.3)',
+                    background: palette.primary.alpha30,
                     color: 'rgba(255, 255, 255, 0.5)',
                   },
                   transition: 'all 0.3s ease',
@@ -1337,7 +1351,7 @@ export default function ProfileForm() {
                     {barData.length > 0 && barData.some(d => d.value > 0) ? (
                       <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={barData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(34, 197, 94, 0.2)" />
+                          <CartesianGrid strokeDasharray="3 3" stroke={palette.borders.default} />
                           <XAxis
                             dataKey="name"
                             stroke="#a1a1aa"
@@ -1355,7 +1369,7 @@ export default function ProfileForm() {
                               color: 'var(--app-text)'
                             }}
                           />
-                          <Bar dataKey="value" radius={[8, 8, 0, 0]} fill="#22c55e">
+                          <Bar dataKey="value" radius={[8, 8, 0, 0]} fill={palette.primary.main}>
                             {barData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
@@ -1392,11 +1406,11 @@ export default function ProfileForm() {
                         <AreaChart data={timeSeriesData}>
                           <defs>
                             <linearGradient id="roiGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                              <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                              <stop offset="5%" stopColor={palette.primary.main} stopOpacity={0.3} />
+                              <stop offset="95%" stopColor={palette.primary.main} stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(34, 197, 94, 0.2)" />
+                          <CartesianGrid strokeDasharray="3 3" stroke={palette.borders.default} />
                           <XAxis
                             dataKey="date"
                             stroke="#a1a1aa"
@@ -1418,7 +1432,7 @@ export default function ProfileForm() {
                           <Area
                             type="monotone"
                             dataKey="roi"
-                            stroke="#22c55e"
+                            stroke={palette.primary.main}
                             strokeWidth={3}
                             fillOpacity={1}
                             fill="url(#roiGradient)"
@@ -1443,11 +1457,11 @@ export default function ProfileForm() {
                         <AreaChart data={timeSeriesData}>
                           <defs>
                             <linearGradient id="unitsGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                              <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                              <stop offset="5%" stopColor={palette.secondary.main} stopOpacity={0.3} />
+                              <stop offset="95%" stopColor={palette.secondary.main} stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(34, 197, 94, 0.2)" />
+                          <CartesianGrid strokeDasharray="3 3" stroke={palette.borders.default} />
                           <XAxis
                             dataKey="date"
                             stroke="#a1a1aa"
@@ -1469,7 +1483,7 @@ export default function ProfileForm() {
                           <Area
                             type="monotone"
                             dataKey="netPnl"
-                            stroke="#10b981"
+                            stroke={palette.secondary.main}
                             strokeWidth={3}
                             fillOpacity={1}
                             fill="url(#unitsGradient)"
@@ -1526,7 +1540,7 @@ export default function ProfileForm() {
                       <Typography
                         variant="h4"
                         sx={{
-                          color: (personalStats?.roi || 0) >= 0 ? '#10b981' : '#ef4444',
+                          color: (personalStats?.roi || 0) >= 0 ? palette.secondary.main : '#ef4444',
                           fontWeight: 700
                         }}
                       >
@@ -1549,7 +1563,7 @@ export default function ProfileForm() {
                       <Typography
                         variant="h4"
                         sx={{
-                          color: (personalStats?.netPnl || 0) >= 0 ? '#10b981' : '#ef4444',
+                          color: (personalStats?.netPnl || 0) >= 0 ? palette.secondary.main : '#ef4444',
                           fontWeight: 700
                         }}
                       >
@@ -1575,7 +1589,7 @@ export default function ProfileForm() {
                         alignItems="center"
                         gap={1}
                         sx={{
-                          color: (personalStats?.currentStreak || 0) > 0 ? '#10b981' : '#ffffff',
+                          color: (personalStats?.currentStreak || 0) > 0 ? palette.secondary.main : '#ffffff',
                           fontWeight: 700
                         }}
                       >
@@ -1602,7 +1616,7 @@ export default function ProfileForm() {
                         alignItems="center"
                         gap={1}
                         sx={{
-                          color: (personalStats?.longestStreak || 0) > 0 ? '#10b981' : '#ffffff',
+                          color: (personalStats?.longestStreak || 0) > 0 ? palette.secondary.main : '#ffffff',
                           fontWeight: 700
                         }}
                       >
@@ -1623,7 +1637,7 @@ export default function ProfileForm() {
                       <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
                         Wins
                       </Typography>
-                      <Typography variant="h4" sx={{ color: '#10b981', fontWeight: 700 }}>{personalStats?.winCount || 0}</Typography>
+                      <Typography variant="h4" sx={{ color: palette.secondary.main, fontWeight: 700 }}>{personalStats?.winCount || 0}</Typography>
                     </CardContent>
                   </Card>
                 </Box>
@@ -1666,10 +1680,10 @@ export default function ProfileForm() {
                 onChange={(e) => setOptIn(!e.target.checked)}
                 sx={{
                   '& .MuiSwitch-switchBase.Mui-checked': {
-                    color: '#22c55e',
+                    color: palette.primary.main,
                   },
                   '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                    backgroundColor: '#22c55e',
+                    backgroundColor: palette.primary.main,
                   },
                 }}
               />
@@ -1696,10 +1710,10 @@ export default function ProfileForm() {
                   onChange={(e) => setHideLeaderboardFromMembers(e.target.checked)}
                   sx={{
                     '& .MuiSwitch-switchBase.Mui-checked': {
-                      color: '#22c55e',
+                      color: palette.primary.main,
                     },
                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                      backgroundColor: '#22c55e',
+                      backgroundColor: palette.primary.main,
                     },
                   }}
                 />
@@ -1727,10 +1741,10 @@ export default function ProfileForm() {
                   onChange={(e) => setHideCompanyStatsFromMembers(e.target.checked)}
                   sx={{
                     '& .MuiSwitch-switchBase.Mui-checked': {
-                      color: '#22c55e',
+                      color: palette.primary.main,
                     },
                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                      backgroundColor: '#22c55e',
+                      backgroundColor: palette.primary.main,
                     },
                   }}
                 />
@@ -1749,15 +1763,171 @@ export default function ProfileForm() {
             />
           )}
 
-          {/* White-label Customization */}
+          {/* App Branding Customization */}
           {role === 'companyOwner' && (
             <Box sx={{ mt: 4 }}>
               <Divider sx={{ mb: 3, borderColor: 'var(--surface-border)' }} />
               <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 2, fontWeight: 600 }}>
-                Brand Colors
+                App Branding
               </Typography>
               <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
-                Customize your brand colors that will be displayed on the leaderboard and follow page. Leave empty to use default colors.
+                Customize your app&apos;s overall appearance. The brand color will be used to generate all theme colors automatically.
+              </Typography>
+
+              {/* Brand Color */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                  Brand Color
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block', mb: 1.5 }}>
+                  Single color that generates all app theme colors automatically
+                </Typography>
+                <Box display="flex" gap={1} alignItems="center">
+                  <Button
+                    variant="outlined"
+                    onClick={(e) => setBrandColorPickerAnchor(e.currentTarget)}
+                    sx={{
+                      minWidth: 60,
+                      height: 40,
+                      p: 0,
+                      border: `2px solid ${controlBorder}`,
+                      borderRadius: 1,
+                      backgroundColor: isValidHexColor(brandColor) ? brandColor : 'transparent',
+                      backgroundImage: isValidHexColor(brandColor)
+                        ? 'none'
+                        : 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)',
+                      backgroundSize: '8px 8px',
+                      backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px',
+                      '&:hover': {
+                        borderColor: theme.palette.primary.main,
+                        backgroundColor: isValidHexColor(brandColor) ? brandColor : 'transparent',
+                      },
+                    }}
+                  >
+                    {!brandColor && (
+                      <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                        Pick
+                      </Typography>
+                    )}
+                  </Button>
+                  <TextField
+                    fullWidth
+                    value={brandColor}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '' || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                        setBrandColor(value);
+                      }
+                    }}
+                    placeholder="#22c55e"
+                    size="small"
+                    InputProps={{
+                      startAdornment: isValidHexColor(brandColor) ? (
+                        <Box
+                          sx={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: '4px',
+                            backgroundColor: brandColor,
+                            border: '1px solid var(--surface-border)',
+                            mr: 1,
+                          }}
+                        />
+                      ) : null,
+                    }}
+                    sx={fieldStyles}
+                  />
+                </Box>
+                <Popover
+                  open={Boolean(brandColorPickerAnchor)}
+                  anchorEl={brandColorPickerAnchor}
+                  onClose={() => setBrandColorPickerAnchor(null)}
+                  anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'left',
+                  }}
+                  PaperProps={{
+                    sx: {
+                      p: 2,
+                      background: 'var(--surface-bg)',
+                      border: '1px solid var(--surface-border)',
+                      borderRadius: 2,
+                    },
+                  }}
+                >
+                  <Box>
+                    <Typography variant="body2" sx={{ color: 'var(--app-text)', mb: 1, fontWeight: 500 }}>
+                      Select Brand Color
+                    </Typography>
+                    <input
+                      type="color"
+                      value={isValidHexColor(brandColor) ? brandColor : '#22c55e'}
+                      onChange={(e) => {
+                        setBrandColor(e.target.value);
+                      }}
+                      style={{
+                        width: '100%',
+                        height: '150px',
+                        border: '1px solid var(--surface-border)',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        backgroundColor: 'transparent',
+                      }}
+                    />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={isValidHexColor(brandColor) ? brandColor : '#22c55e'}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                          setBrandColor(value);
+                        }
+                      }}
+                      error={brandColor !== '' && !isValidHexColor(brandColor)}
+                      helperText={brandColor !== '' && !isValidHexColor(brandColor) ? 'Please enter a valid hex color (e.g., #22c55e)' : ''}
+                      placeholder="#22c55e"
+                      sx={{
+                        mt: 1,
+                        '& .MuiOutlinedInput-root': {
+                          color: 'var(--app-text)',
+                          '& fieldset': { borderColor: controlBorder },
+                        },
+                      }}
+                    />
+                  </Box>
+                </Popover>
+              </Box>
+
+              {/* Logo URL */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                  Logo URL
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block', mb: 1.5 }}>
+                  URL to your company logo image (will replace the default logo)
+                </Typography>
+                <TextField
+                  fullWidth
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://example.com/logo.png"
+                  size="small"
+                  sx={fieldStyles}
+                />
+              </Box>
+            </Box>
+          )}
+
+          {/* Alias & Progress Bar Colors */}
+          {role === 'companyOwner' && (
+            <Box sx={{ mt: 4 }}>
+              <Divider sx={{ mb: 3, borderColor: 'var(--surface-border)' }} />
+              <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 2, fontWeight: 600 }}>
+                Alias & Progress Bar Colors
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
+                Customize colors for alias text and progress bars on leaderboard and follow pages. Leave empty to use default colors.
               </Typography>
 
               <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} gap={2} mb={3}>
@@ -2105,7 +2275,7 @@ export default function ProfileForm() {
                 backgroundColor: alpha(theme.palette.background.paper, isDark ? 0.7 : 0.98),
                 border: `1px solid ${controlBorder}`,
                 borderRadius: 3,
-                boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.45)' : '0 4px 20px rgba(34, 197, 94, 0.1)',
+                boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.45)' : `0 4px 20px ${palette.shadows.light}`,
                 transition: 'all 0.3s ease',
                 '&:hover': {
                   borderColor: theme.palette.primary.main,
@@ -2119,7 +2289,7 @@ export default function ProfileForm() {
                     label={`Plan ${index + 1}`}
                     size="small"
                     sx={{
-                      background: 'linear-gradient(135deg, #22c55e, #059669)',
+                      background: palette.gradients.buttonGradient,
                       color: 'var(--app-text)',
                       fontWeight: 600,
                     }}
@@ -2194,10 +2364,10 @@ export default function ProfileForm() {
                       onChange={(e) => handleMembershipPlanChange(plan.id, 'isPremium', e.target.checked)}
                       sx={{
                         '& .MuiSwitch-switchBase.Mui-checked': {
-                          color: '#22c55e',
+                          color: palette.primary.main,
                         },
                         '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                          backgroundColor: '#22c55e',
+                          backgroundColor: palette.primary.main,
                         },
                       }}
                     />
@@ -2228,16 +2398,16 @@ export default function ProfileForm() {
               startIcon={<AddIcon />}
               onClick={handleAddMembershipPlan}
               sx={{
-                color: '#22c55e',
+                color: palette.primary.main,
                 borderColor: 'var(--surface-border)',
                 px: 3,
                 py: 1.5,
                 fontWeight: 600,
                 '&:hover': {
                   borderColor: 'var(--app-text)',
-                  background: 'rgba(34, 197, 94, 0.1)',
+                  background: palette.primary.alpha10,
                   transform: 'translateY(-2px)',
-                  boxShadow: '0 4px 12px rgba(34, 197, 94, 0.2)',
+                  boxShadow: `0 4px 12px ${palette.shadows.light}`,
                 },
                 transition: 'all 0.3s ease',
               }}
@@ -2322,18 +2492,18 @@ export default function ProfileForm() {
               onClick={handleSave}
               disabled={saving}
               sx={{
-                background: 'linear-gradient(135deg, #22c55e, #059669)',
+                background: palette.gradients.buttonGradient,
                 color: 'var(--app-text)',
                 px: 4,
                 py: 1.5,
                 fontWeight: 600,
                 '&:hover': {
-                  background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                  background: `linear-gradient(135deg, ${palette.primary.dark}, ${palette.secondary.dark})`,
                   transform: 'translateY(-2px)',
-                  boxShadow: '0 4px 12px rgba(34, 197, 94, 0.4)',
+                  boxShadow: `0 4px 12px ${palette.shadows.strong}`,
                 },
                 '&:disabled': {
-                  background: 'rgba(34, 197, 94, 0.3)',
+                  background: palette.primary.alpha30,
                   color: 'rgba(255, 255, 255, 0.5)',
                 },
                 transition: 'all 0.3s ease',
@@ -2476,7 +2646,7 @@ export default function ProfileForm() {
                   <Typography
                     variant="h4"
                     sx={{
-                      color: (companyStats?.roi || 0) >= 0 ? '#10b981' : '#ef4444',
+                      color: (companyStats?.roi || 0) >= 0 ? palette.secondary.main : '#ef4444',
                       fontWeight: 700
                     }}
                   >
@@ -2499,7 +2669,7 @@ export default function ProfileForm() {
                   <Typography
                     variant="h4"
                     sx={{
-                      color: (companyStats?.netPnl || 0) >= 0 ? '#10b981' : '#ef4444',
+                      color: (companyStats?.netPnl || 0) >= 0 ? palette.secondary.main : '#ef4444',
                       fontWeight: 700
                     }}
                   >
@@ -2519,7 +2689,7 @@ export default function ProfileForm() {
                   <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
                     Wins
                   </Typography>
-                  <Typography variant="h4" sx={{ color: '#10b981', fontWeight: 700 }}>{companyStats?.winCount || 0}</Typography>
+                  <Typography variant="h4" sx={{ color: palette.secondary.main, fontWeight: 700 }}>{companyStats?.winCount || 0}</Typography>
                 </CardContent>
               </Card>
             </Box>

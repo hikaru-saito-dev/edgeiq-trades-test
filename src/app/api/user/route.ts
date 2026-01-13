@@ -231,8 +231,10 @@ const updateUserSchema = z.object({
   optIn: z.boolean().optional(), // Only owners and companyOwners can opt out (default is opted in)
   hideLeaderboardFromMembers: z.boolean().optional(), // Only companyOwners can set
   hideCompanyStatsFromMembers: z.boolean().optional(), // Only companyOwners can set
-  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Primary color must be a valid hex color (e.g., #3b82f6)').optional().nullable(), // Only companyOwners can set
-  secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Secondary color must be a valid hex color (e.g., #2563eb)').optional().nullable(), // Only companyOwners can set
+  brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Brand color must be a valid hex color (e.g., #3b82f6)').optional().nullable(), // Only companyOwners can set - used for app theming
+  logoUrl: z.string().url().optional().nullable(), // Only companyOwners can set - company logo URL
+  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Primary color must be a valid hex color (e.g., #3b82f6)').optional().nullable(), // Only companyOwners can set - for alias text
+  secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Secondary color must be a valid hex color (e.g., #2563eb)').optional().nullable(), // Only companyOwners can set - for progress bars
   webhooks: z.array(webhookSchema).optional(), // Array of webhooks with names
   notifyOnSettlement: z.boolean().optional(),
   onlyNotifyWinningSettlements: z.boolean().optional(), // Only send settlement webhooks for winning trades
@@ -352,6 +354,8 @@ export async function GET() {
         companyName: company?.companyName,
         companyDescription: company?.companyDescription,
         optIn: company?.optIn ?? true, // optIn is now in Company model
+        brandColor: company?.brandColor || null,
+        logoUrl: company?.logoUrl || null,
         primaryColor: company?.primaryColor || null,
         secondaryColor: company?.secondaryColor || null,
         whopUsername: user.whopUsername,
@@ -513,6 +517,12 @@ export async function PATCH(request: NextRequest) {
       if (validated.hideCompanyStatsFromMembers !== undefined) {
         companyUpdates.hideCompanyStatsFromMembers = validated.hideCompanyStatsFromMembers;
       }
+      if (validated.brandColor !== undefined) {
+        companyUpdates.brandColor = validated.brandColor || undefined;
+      }
+      if (validated.logoUrl !== undefined) {
+        companyUpdates.logoUrl = validated.logoUrl || undefined;
+      }
       if (validated.primaryColor !== undefined) {
         companyUpdates.primaryColor = validated.primaryColor || undefined;
       }
@@ -528,7 +538,8 @@ export async function PATCH(request: NextRequest) {
       // Non-owners cannot update company settings
       if (validated.companyName !== undefined || validated.companyDescription !== undefined ||
         validated.membershipPlans !== undefined || validated.hideLeaderboardFromMembers !== undefined ||
-        validated.hideCompanyStatsFromMembers !== undefined || validated.primaryColor !== undefined ||
+        validated.hideCompanyStatsFromMembers !== undefined || validated.brandColor !== undefined ||
+        validated.logoUrl !== undefined || validated.primaryColor !== undefined ||
         validated.secondaryColor !== undefined) {
         return NextResponse.json(
           { error: 'Only company owners can update company settings' },

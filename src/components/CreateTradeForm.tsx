@@ -25,6 +25,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { useToast } from './ToastProvider';
 import { apiRequest } from '@/lib/apiClient';
 import { useAccess } from './AccessProvider';
+import { useBranding } from './BrandingProvider';
 import { isMarketOpen, getMarketStatusMessage, getMarketHoursString } from '@/utils/marketHours';
 
 interface CreateTradeFormProps {
@@ -36,6 +37,7 @@ interface CreateTradeFormProps {
 export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTradeFormProps) {
   const toast = useToast();
   const { userId, companyId } = useAccess();
+  const { palette } = useBranding();
   const [loading, setLoading] = useState(false);
   const [marketOpen, setMarketOpen] = useState(true);
   const [marketMessage, setMarketMessage] = useState('');
@@ -321,7 +323,7 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
           backdropFilter: 'blur(24px)',
           border: `1px solid ${dialogBorder}`,
           borderRadius: { xs: 2, sm: 3 },
-          boxShadow: isDark ? '0 20px 50px rgba(0,0,0,0.6)' : '0 12px 32px rgba(34, 197, 94, 0.2)',
+          boxShadow: isDark ? '0 20px 50px rgba(0,0,0,0.6)' : `0 12px 32px ${palette.shadows.light}`,
           m: { xs: 1, sm: 2 },
           maxHeight: { xs: 'calc(100vh - 16px)', sm: 'auto' },
         },
@@ -533,13 +535,13 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
             disabled={loading || !marketOpen}
             startIcon={loading ? <CircularProgress size={16} /> : <AddIcon />}
             sx={{
-              background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+              background: palette.gradients.buttonGradient,
               color: '#ffffff',
               '&:hover': {
-                background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
+                background: `linear-gradient(135deg, ${palette.primary.dark} 0%, ${palette.secondary.dark} 100%)`,
               },
               '&:disabled': {
-                background: 'rgba(34, 197, 94, 0.3)',
+                background: palette.primary.alpha30,
               },
             }}
           >

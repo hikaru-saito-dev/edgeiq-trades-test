@@ -3,11 +3,12 @@
 import { Box } from '@mui/material';
 import Image from 'next/image';
 import Link from 'next/link';
-
+import { useBranding } from './BrandingProvider';
 
 export default function Logo() {
-  // Determine text color
+  const { logoUrl } = useBranding();
   const logoWidth = 160;
+  const logoSrc = logoUrl || '/logo.webp';
 
   return (
     <Box
@@ -32,8 +33,8 @@ export default function Logo() {
         }}
       >
         <Image
-          src="/logo.webp"
-          alt="EdgeIQ Logo"
+          src={logoSrc}
+          alt="Company Logo"
           width={logoWidth}
           height={logoWidth}
           style={{

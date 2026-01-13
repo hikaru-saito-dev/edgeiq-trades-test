@@ -38,6 +38,7 @@ import FollowDetailModal from './FollowDetailModal';
 import { useState, useEffect, useRef } from 'react';
 import { alpha, useTheme } from '@mui/material/styles';
 import { useAccess } from './AccessProvider';
+import { useBranding } from './BrandingProvider';
 import { useToast } from './ToastProvider';
 import { apiRequest } from '@/lib/apiClient';
 
@@ -84,6 +85,7 @@ interface LeaderboardEntry {
 export default function LeaderboardTable() {
   const toast = useToast();
   const { userId, companyId, isAuthorized } = useAccess();
+  const { palette } = useBranding();
   const [range, setRange] = useState<'all' | '30d' | '7d'>('all');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -560,10 +562,10 @@ export default function LeaderboardTable() {
                             size="small"
                             onClick={() => handleViewMembership(entry)}
                             sx={{
-                              background: 'linear-gradient(135deg, #22c55e, #059669)',
+                              background: palette.gradients.buttonGradient,
                               color: 'white',
                               '&:hover': {
-                                background: 'linear-gradient(135deg, #16a34a, #047857)',
+                                background: `linear-gradient(135deg, ${palette.primary.dark}, ${palette.secondary.dark})`,
                               },
                             }}
                           >
@@ -768,15 +770,15 @@ export default function LeaderboardTable() {
                         onClick={() => window.open(plan.affiliateLink!, '_blank', 'noopener,noreferrer')}
                         startIcon={<LaunchIcon />}
                         sx={{
-                          background: 'linear-gradient(135deg, #22c55e, #059669)',
+                          background: palette.gradients.buttonGradient,
                           color: 'white',
                           py: 1.5,
                           fontWeight: 600,
-                          boxShadow: '0 4px 20px rgba(34, 197, 94, 0.3)',
+                          boxShadow: `0 4px 20px ${palette.shadows.medium}`,
                           '&:hover': {
-                            background: 'linear-gradient(135deg, #16a34a, #047857)',
+                            background: `linear-gradient(135deg, ${palette.primary.dark}, ${palette.secondary.dark})`,
                             transform: 'translateY(-2px)',
-                            boxShadow: '0 6px 30px rgba(34, 197, 94, 0.4)',
+                            boxShadow: `0 6px 30px ${palette.shadows.strong}`,
                           },
                           transition: 'all 0.3s ease',
                         }}

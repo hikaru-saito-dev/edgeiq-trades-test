@@ -11,8 +11,11 @@ export interface ICompany extends Document {
   hideCompanyStatsFromMembers?: boolean; // Company owner setting to hide company stats toggle from members and admins
   companyOwnerWhopUserId: string; // Reference to owner (person-level)
   // White-label customization (companyOwner only)
-  primaryColor?: string; // Primary brand color (hex)
-  secondaryColor?: string; // Secondary brand color (hex)
+  brandColor?: string; // Single brand color (hex) - used for overall app theming (all colors calculated from this)
+  logoUrl?: string; // Company logo URL
+  // Colors for specific UI elements (separate from brandColor)
+  primaryColor?: string; // Primary color for alias text and progress bars (hex)
+  secondaryColor?: string; // Secondary color for progress bar gradients (hex)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,9 +43,10 @@ const CompanySchema = new Schema<ICompany>({
   hideLeaderboardFromMembers: { type: Boolean, default: false },
   hideCompanyStatsFromMembers: { type: Boolean, default: false },
   companyOwnerWhopUserId: { type: String, required: true },
-  // White-label customization (companyOwner only)
-  primaryColor: { type: String, trim: true }, // Hex color code
-  secondaryColor: { type: String, trim: true }, // Hex color code
+  brandColor: { type: String, trim: true }, // Single brand color (hex) - used for overall app theming (all colors calculated from this)
+  logoUrl: { type: String, trim: true }, // Company logo URL
+  primaryColor: { type: String, trim: true }, // Primary color for alias text and progress bars (hex)
+  secondaryColor: { type: String, trim: true }, // Secondary color for progress bar gradients (hex)
 }, {
   timestamps: true,
 });

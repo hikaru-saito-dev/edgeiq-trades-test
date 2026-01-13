@@ -12,6 +12,7 @@ import {
     TextField,
 } from '@mui/material';
 import WarningIcon from '@mui/icons-material/Warning';
+import { useBranding } from './BrandingProvider';
 
 interface DisconnectBrokerModalProps {
     open: boolean;
@@ -28,6 +29,7 @@ export default function DisconnectBrokerModal({
     brokerName,
     loading = false,
 }: DisconnectBrokerModalProps) {
+    const { palette } = useBranding();
     const [confirmText, setConfirmText] = useState('');
     const isConfirmed = confirmText === 'DELETE';
 
@@ -97,14 +99,14 @@ export default function DisconnectBrokerModal({
                             '& .MuiOutlinedInput-root': {
                                 color: 'var(--app-text)',
                                 '& fieldset': {
-                                    borderColor: isConfirmed ? '#22c55e' : 'var(--surface-border)',
+                                    borderColor: isConfirmed ? palette.primary.main : 'var(--surface-border)',
                                     borderWidth: isConfirmed ? 2 : 1,
                                 },
                                 '&:hover fieldset': {
-                                    borderColor: isConfirmed ? '#22c55e' : 'var(--surface-border)',
+                                    borderColor: isConfirmed ? palette.primary.main : 'var(--surface-border)',
                                 },
                                 '&.Mui-focused fieldset': {
-                                    borderColor: isConfirmed ? '#22c55e' : 'var(--surface-border)',
+                                    borderColor: isConfirmed ? palette.primary.main : 'var(--surface-border)',
                                 },
                             },
                         }}
@@ -130,17 +132,17 @@ export default function DisconnectBrokerModal({
                     variant="contained"
                     sx={{
                         background: isConfirmed
-                            ? 'linear-gradient(135deg, #22c55e, #059669)'
-                            : 'rgba(34, 197, 94, 0.3)',
+                            ? palette.gradients.buttonGradient
+                            : palette.primary.alpha30,
                         color: 'white',
                         fontWeight: 600,
                         '&:hover': {
                             background: isConfirmed
-                                ? 'linear-gradient(135deg, #16a34a, #047857)'
-                                : 'rgba(34, 197, 94, 0.3)',
+                                ? `linear-gradient(135deg, ${palette.primary.dark}, ${palette.secondary.dark})`
+                                : palette.primary.alpha30,
                         },
                         '&:disabled': {
-                            background: 'rgba(34, 197, 94, 0.3)',
+                            background: palette.primary.alpha30,
                             color: 'rgba(255, 255, 255, 0.5)',
                         },
                     }}

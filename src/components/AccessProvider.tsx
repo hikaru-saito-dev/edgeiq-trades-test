@@ -14,6 +14,8 @@ type AccessContextValue = {
   autoTradeMode?: 'auto-trade' | 'notify-only';
   hideLeaderboardFromMembers?: boolean;
   hideCompanyStatsFromMembers?: boolean;
+  brandColor?: string | null;
+  logoUrl?: string | null;
   refresh: () => Promise<void>;
 };
 
@@ -27,6 +29,8 @@ const AccessContext = createContext<AccessContextValue>({
   autoTradeMode: 'notify-only',
   hideLeaderboardFromMembers: false,
   hideCompanyStatsFromMembers: false,
+  brandColor: null,
+  logoUrl: null,
   refresh: async () => { },
 });
 
@@ -52,8 +56,8 @@ export function setExperienceId(experienceId: string | null) {
  * Fetch access role and auth info from API
  * This calls verifyWhopUser ONCE on the server side
  */
-async function fetchAccessRole(experienceId?: string | null): Promise<{ 
-  role: AccessRole; 
+async function fetchAccessRole(experienceId?: string | null): Promise<{
+  role: AccessRole;
   isAuthorized: boolean;
   userId: string | null;
   companyId: string | null;
@@ -61,6 +65,8 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
   autoTradeMode?: 'auto-trade' | 'notify-only';
   hideLeaderboardFromMembers?: boolean;
   hideCompanyStatsFromMembers?: boolean;
+  brandColor?: string | null;
+  logoUrl?: string | null;
 }> {
   try {
     // Include experienceId in the URL if present (from query parameter ?experience=exp_...)
@@ -77,7 +83,7 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     });
 
     if (!response.ok) {
-      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
+      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false, brandColor: null, logoUrl: null };
     }
 
     const data = await response.json();
@@ -89,15 +95,17 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     const autoTradeMode = data.autoTradeMode || 'notify-only';
     const hideLeaderboardFromMembers = data.hideLeaderboardFromMembers ?? false;
     const hideCompanyStatsFromMembers = data.hideCompanyStatsFromMembers ?? false;
-    
+    const brandColor = data.brandColor || null;
+    const logoUrl = data.logoUrl || null;
+
     if (role === 'companyOwner' || role === 'owner' || role === 'admin' || role === 'member' || role === 'none') {
-      return { role, isAuthorized, userId, companyId, hasAutoIQ, autoTradeMode, hideLeaderboardFromMembers, hideCompanyStatsFromMembers };
+      return { role, isAuthorized, userId, companyId, hasAutoIQ, autoTradeMode, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, brandColor, logoUrl };
     }
 
-    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
+    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false, brandColor: null, logoUrl: null };
   } catch (error) {
     console.error('Failed to load access role', error);
-    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false };
+    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false, brandColor: null, logoUrl: null };
   }
 }
 
@@ -111,6 +119,8 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
   const [autoTradeMode, setAutoTradeMode] = useState<'auto-trade' | 'notify-only'>('notify-only');
   const [hideLeaderboardFromMembers, setHideLeaderboardFromMembers] = useState(false);
   const [hideCompanyStatsFromMembers, setHideCompanyStatsFromMembers] = useState(false);
+  const [brandColor, setBrandColor] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [experienceId, setExperienceIdState] = useState<string | null>(null);
 
   // Listen for experienceId changes from page.tsx
@@ -121,7 +131,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     experienceIdListeners.add(listener);
     // Set initial value
     setExperienceIdState(globalExperienceId);
-    
+
     return () => {
       experienceIdListeners.delete(listener);
     };
@@ -140,6 +150,8 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     setAutoTradeMode(result.autoTradeMode || 'notify-only');
     setHideLeaderboardFromMembers(result.hideLeaderboardFromMembers ?? false);
     setHideCompanyStatsFromMembers(result.hideCompanyStatsFromMembers ?? false);
+    setBrandColor(result.brandColor ?? null);
+    setLogoUrl(result.logoUrl ?? null);
     setLoading(false);
   }, [experienceId]);
 
@@ -158,9 +170,11 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       autoTradeMode,
       hideLeaderboardFromMembers,
       hideCompanyStatsFromMembers,
+      brandColor,
+      logoUrl,
       refresh,
     }),
-    [role, isAuthorized, loading, userId, companyId, hasAutoIQ, autoTradeMode, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, refresh],
+    [role, isAuthorized, loading, userId, companyId, hasAutoIQ, autoTradeMode, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, brandColor, logoUrl, refresh],
   );
 
   return (

@@ -31,6 +31,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import { motion } from 'framer-motion';
 import { useAccess } from '@/components/AccessProvider';
+import { useBranding } from '@/components/BrandingProvider';
 import { useToast } from '@/components/ToastProvider';
 import { apiRequest } from '@/lib/apiClient';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
@@ -51,17 +52,18 @@ interface User {
 
 export default function UsersPage() {
   const { role: currentRole, loading: accessLoading, userId, companyId } = useAccess();
+  const { palette } = useBranding();
   const toast = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [roleChanges, setRoleChanges] = useState<Record<string, 'companyOwner' | 'owner' | 'admin' | 'member'>>({});
-  
+
   // Transfer ownership state
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [transferringUserId, setTransferringUserId] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
-  
+
   // Pagination & search
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -122,7 +124,7 @@ export default function UsersPage() {
     }
     try {
       // Only show loading on initial load, not on search/pagination
-      
+
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
       if (search.trim()) params.set('search', search.trim());
       const response = await apiRequest(`/api/users?${params.toString()}`, {
@@ -224,7 +226,7 @@ export default function UsersPage() {
 
   const handleTransferOwnership = async () => {
     if (!transferringUserId) return;
-    
+
     try {
       setTransferring(true);
       const response = await apiRequest('/api/users/transfer-ownership', {
@@ -260,13 +262,13 @@ export default function UsersPage() {
   if (accessLoading || loading) {
     return (
       <Container maxWidth="lg" sx={{ py: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-        <CircularProgress 
+        <CircularProgress
           size={60}
           thickness={4}
-          sx={{ 
-            color: '#22c55e',
-            filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))',
-          }} 
+          sx={{
+            color: palette.primary.main,
+            filter: `drop-shadow(0 0 10px ${palette.primary.alpha50})`,
+          }}
         />
         <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
           Loading...
@@ -278,17 +280,17 @@ export default function UsersPage() {
   if (currentRole !== 'companyOwner' && currentRole !== 'owner') {
     return (
       <Container maxWidth="md" sx={{ py: 6 }}>
-      <Paper
-        sx={{
-          p: 6,
-          textAlign: 'center',
-          borderRadius: 3,
-          background: 'var(--surface-bg)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid var(--surface-border)',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-        }}
-      >
+        <Paper
+          sx={{
+            p: 6,
+            textAlign: 'center',
+            borderRadius: 3,
+            background: 'var(--surface-bg)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid var(--surface-border)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+          }}
+        >
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 600 }}>
             Access Restricted
           </Typography>
@@ -314,7 +316,7 @@ export default function UsersPage() {
             fontWeight={700}
             gutterBottom
             sx={{
-              background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+              background: palette.gradients.primaryToSecondary,
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
@@ -323,8 +325,8 @@ export default function UsersPage() {
           >
             User Management
           </Typography>
-          <Typography 
-            variant="body2" 
+          <Typography
+            variant="body2"
             color="text.secondary"
             sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
           >
@@ -333,11 +335,11 @@ export default function UsersPage() {
         </Box>
 
         {/* Search & Pagination controls */}
-        <Box 
-          display="flex" 
+        <Box
+          display="flex"
           flexDirection={{ xs: 'column', sm: 'row' }}
-          gap={2} 
-          mb={3} 
+          gap={2}
+          mb={3}
           alignItems={{ xs: 'stretch', sm: 'center' }}
         >
           <TextField
@@ -419,7 +421,7 @@ export default function UsersPage() {
                 borderRadius: 3,
               }}
             >
-              <CircularProgress size={40} sx={{ color: '#22c55e' }} />
+              <CircularProgress size={40} sx={{ color: palette.primary.main }} />
             </Box>
           )}
           <TableContainer>
@@ -439,7 +441,7 @@ export default function UsersPage() {
                 {loading && users.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={currentRole === 'companyOwner' ? 5 : 4} align="center" sx={{ py: 4 }}>
-                      <CircularProgress size={40} sx={{ color: '#22c55e' }} />
+                      <CircularProgress size={40} sx={{ color: palette.primary.main }} />
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
@@ -533,9 +535,9 @@ export default function UsersPage() {
                               onClick={() => handleSaveRole(user.whopUserId)}
                               disabled={updating === user.whopUserId}
                               sx={{
-                                background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+                                background: palette.gradients.buttonGradient,
                                 '&:hover': {
-                                  background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
+                                  background: `linear-gradient(135deg, ${palette.primary.dark}, ${palette.secondary.dark})`,
                                 },
                               }}
                             >
@@ -585,7 +587,7 @@ export default function UsersPage() {
               </TableBody>
             </Table>
           </TableContainer>
-          
+
           {/* Pagination */}
           <Box display="flex" justifyContent="center" py={2} gap={2} alignItems="center">
             <Button
@@ -668,7 +670,7 @@ export default function UsersPage() {
               border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
               borderRadius: 3,
               boxShadow: theme.palette.mode === 'light'
-                ? '0 12px 32px rgba(34, 197, 94, 0.08)'
+                ? `0 12px 32px ${palette.shadows.light}`
                 : '0 12px 32px rgba(0, 0, 0, 0.45)',
             },
           }}
@@ -680,16 +682,16 @@ export default function UsersPage() {
             {transferringUserId && (() => {
               const targetUser = users.find(u => u.whopUserId === transferringUserId);
               if (!targetUser) return null;
-              
+
               return (
                 <Box sx={{ textAlign: 'center', py: 2 }}>
                   <Avatar
                     src={targetUser.whopAvatarUrl}
                     alt={targetUser.alias}
-                    sx={{ 
-                      width: 80, 
-                      height: 80, 
-                      mx: 'auto', 
+                    sx={{
+                      width: 80,
+                      height: 80,
+                      mx: 'auto',
                       mb: 2,
                       border: `2px solid ${alpha(theme.palette.primary.main, 0.5)}`,
                     }}

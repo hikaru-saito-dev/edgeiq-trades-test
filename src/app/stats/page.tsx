@@ -19,6 +19,7 @@ import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { apiRequest } from '@/lib/apiClient';
 import { useAccess } from '@/components/AccessProvider';
+import { useBranding } from '@/components/BrandingProvider';
 
 type CalendarDay = {
   date: string;

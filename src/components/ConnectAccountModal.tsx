@@ -15,6 +15,7 @@ import {
 import { useToast } from './ToastProvider';
 import { apiRequest } from '@/lib/apiClient';
 import { useAccess } from './AccessProvider';
+import { useBranding } from './BrandingProvider';
 
 interface ConnectAccountModalProps {
     open: boolean;
@@ -29,6 +30,7 @@ export default function ConnectAccountModal({
 }: ConnectAccountModalProps) {
     const toast = useToast();
     const { userId, companyId } = useAccess();
+    const { palette } = useBranding();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [redirectUri, setRedirectUri] = useState<string | null>(null);
@@ -380,13 +382,13 @@ export default function ConnectAccountModal({
                     disabled={loading || !!redirectUri}
                     variant="contained"
                     sx={{
-                        background: 'linear-gradient(135deg, #22c55e, #059669)',
+                        background: palette.gradients.buttonGradient,
                         color: 'white',
                         '&:hover': {
-                            background: 'linear-gradient(135deg, #16a34a, #047857)',
+                            background: `linear-gradient(135deg, ${palette.primary.dark}, ${palette.secondary.dark})`,
                         },
                         '&:disabled': {
-                            background: 'rgba(34, 197, 94, 0.3)',
+                            background: palette.primary.alpha30,
                         },
                     }}
                 >

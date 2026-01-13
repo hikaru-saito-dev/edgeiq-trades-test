@@ -24,6 +24,7 @@ import TradeCard from '@/components/TradeCard';
 import { useToast } from '@/components/ToastProvider';
 import { motion } from 'framer-motion';
 import { useAccess } from '@/components/AccessProvider';
+import { useBranding } from '@/components/BrandingProvider';
 import { apiRequest } from '@/lib/apiClient';
 import { alpha, useTheme } from '@mui/material/styles';
 
@@ -79,6 +80,7 @@ interface Follow {
 export default function FollowingPage() {
   const toast = useToast();
   const theme = useTheme();
+  const { palette } = useBranding();
   const isDark = theme.palette.mode === 'dark';
   const { isAuthorized, loading: accessLoading, userId, companyId } = useAccess();
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -315,7 +317,7 @@ export default function FollowingPage() {
                             ? `linear-gradient(90deg, ${follow.capper.primaryColor}, ${follow.capper.secondaryColor})`
                             : (follow.capper.primaryColor && follow.capper.primaryColor.trim())
                               ? follow.capper.primaryColor
-                              : 'linear-gradient(90deg, #3b82f6, #2563eb)',
+                              : palette.gradients.buttonGradient,
                           transition: 'width 0.3s ease',
                         }}
                       />

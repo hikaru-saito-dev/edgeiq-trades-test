@@ -16,6 +16,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import LaunchIcon from '@mui/icons-material/Launch';
 import { alpha, useTheme } from '@mui/material/styles';
+import { useBranding } from './BrandingProvider';
 
 interface FollowOffer {
   enabled: boolean;
@@ -41,6 +42,7 @@ interface FollowDetailModalProps {
 
 export default function FollowDetailModal({ open, onClose, entry }: FollowDetailModalProps) {
   const theme = useTheme();
+  const { palette } = useBranding();
   const isDark = theme.palette.mode === 'dark';
 
   if (!entry || !entry.followOffer || !entry.followOffer?.enabled) {
@@ -192,11 +194,11 @@ export default function FollowDetailModal({ open, onClose, entry }: FollowDetail
           disabled={!checkoutUrl}
           endIcon={<LaunchIcon />}
           sx={{
-            background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+            background: palette.gradients.buttonGradient,
             color: 'white',
             fontWeight: 600,
             '&:hover': {
-              background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+              background: `linear-gradient(135deg, ${palette.primary.dark}, ${palette.secondary.dark})`,
             },
             '&:disabled': {
               background: alpha(theme.palette.action.disabled, 0.12),
