@@ -9,6 +9,7 @@ export default function Logo() {
   const { logoUrl } = useBranding();
   const logoWidth = 160;
   const logoSrc = logoUrl || '/logo.webp';
+  const isExternalUrl = logoUrl && (logoUrl.startsWith('http://') || logoUrl.startsWith('https://'));
 
   return (
     <Box
@@ -37,13 +38,18 @@ export default function Logo() {
           alt="Company Logo"
           width={logoWidth}
           height={logoWidth}
-          style={{
-            objectFit: 'contain',
-            position: 'absolute',
-            top: -80,
-            left: 0,
-          }}
+          style={
+            logoUrl
+              ? {
+                objectFit: 'contain',
+                position: 'absolute',
+                top: -80,
+                left: 0,
+              }
+              : undefined
+          }
           priority
+          unoptimized={!!isExternalUrl} // Disable optimization for external URLs to avoid issues
         />
       </Box>
     </Box>
