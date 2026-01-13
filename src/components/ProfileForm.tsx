@@ -115,6 +115,8 @@ interface UserData {
   }>;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  appTitle?: string | null;
+  logoUrl?: string | null;
 }
 
 // Helper function to validate hex color
@@ -132,6 +134,8 @@ export default function ProfileForm() {
   const [hideCompanyStatsFromMembers, setHideCompanyStatsFromMembers] = useState(false);
   const [primaryColor, setPrimaryColor] = useState<string>('');
   const [secondaryColor, setSecondaryColor] = useState<string>('');
+  const [appTitle, setAppTitle] = useState<string>('');
+  const [logoUrl, setLogoUrl] = useState<string>('');
   const [primaryColorPickerAnchor, setPrimaryColorPickerAnchor] = useState<HTMLButtonElement | null>(null);
   const [secondaryColorPickerAnchor, setSecondaryColorPickerAnchor] = useState<HTMLButtonElement | null>(null);
   const [webhooks, setWebhooks] = useState<Array<{ id: string; name: string; url: string; type: 'whop' | 'discord' }>>([]);
@@ -174,7 +178,7 @@ export default function ProfileForm() {
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
   const [disconnectingBroker, setDisconnectingBroker] = useState<{ id: string; brokerName: string } | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
-  const { isAuthorized, loading: accessLoading, userId, companyId, hideCompanyStatsFromMembers: hideCompanyStats } = useAccess();
+  const { isAuthorized, loading: accessLoading, userId, companyId, hideCompanyStatsFromMembers: hideCompanyStats, colorPalette } = useAccess();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const controlBg = alpha(theme.palette.background.paper, isDark ? 0.75 : 0.98);
@@ -320,6 +324,8 @@ export default function ProfileForm() {
       setHideCompanyStatsFromMembers(profileData.user.hideCompanyStatsFromMembers ?? false);
       setPrimaryColor(profileData.user.primaryColor || '');
       setSecondaryColor(profileData.user.secondaryColor || '');
+      setAppTitle(profileData.user.appTitle || '');
+      setLogoUrl(profileData.user.logoUrl || '');
       setWebhooks(profileData.user.webhooks || []);
       setNotifyOnSettlement(profileData.user.notifyOnSettlement ?? false);
       setOnlyNotifyWinningSettlements(profileData.user.onlyNotifyWinningSettlements ?? false);
@@ -498,6 +504,8 @@ export default function ProfileForm() {
         membershipPlans?: typeof membershipPlans;
         primaryColor?: string | null;
         secondaryColor?: string | null;
+        appTitle?: string | null;
+        logoUrl?: string | null;
       } = {
         alias,
         webhooks: webhooks.filter(w => w.name.trim() && w.url.trim()),
@@ -518,6 +526,9 @@ export default function ProfileForm() {
         // Only save valid hex colors
         updateData.primaryColor = isValidHexColor(primaryColor) ? primaryColor.trim() : null;
         updateData.secondaryColor = isValidHexColor(secondaryColor) ? secondaryColor.trim() : null;
+        // Save appTitle and logoUrl (trimmed or null)
+        updateData.appTitle = appTitle.trim() || null;
+        updateData.logoUrl = logoUrl.trim() || null;
       }
 
       const response = await apiRequest('/api/user', { userId, companyId, method: 'PATCH', body: JSON.stringify(updateData) });
@@ -564,8 +575,8 @@ export default function ProfileForm() {
             size={60}
             thickness={4}
             sx={{
-              color: '#22c55e',
-              filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))',
+              color: colorPalette.primary.main,
+              filter: `drop-shadow(0 0 10px ${colorPalette.primary.alpha50})`,
             }}
           />
         </motion.div>
@@ -579,7 +590,7 @@ export default function ProfileForm() {
             sx={{
               color: 'var(--text-muted)',
               fontWeight: 500,
-              background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+              background: colorPalette.gradients.primaryToSecondary,
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
@@ -623,13 +634,13 @@ export default function ProfileForm() {
   }
 
   const pieData = personalStats ? [
-    { name: 'Wins', value: personalStats.winCount || 0, color: '#10b981' },
+    { name: 'Wins', value: personalStats.winCount || 0, color: colorPalette.secondary.main },
     { name: 'Losses', value: personalStats.lossCount || 0, color: '#ef4444' },
     { name: 'Breakeven', value: personalStats.breakevenCount || 0, color: '#f59e0b' },
   ].filter(item => item.value > 0) : [];
 
   const barData = personalStats ? [
-    { name: 'Wins', value: personalStats.winCount || 0, color: '#10b981' },
+    { name: 'Wins', value: personalStats.winCount || 0, color: colorPalette.secondary.main },
     { name: 'Losses', value: personalStats.lossCount || 0, color: '#ef4444' },
     { name: 'Breakeven', value: personalStats.breakevenCount || 0, color: '#f59e0b' },
   ] : [];
@@ -703,9 +714,9 @@ export default function ProfileForm() {
           sx={{
             width: 64,
             height: 64,
-            border: '3px solid rgba(45, 80, 61, 0.4)',
-            background: 'linear-gradient(135deg, #22c55e, #059669)',
-            boxShadow: '0 4px 20px rgba(34, 197, 94, 0.3)',
+            border: `3px solid ${colorPalette.primary.alpha40}`,
+            background: colorPalette.gradients.buttonGradient,
+            boxShadow: `0 4px 20px ${colorPalette.primary.alpha30}`,
           }}
         >
           {(userData?.whopDisplayName || userData?.alias || 'U').charAt(0).toUpperCase()}
@@ -955,12 +966,12 @@ export default function ProfileForm() {
                 size="small"
                 startIcon={<AddIcon />}
                 sx={{
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  background: colorPalette.gradients.buttonGradient,
                   color: 'white',
                   fontWeight: 600,
                   textTransform: 'none',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                    background: `linear-gradient(135deg, ${colorPalette.secondary.main} 0%, ${colorPalette.secondary.dark} 100%)`,
                   },
                 }}
               >
@@ -973,7 +984,7 @@ export default function ProfileForm() {
 
             {loadingBrokers ? (
               <Box display="flex" justifyContent="center" py={4}>
-                <CircularProgress size={24} sx={{ color: '#10b981' }} />
+                <CircularProgress size={24} sx={{ color: colorPalette.secondary.main }} />
               </Box>
             ) : connectedBrokerAccounts.length === 0 ? (
               <Card
@@ -997,14 +1008,14 @@ export default function ProfileForm() {
                   variant="contained"
                   startIcon={<AddIcon />}
                   sx={{
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    background: colorPalette.gradients.buttonGradient,
                     color: 'white',
                     fontWeight: 600,
                     textTransform: 'none',
                     px: 3,
                     py: 1.5,
                     '&:hover': {
-                      background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                      background: `linear-gradient(135deg, ${colorPalette.secondary.main} 0%, ${colorPalette.secondary.dark} 100%)`,
                     },
                   }}
                 >
@@ -1024,8 +1035,8 @@ export default function ProfileForm() {
                       position: 'relative',
                       overflow: 'hidden',
                       '&:hover': {
-                        borderColor: 'rgba(16, 185, 129, 0.5)',
-                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.1)',
+                        borderColor: colorPalette.secondary.alpha50,
+                        boxShadow: `0 4px 12px ${colorPalette.secondary.alpha10}`,
                       },
                       transition: 'all 0.3s ease',
                     }}
@@ -1037,12 +1048,12 @@ export default function ProfileForm() {
                             width: 40,
                             height: 40,
                             borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            background: colorPalette.gradients.buttonGradient,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             flexShrink: 0,
-                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                            boxShadow: `0 2px 8px ${colorPalette.secondary.alpha30}`,
                           }}
                         >
                           <CheckCircleIcon sx={{ fontSize: 24, color: 'white' }} />
@@ -1090,7 +1101,7 @@ export default function ProfileForm() {
                           label="Connected"
                           size="small"
                           sx={{
-                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            background: colorPalette.gradients.buttonGradient,
                             color: 'white',
                             fontWeight: 600,
                             height: 28,
@@ -1132,8 +1143,8 @@ export default function ProfileForm() {
                     borderRadius: 2,
                     fontWeight: 500,
                     '&:hover': {
-                      borderColor: '#10b981',
-                      background: 'rgba(16, 185, 129, 0.1)',
+                      borderColor: colorPalette.secondary.main,
+                      background: colorPalette.secondary.alpha10,
                     },
                   }}
                 >
@@ -1181,18 +1192,18 @@ export default function ProfileForm() {
                 onClick={handleSave}
                 disabled={saving}
                 sx={{
-                  background: 'linear-gradient(135deg, #22c55e, #059669)',
+                  background: colorPalette.gradients.buttonGradient,
                   color: '#ffffff',
                   px: 4,
                   py: 1.5,
                   fontWeight: 600,
                   '&:hover': {
-                    background: 'linear-gradient(135deg, #16a34a, #047857)',
+                    background: `linear-gradient(135deg, ${colorPalette.primary.dark}, ${colorPalette.secondary.dark})`,
                     transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px rgba(34, 197, 94, 0.4)',
+                    boxShadow: `0 4px 12px ${colorPalette.primary.alpha40}`,
                   },
                   '&:disabled': {
-                    background: 'rgba(34, 197, 94, 0.3)',
+                    background: colorPalette.primary.alpha30,
                     color: 'rgba(255, 255, 255, 0.5)',
                   },
                   transition: 'all 0.3s ease',
@@ -1337,7 +1348,7 @@ export default function ProfileForm() {
                     {barData.length > 0 && barData.some(d => d.value > 0) ? (
                       <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={barData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(34, 197, 94, 0.2)" />
+                          <CartesianGrid strokeDasharray="3 3" stroke={colorPalette.borders.default} />
                           <XAxis
                             dataKey="name"
                             stroke="#a1a1aa"
@@ -1355,7 +1366,7 @@ export default function ProfileForm() {
                               color: 'var(--app-text)'
                             }}
                           />
-                          <Bar dataKey="value" radius={[8, 8, 0, 0]} fill="#22c55e">
+                          <Bar dataKey="value" radius={[8, 8, 0, 0]} fill={colorPalette.primary.main}>
                             {barData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
@@ -1392,11 +1403,11 @@ export default function ProfileForm() {
                         <AreaChart data={timeSeriesData}>
                           <defs>
                             <linearGradient id="roiGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                              <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                              <stop offset="5%" stopColor={colorPalette.primary.main} stopOpacity={0.3} />
+                              <stop offset="95%" stopColor={colorPalette.primary.main} stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(34, 197, 94, 0.2)" />
+                          <CartesianGrid strokeDasharray="3 3" stroke={colorPalette.primary.alpha20} />
                           <XAxis
                             dataKey="date"
                             stroke="#a1a1aa"
@@ -1418,7 +1429,7 @@ export default function ProfileForm() {
                           <Area
                             type="monotone"
                             dataKey="roi"
-                            stroke="#22c55e"
+                            stroke={colorPalette.primary.main}
                             strokeWidth={3}
                             fillOpacity={1}
                             fill="url(#roiGradient)"
@@ -1443,11 +1454,11 @@ export default function ProfileForm() {
                         <AreaChart data={timeSeriesData}>
                           <defs>
                             <linearGradient id="unitsGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                              <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                              <stop offset="5%" stopColor={colorPalette.secondary.main} stopOpacity={0.3} />
+                              <stop offset="95%" stopColor={colorPalette.secondary.main} stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(34, 197, 94, 0.2)" />
+                          <CartesianGrid strokeDasharray="3 3" stroke={colorPalette.primary.alpha20} />
                           <XAxis
                             dataKey="date"
                             stroke="#a1a1aa"
@@ -1469,7 +1480,7 @@ export default function ProfileForm() {
                           <Area
                             type="monotone"
                             dataKey="netPnl"
-                            stroke="#10b981"
+                            stroke={colorPalette.secondary.main}
                             strokeWidth={3}
                             fillOpacity={1}
                             fill="url(#unitsGradient)"
@@ -1526,7 +1537,7 @@ export default function ProfileForm() {
                       <Typography
                         variant="h4"
                         sx={{
-                          color: (personalStats?.roi || 0) >= 0 ? '#10b981' : '#ef4444',
+                          color: (personalStats?.roi || 0) >= 0 ? colorPalette.secondary.main : '#ef4444',
                           fontWeight: 700
                         }}
                       >
@@ -1549,7 +1560,7 @@ export default function ProfileForm() {
                       <Typography
                         variant="h4"
                         sx={{
-                          color: (personalStats?.netPnl || 0) >= 0 ? '#10b981' : '#ef4444',
+                          color: (personalStats?.netPnl || 0) >= 0 ? colorPalette.secondary.main : '#ef4444',
                           fontWeight: 700
                         }}
                       >
@@ -1575,7 +1586,7 @@ export default function ProfileForm() {
                         alignItems="center"
                         gap={1}
                         sx={{
-                          color: (personalStats?.currentStreak || 0) > 0 ? '#10b981' : '#ffffff',
+                          color: (personalStats?.currentStreak || 0) > 0 ? colorPalette.secondary.main : '#ffffff',
                           fontWeight: 700
                         }}
                       >
@@ -1602,7 +1613,7 @@ export default function ProfileForm() {
                         alignItems="center"
                         gap={1}
                         sx={{
-                          color: (personalStats?.longestStreak || 0) > 0 ? '#10b981' : '#ffffff',
+                          color: (personalStats?.longestStreak || 0) > 0 ? colorPalette.secondary.main : '#ffffff',
                           fontWeight: 700
                         }}
                       >
@@ -1623,7 +1634,7 @@ export default function ProfileForm() {
                       <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
                         Wins
                       </Typography>
-                      <Typography variant="h4" sx={{ color: '#10b981', fontWeight: 700 }}>{personalStats?.winCount || 0}</Typography>
+                      <Typography variant="h4" sx={{ color: colorPalette.secondary.main, fontWeight: 700 }}>{personalStats?.winCount || 0}</Typography>
                     </CardContent>
                   </Card>
                 </Box>
@@ -1666,10 +1677,10 @@ export default function ProfileForm() {
                 onChange={(e) => setOptIn(!e.target.checked)}
                 sx={{
                   '& .MuiSwitch-switchBase.Mui-checked': {
-                    color: '#22c55e',
+                    color: colorPalette.primary.main,
                   },
                   '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                    backgroundColor: '#22c55e',
+                    backgroundColor: colorPalette.primary.main,
                   },
                 }}
               />
@@ -1696,10 +1707,10 @@ export default function ProfileForm() {
                   onChange={(e) => setHideLeaderboardFromMembers(e.target.checked)}
                   sx={{
                     '& .MuiSwitch-switchBase.Mui-checked': {
-                      color: '#22c55e',
+                      color: colorPalette.primary.main,
                     },
                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                      backgroundColor: '#22c55e',
+                      backgroundColor: colorPalette.primary.main,
                     },
                   }}
                 />
@@ -1727,10 +1738,10 @@ export default function ProfileForm() {
                   onChange={(e) => setHideCompanyStatsFromMembers(e.target.checked)}
                   sx={{
                     '& .MuiSwitch-switchBase.Mui-checked': {
-                      color: '#22c55e',
+                      color: colorPalette.primary.main,
                     },
                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                      backgroundColor: '#22c55e',
+                      backgroundColor: colorPalette.primary.main,
                     },
                   }}
                 />
@@ -2105,7 +2116,7 @@ export default function ProfileForm() {
                 backgroundColor: alpha(theme.palette.background.paper, isDark ? 0.7 : 0.98),
                 border: `1px solid ${controlBorder}`,
                 borderRadius: 3,
-                boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.45)' : '0 4px 20px rgba(34, 197, 94, 0.1)',
+                boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.45)' : `0 4px 20px ${colorPalette.shadows.light}`,
                 transition: 'all 0.3s ease',
                 '&:hover': {
                   borderColor: theme.palette.primary.main,
@@ -2119,7 +2130,7 @@ export default function ProfileForm() {
                     label={`Plan ${index + 1}`}
                     size="small"
                     sx={{
-                      background: 'linear-gradient(135deg, #22c55e, #059669)',
+                      background: colorPalette.gradients.buttonGradient,
                       color: 'var(--app-text)',
                       fontWeight: 600,
                     }}
@@ -2194,10 +2205,10 @@ export default function ProfileForm() {
                       onChange={(e) => handleMembershipPlanChange(plan.id, 'isPremium', e.target.checked)}
                       sx={{
                         '& .MuiSwitch-switchBase.Mui-checked': {
-                          color: '#22c55e',
+                          color: colorPalette.primary.main,
                         },
                         '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                          backgroundColor: '#22c55e',
+                          backgroundColor: colorPalette.primary.main,
                         },
                       }}
                     />
@@ -2228,16 +2239,16 @@ export default function ProfileForm() {
               startIcon={<AddIcon />}
               onClick={handleAddMembershipPlan}
               sx={{
-                color: '#22c55e',
+                color: colorPalette.primary.main,
                 borderColor: 'var(--surface-border)',
                 px: 3,
                 py: 1.5,
                 fontWeight: 600,
                 '&:hover': {
                   borderColor: 'var(--app-text)',
-                  background: 'rgba(34, 197, 94, 0.1)',
+                  background: colorPalette.primary.alpha10,
                   transform: 'translateY(-2px)',
-                  boxShadow: '0 4px 12px rgba(34, 197, 94, 0.2)',
+                  boxShadow: `0 4px 12px ${colorPalette.primary.alpha20}`,
                 },
                 transition: 'all 0.3s ease',
               }}
@@ -2322,7 +2333,7 @@ export default function ProfileForm() {
               onClick={handleSave}
               disabled={saving}
               sx={{
-                background: 'linear-gradient(135deg, #22c55e, #059669)',
+                background: colorPalette.gradients.buttonGradient,
                 color: 'var(--app-text)',
                 px: 4,
                 py: 1.5,
@@ -2330,10 +2341,10 @@ export default function ProfileForm() {
                 '&:hover': {
                   background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
                   transform: 'translateY(-2px)',
-                  boxShadow: '0 4px 12px rgba(34, 197, 94, 0.4)',
+                  boxShadow: `0 4px 12px ${colorPalette.primary.alpha40}`,
                 },
                 '&:disabled': {
-                  background: 'rgba(34, 197, 94, 0.3)',
+                  background: colorPalette.primary.alpha30,
                   color: 'rgba(255, 255, 255, 0.5)',
                 },
                 transition: 'all 0.3s ease',
@@ -2476,7 +2487,7 @@ export default function ProfileForm() {
                   <Typography
                     variant="h4"
                     sx={{
-                      color: (companyStats?.roi || 0) >= 0 ? '#10b981' : '#ef4444',
+                      color: (companyStats?.roi || 0) >= 0 ? colorPalette.secondary.main : '#ef4444',
                       fontWeight: 700
                     }}
                   >
@@ -2499,7 +2510,7 @@ export default function ProfileForm() {
                   <Typography
                     variant="h4"
                     sx={{
-                      color: (companyStats?.netPnl || 0) >= 0 ? '#10b981' : '#ef4444',
+                      color: (companyStats?.netPnl || 0) >= 0 ? colorPalette.secondary.main : '#ef4444',
                       fontWeight: 700
                     }}
                   >
@@ -2519,7 +2530,7 @@ export default function ProfileForm() {
                   <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
                     Wins
                   </Typography>
-                  <Typography variant="h4" sx={{ color: '#10b981', fontWeight: 700 }}>{companyStats?.winCount || 0}</Typography>
+                  <Typography variant="h4" sx={{ color: colorPalette.secondary.main, fontWeight: 700 }}>{companyStats?.winCount || 0}</Typography>
                 </CardContent>
               </Card>
             </Box>

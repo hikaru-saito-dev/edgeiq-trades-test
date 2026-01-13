@@ -22,16 +22,14 @@ import Logo from './Logo';
 import { alpha } from '@mui/material/styles';
 
 export default function Navigation() {
-  const { isAuthorized, role, loading, hideLeaderboardFromMembers } = useAccess();
+  const { isAuthorized, role, loading, hideLeaderboardFromMembers, colorPalette } = useAccess();
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
-  const navGradient = isDark
-    ? 'linear-gradient(180deg, #02150B 0%, #063021 100%)'
-    : 'linear-gradient(180deg, #1e3a2a 0%, #2D503D 100%)';
-  const navTextColor = isDark ? '#E9FFF4' : '#F0FFF4';
-  const navHoverBg = alpha('#FFFFFF', isDark ? 0.12 : 0.18);
+  const navGradient = colorPalette.gradients.headerGradient;
+  const navTextColor = isDark ? colorPalette.text.primary : colorPalette.text.primary;
+  const navHoverBg = alpha(colorPalette.primary.main, isDark ? 0.12 : 0.18);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

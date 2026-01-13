@@ -147,20 +147,29 @@ export async function GET(request: NextRequest) {
     // Users are authorized if they're companyOwner/owner/admin/member (members can create trades and view profile)
     const isAuthorized = role === 'companyOwner' || role === 'owner' || role === 'admin' || role === 'member';
 
-    // Get hideLeaderboardFromMembers and hideCompanyStatsFromMembers settings from company
+    // Get company settings and branding
     let hideLeaderboardFromMembers = false;
     let hideCompanyStatsFromMembers = false;
-    if (role === 'member' || role === 'admin') {
-      try {
-        const company = await Company.findOne({ companyId });
-        if (company) {
+    let primaryColor: string | null = null;
+    let secondaryColor: string | null = null;
+    let appTitle: string | null = null;
+    let logoUrl: string | null = null;
+
+    try {
+      const company = await Company.findOne({ companyId }).select('hideLeaderboardFromMembers hideCompanyStatsFromMembers primaryColor secondaryColor appTitle logoUrl');
+      if (company) {
+        if (role === 'member' || role === 'admin') {
           hideLeaderboardFromMembers = company.hideLeaderboardFromMembers ?? false;
           hideCompanyStatsFromMembers = company.hideCompanyStatsFromMembers ?? false;
         }
-      } catch (error) {
-        console.error('Error fetching company settings:', error);
-        // Use defaults if company lookup fails
+        primaryColor = company.primaryColor || null;
+        secondaryColor = company.secondaryColor || null;
+        appTitle = company.appTitle || null;
+        logoUrl = company.logoUrl || null;
       }
+    } catch (error) {
+      console.error('Error fetching company settings:', error);
+      // Use defaults if company lookup fails
     }
 
     // Get hasAutoIQ and autoTradeMode from user
@@ -175,7 +184,11 @@ export async function GET(request: NextRequest) {
       hasAutoIQ,
       autoTradeMode,
       hideLeaderboardFromMembers: role === 'member' ? hideLeaderboardFromMembers : undefined,
-      hideCompanyStatsFromMembers: (role === 'member' || role === 'admin') ? hideCompanyStatsFromMembers : undefined
+      hideCompanyStatsFromMembers: (role === 'member' || role === 'admin') ? hideCompanyStatsFromMembers : undefined,
+      primaryColor,
+      secondaryColor,
+      appTitle,
+      logoUrl,
     });
   } catch (error) {
     console.error('Error in /api/auth/role:', error);

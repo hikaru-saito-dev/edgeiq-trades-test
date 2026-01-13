@@ -233,6 +233,8 @@ const updateUserSchema = z.object({
   hideCompanyStatsFromMembers: z.boolean().optional(), // Only companyOwners can set
   primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Primary color must be a valid hex color (e.g., #3b82f6)').optional().nullable(), // Only companyOwners can set
   secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Secondary color must be a valid hex color (e.g., #2563eb)').optional().nullable(), // Only companyOwners can set
+  appTitle: z.string().min(1).max(100).optional().nullable(), // Only companyOwners can set
+  logoUrl: z.string().url('Logo URL must be a valid URL').optional().nullable(), // Only companyOwners can set
   webhooks: z.array(webhookSchema).optional(), // Array of webhooks with names
   notifyOnSettlement: z.boolean().optional(),
   onlyNotifyWinningSettlements: z.boolean().optional(), // Only send settlement webhooks for winning trades
@@ -354,6 +356,8 @@ export async function GET() {
         optIn: company?.optIn ?? true, // optIn is now in Company model
         primaryColor: company?.primaryColor || null,
         secondaryColor: company?.secondaryColor || null,
+        appTitle: company?.appTitle || null,
+        logoUrl: company?.logoUrl || null,
         whopUsername: user.whopUsername,
         whopDisplayName: user.whopDisplayName,
         whopAvatarUrl: user.whopAvatarUrl,
@@ -519,6 +523,12 @@ export async function PATCH(request: NextRequest) {
       if (validated.secondaryColor !== undefined) {
         companyUpdates.secondaryColor = validated.secondaryColor || undefined;
       }
+      if (validated.appTitle !== undefined) {
+        companyUpdates.appTitle = validated.appTitle || undefined;
+      }
+      if (validated.logoUrl !== undefined) {
+        companyUpdates.logoUrl = validated.logoUrl || undefined;
+      }
 
       if (Object.keys(companyUpdates).length > 0) {
         Object.assign(company, companyUpdates);
@@ -529,7 +539,7 @@ export async function PATCH(request: NextRequest) {
       if (validated.companyName !== undefined || validated.companyDescription !== undefined ||
         validated.membershipPlans !== undefined || validated.hideLeaderboardFromMembers !== undefined ||
         validated.hideCompanyStatsFromMembers !== undefined || validated.primaryColor !== undefined ||
-        validated.secondaryColor !== undefined) {
+        validated.secondaryColor !== undefined || validated.appTitle !== undefined || validated.logoUrl !== undefined) {
         return NextResponse.json(
           { error: 'Only company owners can update company settings' },
           { status: 403 }

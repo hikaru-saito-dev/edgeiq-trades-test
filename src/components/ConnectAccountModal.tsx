@@ -28,7 +28,7 @@ export default function ConnectAccountModal({
     onSuccess,
 }: ConnectAccountModalProps) {
     const toast = useToast();
-    const { userId, companyId } = useAccess();
+    const { userId, companyId, colorPalette } = useAccess();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [redirectUri, setRedirectUri] = useState<string | null>(null);
@@ -380,13 +380,13 @@ export default function ConnectAccountModal({
                     disabled={loading || !!redirectUri}
                     variant="contained"
                     sx={{
-                        background: 'linear-gradient(135deg, #22c55e, #059669)',
+                        background: colorPalette.gradients.buttonGradient,
                         color: 'white',
                         '&:hover': {
-                            background: 'linear-gradient(135deg, #16a34a, #047857)',
+                            background: `linear-gradient(135deg, ${colorPalette.primary.dark}, ${colorPalette.secondary.dark})`,
                         },
                         '&:disabled': {
-                            background: 'rgba(34, 197, 94, 0.3)',
+                            background: colorPalette.primary.alpha30,
                         },
                     }}
                 >

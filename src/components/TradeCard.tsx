@@ -78,7 +78,7 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
   const [settleContracts, setSettleContracts] = useState<number>(1);
   const [fillsExpanded, setFillsExpanded] = useState(false);
   const [downloadingSnapshot, setDownloadingSnapshot] = useState(false);
-  const { userId, companyId, hasAutoIQ, autoTradeMode } = useAccess();
+  const { userId, companyId, hasAutoIQ, autoTradeMode, colorPalette } = useAccess();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const statBg = alpha(theme.palette.primary.main, isDark ? 0.25 : 0.12);
@@ -267,12 +267,12 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
           borderRadius: 3,
           boxShadow: isDark
             ? '0 20px 40px rgba(0, 0, 0, 0.45)'
-            : '0 8px 32px rgba(34, 197, 94, 0.15)',
+            : `0 8px 32px ${colorPalette.shadows.medium}`,
           transition: 'all 0.3s ease',
           '&:hover': {
             boxShadow: isDark
               ? '0 24px 48px rgba(0, 0, 0, 0.5)'
-              : '0 12px 40px rgba(34, 197, 94, 0.25)',
+              : `0 12px 40px ${colorPalette.shadows.strong}`,
             transform: 'translateY(-4px)',
             borderColor: trade.status === 'REJECTED'
               ? alpha(theme.palette.error.main, 0.8)

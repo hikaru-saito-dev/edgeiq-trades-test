@@ -1,10 +1,27 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, createContext, useContext } from 'react';
 import { PaletteMode, ThemeProvider as MUIThemeProvider, useMediaQuery } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { createAppTheme } from '@/app/theme';
 import { ToastProvider } from './ToastProvider';
+import type { ColorPalette } from '@/lib/colorUtils';
+import { setCSSVariables } from '@/lib/cssVariables';
+
+// Context to pass colorPalette from AccessProvider to ThemeProvider
+const ColorPaletteContext = createContext<ColorPalette | undefined>(undefined);
+
+export function ColorPaletteProvider({ colorPalette, children }: { colorPalette?: ColorPalette; children: React.ReactNode }) {
+  return (
+    <ColorPaletteContext.Provider value={colorPalette}>
+      {children}
+    </ColorPaletteContext.Provider>
+  );
+}
+
+function useColorPalette() {
+  return useContext(ColorPaletteContext);
+}
 
 function getInitialTheme(): PaletteMode {
   if (typeof window === 'undefined') {
@@ -35,6 +52,9 @@ export default function ThemeProvider({
   const [mode, setMode] = useState<PaletteMode>(getInitialTheme);
   const systemPrefersDark = useMediaQuery('(prefers-color-scheme: dark)', { noSsr: true });
 
+  // Get color palette from context (set by AccessProvider via ColorPaletteProvider)
+  const colorPalette = useColorPalette();
+
   // Sync with system preference (no localStorage)
   useEffect(() => {
     setMode(systemPrefersDark ? 'dark' : 'light');
@@ -48,7 +68,14 @@ export default function ThemeProvider({
     }
   }, [mode]);
 
-  const theme = useMemo(() => createAppTheme(mode), [mode]);
+  // Update CSS variables when colorPalette or mode changes
+  useEffect(() => {
+    if (typeof document !== 'undefined' && colorPalette) {
+      setCSSVariables(colorPalette, mode === 'dark');
+    }
+  }, [colorPalette, mode]);
+
+  const theme = useMemo(() => createAppTheme(mode, colorPalette), [mode, colorPalette]);
 
   return (
     <MUIThemeProvider theme={theme}>
@@ -57,4 +84,3 @@ export default function ThemeProvider({
     </MUIThemeProvider>
   );
 }
-

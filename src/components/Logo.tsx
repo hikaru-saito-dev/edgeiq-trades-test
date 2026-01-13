@@ -3,11 +3,21 @@
 import { Box } from '@mui/material';
 import Image from 'next/image';
 import Link from 'next/link';
-
+import { useAccess } from './AccessProvider';
+import { useState, useEffect } from 'react';
 
 export default function Logo() {
-  // Determine text color
+  const { logoUrl } = useAccess();
+  const [imageError, setImageError] = useState(false);
   const logoWidth = 160;
+
+  // Use custom logo URL if provided, otherwise use default
+  const logoSrc = logoUrl && logoUrl.trim() && !imageError ? logoUrl : '/logo.webp';
+
+  // Reset error when logoUrl changes
+  useEffect(() => {
+    setImageError(false);
+  }, [logoUrl]);
 
   return (
     <Box
@@ -32,8 +42,8 @@ export default function Logo() {
         }}
       >
         <Image
-          src="/logo.webp"
-          alt="EdgeIQ Logo"
+          src={logoSrc}
+          alt="App Logo"
           width={logoWidth}
           height={logoWidth}
           style={{
@@ -43,6 +53,12 @@ export default function Logo() {
             left: 0,
           }}
           priority
+          onError={() => {
+            // If custom logo fails to load, fallback to default
+            if (logoUrl && logoUrl.trim()) {
+              setImageError(true);
+            }
+          }}
         />
       </Box>
     </Box>
