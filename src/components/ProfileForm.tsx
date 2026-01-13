@@ -2496,7 +2496,7 @@ export default function ProfileForm() {
               disabled={saving}
               sx={{
                 background: palette.gradients.buttonGradient,
-                color: 'var(--app-text)',
+                color: '#ffffff',
                 px: 4,
                 py: 1.5,
                 fontWeight: 600,
