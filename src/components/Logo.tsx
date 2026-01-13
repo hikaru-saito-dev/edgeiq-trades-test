@@ -40,10 +40,7 @@ export default function Logo() {
           height={logoWidth}
           style={
             logoUrl
-              ? {
-                width: 64,
-                height: 64,
-              }: {
+              ? undefined: {
                 objectFit: 'contain',
                 position: 'absolute',
                 top: -80,
