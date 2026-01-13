@@ -40,13 +40,12 @@ export default function Logo() {
           height={logoWidth}
           style={
             logoUrl
-              ? {
+              ? undefined: {
                 objectFit: 'contain',
                 position: 'absolute',
                 top: -80,
                 left: 0,
               }
-              : undefined
           }
           priority
           unoptimized={!!isExternalUrl} // Disable optimization for external URLs to avoid issues
