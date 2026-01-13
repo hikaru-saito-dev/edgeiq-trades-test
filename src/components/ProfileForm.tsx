@@ -180,7 +180,7 @@ export default function ProfileForm() {
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
   const [disconnectingBroker, setDisconnectingBroker] = useState<{ id: string; brokerName: string } | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
-  const { isAuthorized, loading: accessLoading, userId, companyId, hideCompanyStatsFromMembers: hideCompanyStats } = useAccess();
+  const { isAuthorized, loading: accessLoading, userId, companyId, hideCompanyStatsFromMembers: hideCompanyStats, refresh: refreshAccess } = useAccess();
   const { palette } = useBranding();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -555,8 +555,11 @@ export default function ProfileForm() {
         }
       }
 
-      // Refresh stats
-      await fetchProfile(userId, companyId);
+      // Refresh stats and access context (to update brandColor/logoUrl)
+      await Promise.all([
+        fetchProfile(userId, companyId),
+        refreshAccess(), // Refresh AccessProvider to get updated brandColor and logoUrl
+      ]);
       toast.showSuccess('Profile updated successfully!');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update profile';

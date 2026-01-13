@@ -107,16 +107,16 @@ function calculateSecondaryColor(primaryHex: string): string {
   if (!rgb) return primaryHex;
 
   const [h, s, l] = rgbToHsl(rgb.r, rgb.g, rgb.b);
-  
+
   // Shift hue by ~18° (towards cyan/teal direction)
   const newH = (h + 18) % 360;
-  
+
   // Increase saturation by ~13% (but cap at 100%)
   const newS = Math.min(100, s + 13);
-  
+
   // Decrease lightness by ~9% (but don't go below 0)
   const newL = Math.max(0, l - 9);
-  
+
   const [r, g, b] = hslToRgb(newH, newS, newL);
   return rgbToHex(r, g, b);
 }
@@ -353,7 +353,7 @@ export function generateColorPalette(
 ): ColorPalette {
   // Use default if color is not provided or invalid
   const primaryColor = isValidHexColor(primary || '') ? primary! : DEFAULT_PRIMARY;
-  
+
   // Calculate secondary color automatically from primary
   const secondaryColor = calculateSecondaryColor(primaryColor);
 
@@ -373,9 +373,16 @@ export function generateColorPalette(
   // Generate gradients (pattern: button gradient uses primary main to secondary dark)
   const primaryToSecondary = `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryDark} 100%)`;
   const buttonGradient = `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryDark} 100%)`;
-  const headerGradient = `linear-gradient(180deg, ${darkenColor(primaryColor, 40)} 0%, ${darkenColor(primaryColor, 20)} 100%)`;
-  // Light mode header: darker green gradient (pattern from original: #1e3a2a to #2D503D)
-  const headerGradientLight = `linear-gradient(180deg, ${darkenColor(primaryColor, 50)} 0%, ${darkenColor(primaryColor, 45)} 100%)`;
+  // Header gradients: use generateDarkBackgroundColor for proper scaling
+  // Dark mode header: very dark to dark (pattern from original: #02150B to #063021)
+  const headerDark1 = generateDarkBackgroundColor(primaryColor, 40.8); // Very dark
+  const headerDark2 = generateDarkBackgroundColor(primaryColor, 37.3); // Dark
+  const headerGradient = `linear-gradient(180deg, ${headerDark1} 0%, ${headerDark2} 100%)`;
+  // Light mode header: darker gradient (pattern from original: #1e3a2a to #2D503D)
+  // Use darker colors but not as dark as dark mode
+  const headerLight1 = generateDarkBackgroundColor(primaryColor, 28.8); // Medium dark
+  const headerLight2 = generateDarkBackgroundColor(primaryColor, 25.0); // Slightly lighter
+  const headerGradientLight = `linear-gradient(180deg, ${headerLight1} 0%, ${headerLight2} 100%)`;
 
   // Generate light mode background gradient
   // Pattern: Very light (52% lightness increase) -> Light (46% increase) -> Medium light (35% increase)
