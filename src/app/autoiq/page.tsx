@@ -15,7 +15,7 @@ interface BrokerAccount {
 }
 
 export default function AutoIQPage() {
-    const { isAuthorized, userId, companyId, hasAutoIQ, loading: accessLoading, colorPalette } = useAccess();
+    const { isAuthorized, userId, companyId, hasAutoIQ, loading: accessLoading } = useAccess();
     const toast = useToast();
     const [autoTradeMode, setAutoTradeMode] = useState<'auto-trade' | 'notify-only'>('notify-only');
     const [defaultBrokerConnectionId, setDefaultBrokerConnectionId] = useState<string | null>(null);
@@ -172,7 +172,7 @@ export default function AutoIQPage() {
                         sx={{
                             fontWeight: 700,
                             mb: 1,
-                            background: colorPalette.gradients.primaryToSecondary,
+                            background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
                             backgroundClip: 'text',
@@ -210,17 +210,17 @@ export default function AutoIQPage() {
                             window.open(upgradeUrl, '_blank');
                         }}
                         sx={{
-                            background: colorPalette.gradients.buttonGradient,
+                            background: 'linear-gradient(135deg, #22c55e, #059669)',
                             color: '#ffffff',
                             px: 6,
                             py: 1.5,
                             fontWeight: 600,
                             textTransform: 'none',
                             borderRadius: 2,
-                            boxShadow: `0 4px 12px ${colorPalette.primary.alpha30}`,
+                            boxShadow: '0 4px 12px rgba(34, 197, 94, 0.3)',
                             '&:hover': {
-                                background: `linear-gradient(135deg, ${colorPalette.primary.dark}, ${colorPalette.secondary.dark})`,
-                                boxShadow: `0 6px 16px ${colorPalette.primary.alpha40}`,
+                                background: 'linear-gradient(135deg, #16a34a, #047857)',
+                                boxShadow: '0 6px 16px rgba(34, 197, 94, 0.4)',
                                 transform: 'translateY(-1px)',
                             },
                             transition: 'all 0.2s ease',
@@ -242,7 +242,7 @@ export default function AutoIQPage() {
                     sx={{
                         fontWeight: 700,
                         mb: 1,
-                        background: colorPalette.gradients.primaryToSecondary,
+                        background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
                         backgroundClip: 'text',
@@ -288,7 +288,7 @@ export default function AutoIQPage() {
                                     sx={{
                                         color: 'var(--text-muted)',
                                         '&.Mui-checked': {
-                                            color: colorPalette.primary.main,
+                                            color: '#22c55e',
                                         },
                                     }}
                                 />
@@ -309,10 +309,10 @@ export default function AutoIQPage() {
                                 p: 2,
                                 borderRadius: 1,
                                 border: '1px solid var(--surface-border)',
-                                bgcolor: autoTradeMode === 'auto-trade' ? colorPalette.primary.alpha10 : 'transparent',
+                                bgcolor: autoTradeMode === 'auto-trade' ? 'rgba(34, 197, 94, 0.1)' : 'transparent',
                                 transition: 'all 0.2s ease',
                                 '&:hover': {
-                                    bgcolor: colorPalette.primary.alpha10,
+                                    bgcolor: 'rgba(34, 197, 94, 0.05)',
                                 },
                             }}
                         />
@@ -323,7 +323,7 @@ export default function AutoIQPage() {
                                     sx={{
                                         color: 'var(--text-muted)',
                                         '&.Mui-checked': {
-                                            color: colorPalette.primary.main,
+                                            color: '#22c55e',
                                         },
                                     }}
                                 />
@@ -343,10 +343,10 @@ export default function AutoIQPage() {
                                 p: 2,
                                 borderRadius: 1,
                                 border: '1px solid var(--surface-border)',
-                                bgcolor: autoTradeMode === 'notify-only' ? colorPalette.primary.alpha10 : 'transparent',
+                                bgcolor: autoTradeMode === 'notify-only' ? 'rgba(34, 197, 94, 0.1)' : 'transparent',
                                 transition: 'all 0.2s ease',
                                 '&:hover': {
-                                    bgcolor: colorPalette.primary.alpha10,
+                                    bgcolor: 'rgba(34, 197, 94, 0.05)',
                                 },
                             }}
                         />
@@ -384,10 +384,10 @@ export default function AutoIQPage() {
                                         borderColor: 'var(--surface-border)',
                                     },
                                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: colorPalette.primary.main,
+                                        borderColor: '#22c55e',
                                     },
                                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: colorPalette.primary.main,
+                                        borderColor: '#22c55e',
                                     },
                                 }}
                             >
@@ -408,7 +408,7 @@ export default function AutoIQPage() {
                     <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: 'var(--text-muted)' }}>
                         Risk Settings
                     </Typography>
-                    <Alert severity="info" sx={{ bgcolor: colorPalette.primary.alpha10, border: `1px solid ${colorPalette.borders.default}` }}>
+                    <Alert severity="info" sx={{ bgcolor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
                         <Typography variant="body2">
                             Risk settings (Trade Size, Take Profit, Stop Loss, Trailing Stop) are coming soon.
                             For now, all auto-trades will use default settings.
@@ -422,17 +422,17 @@ export default function AutoIQPage() {
                         onClick={handleSave}
                         disabled={saving}
                         sx={{
-                            background: colorPalette.gradients.buttonGradient,
+                            background: 'linear-gradient(135deg, #22c55e, #059669)',
                             color: '#ffffff',
                             px: 4,
                             py: 1.5,
                             fontWeight: 600,
                             textTransform: 'none',
                             borderRadius: 2,
-                            boxShadow: `0 4px 12px ${colorPalette.shadows.medium}`,
+                            boxShadow: '0 4px 12px rgba(34, 197, 94, 0.3)',
                             '&:hover': {
-                                background: `linear-gradient(135deg, ${colorPalette.primary.dark}, ${colorPalette.secondary.dark})`,
-                                boxShadow: `0 6px 16px ${colorPalette.shadows.strong}`,
+                                background: 'linear-gradient(135deg, #16a34a, #047857)',
+                                boxShadow: '0 6px 16px rgba(34, 197, 94, 0.4)',
                                 transform: 'translateY(-1px)',
                             },
                             transition: 'all 0.2s ease',

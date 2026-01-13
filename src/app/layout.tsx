@@ -39,8 +39,8 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className} suppressHydrationWarning>
-        <AccessProvider>
-          <ThemeProvider>
+        <ThemeProvider>
+          <AccessProvider>
             <Box
               sx={{
                 minHeight: '100vh',
@@ -66,8 +66,8 @@ export default function RootLayout({
                 {children}
               </Box>
             </Box>
-          </ThemeProvider>
-        </AccessProvider>
+          </AccessProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

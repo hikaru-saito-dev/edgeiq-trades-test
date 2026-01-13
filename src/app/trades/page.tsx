@@ -64,7 +64,7 @@ export default function TradesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [warningOpen, setWarningOpen] = useState(false);
   const [hasCompanyId, setHasCompanyId] = useState<boolean | null>(null);
-  const { isAuthorized, loading: accessLoading, userId, companyId, colorPalette } = useAccess();
+  const { isAuthorized, loading: accessLoading, userId, companyId } = useAccess();
   const [marketOpen, setMarketOpen] = useState(true);
 
   // Pagination & search
@@ -172,8 +172,8 @@ export default function TradesPage() {
             size={60}
             thickness={4}
             sx={{
-              color: colorPalette.primary.main,
-              filter: `drop-shadow(0 0 10px ${colorPalette.primary.alpha50})`,
+              color: '#22c55e',
+              filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))',
             }}
           />
           <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
@@ -221,7 +221,7 @@ export default function TradesPage() {
               fontWeight={700}
               gutterBottom
               sx={{
-                background: colorPalette.gradients.primaryToSecondary,
+                background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
@@ -254,15 +254,15 @@ export default function TradesPage() {
               width: { xs: '100%', sm: 'auto' },
               px: { xs: 2, sm: 3 },
               py: 1.5,
-              background: colorPalette.gradients.buttonGradient,
-              boxShadow: `0 8px 32px ${colorPalette.shadows.medium}`,
+              background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+              boxShadow: '0 8px 32px rgba(34, 197, 94, 0.3)',
               '&:hover': {
-                background: `linear-gradient(135deg, ${colorPalette.primary.dark} 0%, ${colorPalette.secondary.dark} 100%)`,
-                boxShadow: `0 12px 40px ${colorPalette.shadows.strong}`,
+                background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
+                boxShadow: '0 12px 40px rgba(34, 197, 94, 0.4)',
                 transform: 'translateY(-2px)',
               },
               '&:disabled': {
-                background: colorPalette.primary.alpha30,
+                background: 'rgba(34, 197, 94, 0.3)',
               },
               transition: 'all 0.3s ease',
             }}
@@ -373,8 +373,8 @@ export default function TradesPage() {
               size={60}
               thickness={4}
               sx={{
-                color: colorPalette.primary.main,
-                filter: `drop-shadow(0 0 10px ${colorPalette.primary.alpha50})`,
+                color: '#22c55e',
+                filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))',
               }}
             />
           </motion.div>
@@ -422,11 +422,11 @@ export default function TradesPage() {
                 }}
                 disabled={!marketOpen}
                 sx={{
-                  background: colorPalette.gradients.buttonGradient,
-                  boxShadow: `0 8px 32px ${colorPalette.shadows.medium}`,
+                  background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
+                  boxShadow: '0 8px 32px rgba(34, 197, 94, 0.3)',
                   '&:hover': {
-                    background: `linear-gradient(135deg, ${colorPalette.primary.dark} 0%, ${colorPalette.secondary.dark} 100%)`,
-                    boxShadow: `0 12px 40px ${colorPalette.shadows.strong}`,
+                    background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
+                    boxShadow: '0 12px 40px rgba(34, 197, 94, 0.4)',
                     transform: 'translateY(-2px)',
                   },
                   transition: 'all 0.3s ease',
@@ -538,10 +538,10 @@ export default function TradesPage() {
               window.location.href = '/profile';
             }}
             sx={{
-              background: colorPalette.gradients.buttonGradient,
+              background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
               color: '#ffffff',
               '&:hover': {
-                background: `linear-gradient(135deg, ${colorPalette.primary.dark} 0%, ${colorPalette.secondary.dark} 100%)`,
+                background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
               },
             }}
           >

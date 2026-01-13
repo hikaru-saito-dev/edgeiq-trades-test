@@ -13,8 +13,6 @@ export interface ICompany extends Document {
   // White-label customization (companyOwner only)
   primaryColor?: string; // Primary brand color (hex)
   secondaryColor?: string; // Secondary brand color (hex)
-  appTitle?: string; // Custom app title (e.g., "EdgeIQ Trades")
-  logoUrl?: string; // Custom logo image URL
   createdAt: Date;
   updatedAt: Date;
 }
@@ -45,8 +43,6 @@ const CompanySchema = new Schema<ICompany>({
   // White-label customization (companyOwner only)
   primaryColor: { type: String, trim: true }, // Hex color code
   secondaryColor: { type: String, trim: true }, // Hex color code
-  appTitle: { type: String, trim: true }, // Custom app title
-  logoUrl: { type: String, trim: true }, // Custom logo URL
 }, {
   timestamps: true,
 });

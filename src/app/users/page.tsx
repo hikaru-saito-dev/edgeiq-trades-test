@@ -50,7 +50,7 @@ interface User {
 }
 
 export default function UsersPage() {
-  const { role: currentRole, loading: accessLoading, userId, companyId, colorPalette } = useAccess();
+  const { role: currentRole, loading: accessLoading, userId, companyId } = useAccess();
   const toast = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -264,8 +264,8 @@ export default function UsersPage() {
           size={60}
           thickness={4}
           sx={{ 
-            color: colorPalette.primary.main,
-            filter: `drop-shadow(0 0 10px ${colorPalette.primary.alpha50})`,
+            color: '#22c55e',
+            filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))',
           }} 
         />
         <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
@@ -314,7 +314,7 @@ export default function UsersPage() {
             fontWeight={700}
             gutterBottom
             sx={{
-              background: colorPalette.gradients.primaryToSecondary,
+              background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
@@ -419,7 +419,7 @@ export default function UsersPage() {
                 borderRadius: 3,
               }}
             >
-              <CircularProgress size={40} sx={{ color: colorPalette.primary.main }} />
+              <CircularProgress size={40} sx={{ color: '#22c55e' }} />
             </Box>
           )}
           <TableContainer>
@@ -439,7 +439,7 @@ export default function UsersPage() {
                 {loading && users.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={currentRole === 'companyOwner' ? 5 : 4} align="center" sx={{ py: 4 }}>
-                      <CircularProgress size={40} sx={{ color: colorPalette.primary.main }} />
+                      <CircularProgress size={40} sx={{ color: '#22c55e' }} />
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
@@ -533,9 +533,9 @@ export default function UsersPage() {
                               onClick={() => handleSaveRole(user.whopUserId)}
                               disabled={updating === user.whopUserId}
                               sx={{
-                                background: colorPalette.gradients.buttonGradient,
+                                background: 'linear-gradient(135deg, #22c55e 0%, #059669 100%)',
                                 '&:hover': {
-                                  background: `linear-gradient(135deg, ${colorPalette.primary.dark} 0%, ${colorPalette.secondary.dark} 100%)`,
+                                  background: 'linear-gradient(135deg, #16a34a 0%, #047857 100%)',
                                 },
                               }}
                             >
@@ -668,7 +668,7 @@ export default function UsersPage() {
               border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
               borderRadius: 3,
               boxShadow: theme.palette.mode === 'light'
-                ? `0 12px 32px ${colorPalette.shadows.light}`
+                ? '0 12px 32px rgba(34, 197, 94, 0.08)'
                 : '0 12px 32px rgba(0, 0, 0, 0.45)',
             },
           }}

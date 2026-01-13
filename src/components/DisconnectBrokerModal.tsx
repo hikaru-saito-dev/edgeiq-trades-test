@@ -12,7 +12,6 @@ import {
     TextField,
 } from '@mui/material';
 import WarningIcon from '@mui/icons-material/Warning';
-import { useAccess } from './AccessProvider';
 
 interface DisconnectBrokerModalProps {
     open: boolean;
@@ -29,7 +28,6 @@ export default function DisconnectBrokerModal({
     brokerName,
     loading = false,
 }: DisconnectBrokerModalProps) {
-    const { colorPalette } = useAccess();
     const [confirmText, setConfirmText] = useState('');
     const isConfirmed = confirmText === 'DELETE';
 
@@ -99,14 +97,14 @@ export default function DisconnectBrokerModal({
                             '& .MuiOutlinedInput-root': {
                                 color: 'var(--app-text)',
                                 '& fieldset': {
-                                    borderColor: isConfirmed ? colorPalette.primary.main : 'var(--surface-border)',
+                                    borderColor: isConfirmed ? '#22c55e' : 'var(--surface-border)',
                                     borderWidth: isConfirmed ? 2 : 1,
                                 },
                                 '&:hover fieldset': {
-                                    borderColor: isConfirmed ? colorPalette.primary.main : 'var(--surface-border)',
+                                    borderColor: isConfirmed ? '#22c55e' : 'var(--surface-border)',
                                 },
                                 '&.Mui-focused fieldset': {
-                                    borderColor: isConfirmed ? colorPalette.primary.main : 'var(--surface-border)',
+                                    borderColor: isConfirmed ? '#22c55e' : 'var(--surface-border)',
                                 },
                             },
                         }}
@@ -132,17 +130,17 @@ export default function DisconnectBrokerModal({
                     variant="contained"
                     sx={{
                         background: isConfirmed
-                            ? colorPalette.gradients.buttonGradient
-                            : colorPalette.primary.alpha30,
+                            ? 'linear-gradient(135deg, #22c55e, #059669)'
+                            : 'rgba(34, 197, 94, 0.3)',
                         color: 'white',
                         fontWeight: 600,
                         '&:hover': {
                             background: isConfirmed
-                                ? `linear-gradient(135deg, ${colorPalette.primary.dark}, ${colorPalette.secondary.dark})`
-                                : colorPalette.primary.alpha30,
+                                ? 'linear-gradient(135deg, #16a34a, #047857)'
+                                : 'rgba(34, 197, 94, 0.3)',
                         },
                         '&:disabled': {
-                            background: colorPalette.primary.alpha30,
+                            background: 'rgba(34, 197, 94, 0.3)',
                             color: 'rgba(255, 255, 255, 0.5)',
                         },
                     }}
@@ -153,4 +151,3 @@ export default function DisconnectBrokerModal({
         </Dialog>
     );
 }
-
