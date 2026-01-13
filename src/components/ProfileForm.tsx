@@ -202,13 +202,13 @@ export default function ProfileForm() {
       },
     },
     '& .MuiInputLabel-root': {
-      color: 'var(--text-muted)',
+      color: 'text.secondary',
       '&.Mui-focused': {
         color: theme.palette.primary.main,
       },
     },
     '& .MuiFormHelperText-root': {
-      color: 'var(--text-muted)',
+      color: 'text.secondary',
     },
   };
 
@@ -594,7 +594,7 @@ export default function ProfileForm() {
           <Typography
             variant="h6"
             sx={{
-              color: 'var(--text-muted)',
+              color: 'text.secondary',
               fontWeight: 500,
               background: palette.gradients.primaryToSecondary,
               backgroundClip: 'text',
@@ -732,7 +732,7 @@ export default function ProfileForm() {
             {userData?.whopDisplayName || userData?.alias || 'Profile'}
           </Typography>
           {userData?.whopUsername && (
-            <Typography variant="body2" sx={{ color: 'var(--text-muted)', mt: 0.5 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
               @{userData.whopUsername}
             </Typography>
           )}
@@ -756,7 +756,7 @@ export default function ProfileForm() {
             sx={{
               borderBottom: '1px solid var(--surface-border)',
               '& .MuiTab-root': {
-                color: 'var(--text-muted)',
+                color: 'text.secondary',
                 textTransform: 'none',
                 fontSize: '1rem',
                 fontWeight: 500,
@@ -795,7 +795,7 @@ export default function ProfileForm() {
               <Typography variant="h6" sx={{ color: 'var(--app-text)', mt: 3, mb: 2, fontWeight: 600 }}>
                 Notification Webhooks
               </Typography>
-              <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 2 }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
                 Configure webhook URLs to receive trade notifications.
               </Typography>
               {/* Multiple Webhooks Section */}
@@ -863,11 +863,11 @@ export default function ProfileForm() {
                         color: 'var(--app-text)',
                         '& fieldset': { borderColor: controlBorder },
                       },
-                      '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
+                      '& .MuiInputLabel-root': { color: 'text.secondary' },
                     }}
                   />
                   <FormControl fullWidth margin="normal" size="small">
-                    <InputLabel sx={{ color: 'var(--text-muted)' }}>Type</InputLabel>
+                    <InputLabel sx={{ color: 'text.secondary' }}>Type</InputLabel>
                     <Select
                       value={webhook.type}
                       onChange={(e) => handleWebhookChange(webhook.id, 'type', e.target.value)}
@@ -894,7 +894,7 @@ export default function ProfileForm() {
                         color: 'var(--app-text)',
                         '& fieldset': { borderColor: controlBorder },
                       },
-                      '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
+                      '& .MuiInputLabel-root': { color: 'text.secondary' },
                     }}
                   />
                 </Paper>
@@ -920,7 +920,7 @@ export default function ProfileForm() {
                     <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
                       Notify on Trade Settlement
                     </Typography>
-                    <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
                       Receive notifications when trades are settled (win/loss, P&L, and trade details)
                     </Typography>
                   </Box>
@@ -949,7 +949,7 @@ export default function ProfileForm() {
                       <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
                         Only Notify on Winning Trades
                       </Typography>
-                      <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block' }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
                         Only send settlement notifications for winning trades. Losses and breakevens will be silent.
                       </Typography>
                     </Box>
@@ -984,7 +984,7 @@ export default function ProfileForm() {
                 Connect Broker
               </Button>
             </Box>
-            <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
               Connect your trading account via SnapTrade to place option trades. Your credentials are securely managed through SnapTrade&apos;s login portal.
             </Typography>
 
@@ -1002,11 +1002,11 @@ export default function ProfileForm() {
                   textAlign: 'center',
                 }}
               >
-                <AccountBalanceIcon sx={{ fontSize: 64, color: 'var(--text-muted)', mb: 2, opacity: 0.5 }} />
+                  <AccountBalanceIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2, opacity: 0.5 }} />
                 <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 1, fontWeight: 600 }}>
                   No broker accounts connected
                 </Typography>
-                <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
                   Connect a broker account to start placing option trades
                 </Typography>
                 <Button
@@ -1080,7 +1080,7 @@ export default function ProfileForm() {
                             <Typography
                               variant="body2"
                               sx={{
-                                color: 'var(--text-muted)',
+                                color: 'text.secondary',
                                 mb: 1,
                                 fontFamily: 'monospace',
                               }}
@@ -1121,7 +1121,7 @@ export default function ProfileForm() {
                           onClick={() => handleDisconnectClick(account.id, account.brokerName)}
                           size="small"
                           sx={{
-                            color: 'var(--text-muted)',
+                            color: 'text.secondary',
                             '&:hover': {
                               color: '#ef4444',
                               background: 'rgba(239, 68, 68, 0.1)',
@@ -1164,7 +1164,7 @@ export default function ProfileForm() {
             <Typography variant="h6" sx={{ color: 'var(--app-text)', mt: 3, mb: 2, fontWeight: 600 }}>
               Following Page Webhooks
             </Typography>
-            <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 2 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
               Receive notifications when creators you follow create new trades. You can configure both Discord and Whop webhooks.
             </Typography>
 
@@ -1331,7 +1331,7 @@ export default function ProfileForm() {
                       </ResponsiveContainer>
                     ) : (
                       <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Typography sx={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+                        <Typography sx={{ color: 'text.secondary', textAlign: 'center' }}>
                           No trade data available yet.<br />
                           Create your first trade to see the breakdown!
                         </Typography>
@@ -1381,7 +1381,7 @@ export default function ProfileForm() {
                       </ResponsiveContainer>
                     ) : (
                       <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Typography sx={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+                        <Typography sx={{ color: 'text.secondary', textAlign: 'center' }}>
                           No trade data available yet.<br />
                           Create your first trade to see the comparison!
                         </Typography>
@@ -1507,7 +1507,7 @@ export default function ProfileForm() {
                     borderRadius: 2
                   }}>
                     <CardContent>
-                      <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                      <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                         Total Trades
                       </Typography>
                       <Typography variant="h4" sx={{ color: 'var(--app-text)', fontWeight: 700 }}>{personalStats?.totalTrades || 0}</Typography>
@@ -1522,7 +1522,7 @@ export default function ProfileForm() {
                     borderRadius: 2
                   }}>
                     <CardContent>
-                      <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                      <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                         Win Rate
                       </Typography>
                       <Typography variant="h4" sx={{ color: 'var(--app-text)', fontWeight: 700 }}>{(personalStats?.winRate ?? 0).toFixed(2)}%</Typography>
@@ -1537,7 +1537,7 @@ export default function ProfileForm() {
                     borderRadius: 2
                   }}>
                     <CardContent>
-                      <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                      <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                         ROI
                       </Typography>
                       <Typography
@@ -1560,7 +1560,7 @@ export default function ProfileForm() {
                     borderRadius: 2
                   }}>
                     <CardContent>
-                      <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                      <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                         Net P&L
                       </Typography>
                       <Typography
@@ -1583,7 +1583,7 @@ export default function ProfileForm() {
                     borderRadius: 2
                   }}>
                     <CardContent>
-                      <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                      <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                         Current Streak
                       </Typography>
                       <Typography
@@ -1610,7 +1610,7 @@ export default function ProfileForm() {
                     borderRadius: 2
                   }}>
                     <CardContent>
-                      <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                      <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                         Longest Streak
                       </Typography>
                       <Typography
@@ -1637,7 +1637,7 @@ export default function ProfileForm() {
                     borderRadius: 2
                   }}>
                     <CardContent>
-                      <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                      <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                         Wins
                       </Typography>
                       <Typography variant="h4" sx={{ color: palette.secondary.main, fontWeight: 700 }}>{personalStats?.winCount || 0}</Typography>
@@ -1652,7 +1652,7 @@ export default function ProfileForm() {
                     borderRadius: 2
                   }}>
                     <CardContent>
-                      <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                      <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                         Losses
                       </Typography>
                       <Typography variant="h4" sx={{ color: '#ef4444', fontWeight: 700 }}>{personalStats?.lossCount || 0}</Typography>
@@ -1671,7 +1671,7 @@ export default function ProfileForm() {
           <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 3, fontWeight: 600 }}>
             Company Profile
           </Typography>
-          <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
             Company information is automatically set from your Whop account. Company ID, name, and description are managed through Whop.
           </Typography>
 
@@ -1696,7 +1696,7 @@ export default function ProfileForm() {
                 <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
                   Opt out of Leaderboard
                 </Typography>
-                <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
                   Your company will appear on the leaderboard by default. Toggle this to opt out.
                 </Typography>
               </Box>
@@ -1726,7 +1726,7 @@ export default function ProfileForm() {
                   <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
                     Hide Leaderboard from Members
                   </Typography>
-                  <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
                     When enabled, users with the member role will not be able to see the leaderboard tab. They will only see their Profile and Trades tabs.
                   </Typography>
                 </Box>
@@ -1757,7 +1757,7 @@ export default function ProfileForm() {
                   <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
                     Hide Company Stats from Members and Admins
                   </Typography>
-                  <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
                     When enabled, users with the member or admin role will not be able to see the company stats toggle on the Performance Calendar page. They will only see their personal stats.
                   </Typography>
                 </Box>
@@ -1773,16 +1773,16 @@ export default function ProfileForm() {
               <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 2, fontWeight: 600 }}>
                 App Branding
               </Typography>
-              <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
                 Customize your app&apos;s overall appearance. The brand color will be used to generate all theme colors automatically.
               </Typography>
 
               {/* Brand Color */}
               <Box sx={{ mb: 3 }}>
-                <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
                   Brand Color
                 </Typography>
-                <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block', mb: 1.5 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
                   Single color that generates all app theme colors automatically
                 </Typography>
                 <Box display="flex" gap={1} alignItems="center">
@@ -1808,7 +1808,7 @@ export default function ProfileForm() {
                     }}
                   >
                     {!brandColor && (
-                      <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                         Pick
                       </Typography>
                     )}
@@ -1904,10 +1904,10 @@ export default function ProfileForm() {
 
               {/* Logo URL */}
               <Box sx={{ mb: 3 }}>
-                <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
                   Logo URL
                 </Typography>
-                <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block', mb: 1.5 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
                   URL to your company logo image (will replace the default logo)
                 </Typography>
                 <TextField
@@ -1929,13 +1929,13 @@ export default function ProfileForm() {
               <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 2, fontWeight: 600 }}>
                 Alias & Progress Bar Colors
               </Typography>
-              <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
                 Customize colors for alias text and progress bars on leaderboard and follow pages. Leave empty to use default colors.
               </Typography>
 
               <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} gap={2} mb={3}>
                 <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
                     Primary Color
                   </Typography>
                   <Box display="flex" gap={1} alignItems="center">
@@ -1961,7 +1961,7 @@ export default function ProfileForm() {
                       }}
                     >
                       {!primaryColor && (
-                        <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                           Pick
                         </Typography>
                       )}
@@ -1997,8 +1997,8 @@ export default function ProfileForm() {
                           color: 'var(--app-text)',
                           '& fieldset': { borderColor: controlBorder },
                         },
-                        '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
-                        '& .MuiFormHelperText-root': { color: 'var(--text-muted)' },
+                        '& .MuiInputLabel-root': { color: 'text.secondary' },
+                        '& .MuiFormHelperText-root': { color: 'text.secondary' },
                       }}
                     />
                   </Box>
@@ -2063,7 +2063,7 @@ export default function ProfileForm() {
                   </Popover>
                 </Box>
                 <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
                     Secondary Color
                   </Typography>
                   <Box display="flex" gap={1} alignItems="center">
@@ -2089,7 +2089,7 @@ export default function ProfileForm() {
                       }}
                     >
                       {!secondaryColor && (
-                        <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                           Pick
                         </Typography>
                       )}
@@ -2125,8 +2125,8 @@ export default function ProfileForm() {
                           color: 'var(--app-text)',
                           '& fieldset': { borderColor: controlBorder },
                         },
-                        '& .MuiInputLabel-root': { color: 'var(--text-muted)' },
-                        '& .MuiFormHelperText-root': { color: 'var(--text-muted)' },
+                        '& .MuiInputLabel-root': { color: 'text.secondary' },
+                        '& .MuiFormHelperText-root': { color: 'text.secondary' },
                       }}
                     />
                   </Box>
@@ -2234,7 +2234,7 @@ export default function ProfileForm() {
                         >
                           {alias || 'Your Name'}
                         </Typography>
-                        <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                           Leaderboard Entry
                         </Typography>
                       </Box>
@@ -2264,7 +2264,7 @@ export default function ProfileForm() {
             <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 1, fontWeight: 600 }}>
               Membership Plans
             </Typography>
-            <Typography variant="body2" sx={{ color: 'var(--text-muted)' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               Add your whop link that you want connected to the leaderboard. Only owners can manage membership plans.
             </Typography>
           </Box>
@@ -2425,7 +2425,7 @@ export default function ProfileForm() {
             <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 1, fontWeight: 600 }}>
               Follow Offer
             </Typography>
-            <Typography variant="body2" sx={{ color: 'var(--text-muted)' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               Enable followers to purchase access to your trades. Only owners and company owners can set up follow offers.
             </Typography>
           </Box>
@@ -2443,7 +2443,7 @@ export default function ProfileForm() {
                 <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
                   Enable Follow Offer
                 </Typography>
-                <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
                   Allow users to purchase access to follow your trades
                 </Typography>
               </Box>
@@ -2600,7 +2600,7 @@ export default function ProfileForm() {
               {downloadingCompanySnapshot ? 'Generating...' : 'Download Snapshot'}
             </Button>
           </Box>
-          <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
             These stats include all trades from all users (companyOwners, owners and admins) in your company.
           </Typography>
 
@@ -2613,7 +2613,7 @@ export default function ProfileForm() {
                 borderRadius: 2
               }}>
                 <CardContent>
-                  <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                  <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                     Total Trades
                   </Typography>
                   <Typography variant="h4" sx={{ color: 'var(--app-text)', fontWeight: 700 }}>{companyStats?.totalTrades || 0}</Typography>
@@ -2628,7 +2628,7 @@ export default function ProfileForm() {
                 borderRadius: 2
               }}>
                 <CardContent>
-                  <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                  <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                     Win Rate
                   </Typography>
                   <Typography variant="h4" sx={{ color: 'var(--app-text)', fontWeight: 700 }}>{(companyStats?.winRate ?? 0).toFixed(2)}%</Typography>
@@ -2643,7 +2643,7 @@ export default function ProfileForm() {
                 borderRadius: 2
               }}>
                 <CardContent>
-                  <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                  <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                     ROI
                   </Typography>
                   <Typography
@@ -2666,7 +2666,7 @@ export default function ProfileForm() {
                 borderRadius: 2
               }}>
                 <CardContent>
-                  <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                  <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                     Net P&L
                   </Typography>
                   <Typography
@@ -2689,7 +2689,7 @@ export default function ProfileForm() {
                 borderRadius: 2
               }}>
                 <CardContent>
-                  <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                  <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                     Wins
                   </Typography>
                   <Typography variant="h4" sx={{ color: palette.secondary.main, fontWeight: 700 }}>{companyStats?.winCount || 0}</Typography>
@@ -2704,7 +2704,7 @@ export default function ProfileForm() {
                 borderRadius: 2
               }}>
                 <CardContent>
-                  <Typography sx={{ color: 'var(--text-muted)', mb: 1 }} gutterBottom>
+                  <Typography sx={{ color: 'text.secondary', mb: 1 }} gutterBottom>
                     Losses
                   </Typography>
                   <Typography variant="h4" sx={{ color: '#ef4444', fontWeight: 700 }}>{companyStats?.lossCount || 0}</Typography>

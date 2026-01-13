@@ -220,7 +220,7 @@ export default function FollowingPage() {
           >
             Following
           </Typography>
-          <Typography variant="body1" sx={{ color: 'var(--text-muted)' }}>
+          <Typography variant="body1" sx={{ color: 'text.secondary' }}>
             Trades from creators you&apos;re following
           </Typography>
         </Box>
@@ -290,7 +290,7 @@ export default function FollowingPage() {
                         >
                           {follow.capper.alias || 'Unknown'}
                         </Typography>
-                        <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                           {follow.remainingPlays} of {follow.numPlaysPurchased} plays remaining
                         </Typography>
                       </Box>
@@ -383,13 +383,13 @@ export default function FollowingPage() {
                 ))}
               </Select>
             </FormControl>
-            <Typography variant="body2" sx={{ color: 'var(--text-muted)' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               {filteredTotal > 0 ? `of ${filteredTotal} trades${selectedFollowId !== 'all' ? ' (filtered)' : ''}` : 'No trades'}
             </Typography>
           </Box>
           {follows.length > 0 && (
             <Box display="flex" alignItems="center" gap={1}>
-              <Typography variant="body2" sx={{ color: 'var(--text-muted)' }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                 Creator
               </Typography>
               <FormControl size="small">
@@ -446,7 +446,7 @@ export default function FollowingPage() {
             <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 1 }}>
               {selectedFollowId !== 'all' ? 'No trades from this creator' : 'No trades yet'}
             </Typography>
-            <Typography variant="body2" sx={{ color: 'var(--text-muted)' }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               {selectedFollowId !== 'all'
                 ? "This creator doesn't have any trades matching your search criteria on this page."
                 : follows.length === 0

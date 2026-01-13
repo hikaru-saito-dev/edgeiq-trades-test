@@ -280,7 +280,7 @@ export default function LeaderboardTable() {
           sx={{
             width: { xs: '100%', sm: 'auto' },
             '& .MuiTab-root': {
-              color: 'var(--text-muted)',
+              color: 'text.secondary',
               fontWeight: 500,
               fontSize: { xs: '0.75rem', sm: '0.875rem' },
               minWidth: { xs: 60, sm: 80 },
@@ -353,7 +353,7 @@ export default function LeaderboardTable() {
                 '&.Mui-focused fieldset': { borderColor: theme.palette.primary.main },
               },
               '& .MuiInputLabel-root': {
-                color: 'var(--text-muted)',
+                color: 'text.secondary',
               },
             }}
           >
@@ -484,7 +484,7 @@ export default function LeaderboardTable() {
                               {entry.alias || entry.whopDisplayName}
                             </Typography>
                             {entry.whopUsername && (
-                              <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                 @{entry.whopUsername}
                               </Typography>
                             )}
@@ -532,7 +532,7 @@ export default function LeaderboardTable() {
                             }}
                           />
                         ) : (
-                          <Typography variant="body2" sx={{ color: 'var(--text-muted)' }}>-</Typography>
+                          <Typography variant="body2" sx={{ color: 'text.secondary' }}>-</Typography>
                         )}
                       </TableCell>
                       <TableCell align="center">
@@ -552,7 +552,7 @@ export default function LeaderboardTable() {
                             }}
                           />
                         ) : (
-                          <Typography variant="body2" sx={{ color: 'var(--text-muted)' }}>-</Typography>
+                          <Typography variant="body2" sx={{ color: 'text.secondary' }}>-</Typography>
                         )}
                       </TableCell>
                       <TableCell align="center">
@@ -572,7 +572,7 @@ export default function LeaderboardTable() {
                             View Membership
                           </Button>
                         ) : (
-                          <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                             No membership
                           </Typography>
                         )}
@@ -599,7 +599,7 @@ export default function LeaderboardTable() {
                                 Follow
                               </Button>
                             ) : (
-                              <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                 -
                               </Typography>
                             )}
@@ -698,18 +698,18 @@ export default function LeaderboardTable() {
                 {selectedCompany?.whopDisplayName || selectedCompany?.alias}
               </Typography>
               {selectedCompany?.whopUsername && (
-                <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   @{selectedCompany.whopUsername}
                 </Typography>
               )}
-              <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block', mt: 0.5 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
                 Membership Plans
               </Typography>
             </Box>
           </Box>
           <IconButton
             onClick={handleCloseModal}
-            sx={{ color: 'var(--text-muted)', '&:hover': { color: 'var(--app-text)' } }}
+            sx={{ color: 'text.secondary', '&:hover': { color: 'var(--app-text)' } }}
           >
             <CloseIcon />
           </IconButton>
@@ -752,7 +752,7 @@ export default function LeaderboardTable() {
                         )}
                       </Box>
                       {plan.description && (
-                        <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 1 }}>
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
                           {plan.description}
                         </Typography>
                       )}
@@ -792,7 +792,7 @@ export default function LeaderboardTable() {
             </Box>
           ) : (
             <Box textAlign="center" py={4}>
-              <Typography variant="body1" sx={{ color: 'var(--text-muted)' }}>
+              <Typography variant="body1" sx={{ color: 'text.secondary' }}>
                 No membership plans available
               </Typography>
             </Box>
@@ -802,7 +802,7 @@ export default function LeaderboardTable() {
           <Button
             onClick={handleCloseModal}
             sx={{
-              color: 'var(--app-text)',
+              color: 'text.secondary',
               '&:hover': {
                 background: 'rgba(45, 80, 61, 0.1)',
               },

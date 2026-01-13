@@ -407,7 +407,7 @@ export default function AutoIQPage() {
                 )}
 
                 <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid var(--surface-border)' }}>
-                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: 'var(--text-muted)' }}>
+                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: 'var(--app-text)' }}>
                         Risk Settings
                     </Typography>
                     <Alert severity="info" sx={{ bgcolor: palette.primary.alpha10, border: `1px solid ${palette.borders.accent}` }}>

@@ -357,7 +357,7 @@ export default function ConnectAccountModal({
                         Your credentials are securely managed through SnapTrade&apos;s OAuth portal.
                     </Typography>
 
-                    <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
                         You will be redirected to SnapTrade to securely authorize access to your brokerage account.
                         This process is safe and your credentials are never stored by us.
                     </Typography>
@@ -373,7 +373,7 @@ export default function ConnectAccountModal({
                 <Button
                     onClick={onClose}
                     disabled={loading}
-                    sx={{ color: 'var(--text-muted)' }}
+                    sx={{ color: 'text.secondary' }}
                 >
                     Cancel
                 </Button>

@@ -82,7 +82,7 @@ export default function DisconnectBrokerModal({
                             Account balance information
                         </Typography>
                     </Box>
-                    <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
                         This action cannot be undone. You will need to reconnect your broker and all data will be lost.
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'var(--app-text)', mb: 1, fontWeight: 500 }}>
@@ -118,7 +118,7 @@ export default function DisconnectBrokerModal({
                     onClick={handleClose}
                     disabled={loading}
                     sx={{
-                        color: 'var(--text-muted)',
+                        color: 'text.secondary',
                         '&:hover': {
                             background: 'rgba(255, 255, 255, 0.05)',
                         },

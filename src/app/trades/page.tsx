@@ -292,7 +292,7 @@ export default function TradesPage() {
             scrollButtons="auto"
             sx={{
               '& .MuiTab-root': {
-                color: 'var(--text-muted)',
+                color: 'text.secondary',
                 fontWeight: 500,
                 textTransform: 'none',
                 minHeight: 48,
@@ -525,7 +525,7 @@ export default function TradesPage() {
           <Button
             onClick={() => setWarningOpen(false)}
             sx={{
-              color: 'var(--text-muted)',
+              color: 'text.secondary',
               '&:hover': {
                 backgroundColor: 'rgba(45, 80, 61, 0.05)',
               },

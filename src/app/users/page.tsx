@@ -90,7 +90,7 @@ export default function UsersPage() {
       },
     },
     '& .MuiInputLabel-root': {
-      color: 'var(--text-muted)',
+      color: 'text.secondary',
       '&.Mui-focused': {
         color: theme.palette.primary.main,
       },
@@ -702,7 +702,7 @@ export default function UsersPage() {
                     {targetUser.alias}
                   </Typography>
                   {targetUser.whopUsername && (
-                    <Typography variant="body2" sx={{ color: 'var(--text-muted)', mb: 3 }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
                       @{targetUser.whopUsername}
                     </Typography>
                   )}
@@ -726,7 +726,7 @@ export default function UsersPage() {
               }}
               disabled={transferring}
               sx={{
-                color: 'var(--text-muted)',
+                color: 'text.secondary',
                 '&:hover': {
                   backgroundColor: alpha(theme.palette.text.primary, 0.05),
                 },

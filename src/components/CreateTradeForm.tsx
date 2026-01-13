@@ -61,13 +61,13 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
       },
     },
     '& .MuiInputLabel-root': {
-      color: 'var(--text-muted)',
+      color: 'text.secondary',
       '&.Mui-focused': {
         color: theme.palette.primary.main,
       },
     },
     '& .MuiFormHelperText-root': {
-      color: 'var(--text-muted)',
+      color: 'text.secondary',
     },
   };
 
@@ -394,7 +394,7 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
             />
 
             <FormControl fullWidth required>
-              <InputLabel sx={{ color: 'var(--text-muted)' }}>Option Type</InputLabel>
+              <InputLabel sx={{ color: 'text.secondary' }}>Option Type</InputLabel>
               <Select
                 value={optionType}
                 onChange={(e) => setOptionType(e.target.value as 'C' | 'P')}
@@ -433,7 +433,7 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
 
             {/* Broker Account Selection */}
             <FormControl fullWidth required>
-              <InputLabel sx={{ color: 'var(--text-muted)' }}>Broker Account</InputLabel>
+              <InputLabel sx={{ color: 'text.secondary' }}>Broker Account</InputLabel>
               <Select
                 value={selectedBrokerConnectionId}
                 onChange={(e) => setSelectedBrokerConnectionId(e.target.value)}
@@ -452,12 +452,12 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
                           {account.brokerName} - {account.accountName}
                         </Typography>
                         {account.accountNumber && (
-                          <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                             {account.accountNumber}
                           </Typography>
                         )}
                         {account.buyingPower !== undefined && (
-                          <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block' }}>
+                          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
                             Buying Power: ${account.buyingPower.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </Typography>
                         )}
@@ -467,7 +467,7 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
                 )}
               </Select>
               {connectedAccounts.length === 0 && (
-                <Typography variant="caption" sx={{ color: 'var(--text-muted)', mt: 0.5, ml: 1.75 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, ml: 1.75 }}>
                   Go to the Brokers page to connect your trading account
                 </Typography>
               )}
@@ -508,7 +508,7 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
                     />
                   ))}
                 </FormGroup>
-                <Typography variant="caption" sx={{ color: 'var(--text-muted)', mt: 1, display: 'block' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block' }}>
                   Settlement notifications will be sent to every selected webhook.
                 </Typography>
               </Box>
@@ -521,7 +521,7 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
             onClick={handleClose}
             disabled={loading}
             sx={{
-              color: 'var(--text-muted)',
+              color: 'text.secondary',
               '&:hover': {
                 backgroundColor: alpha(theme.palette.text.primary, 0.08),
               },

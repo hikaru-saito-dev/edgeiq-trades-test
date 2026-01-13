@@ -93,7 +93,7 @@ export default function FollowDetailModal({ open, onClose, entry }: FollowDetail
           onClick={onClose}
           size="small"
           sx={{
-            color: 'var(--text-muted)',
+            color: 'text.secondary',
             '&:hover': {
               backgroundColor: alpha(theme.palette.primary.main, 0.1),
             },
@@ -121,7 +121,7 @@ export default function FollowDetailModal({ open, onClose, entry }: FollowDetail
                 {entry.alias || entry.whopDisplayName}
               </Typography>
               {entry.whopUsername && (
-                <Typography variant="body2" sx={{ color: 'var(--text-muted)' }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                   @{entry.whopUsername}
                 </Typography>
               )}
@@ -143,7 +143,7 @@ export default function FollowDetailModal({ open, onClose, entry }: FollowDetail
               }}
             >
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
-                <Typography variant="body2" sx={{ color: 'var(--text-muted)' }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                   Number of Plays
                 </Typography>
                 <Chip
@@ -154,7 +154,7 @@ export default function FollowDetailModal({ open, onClose, entry }: FollowDetail
                 />
               </Box>
               <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="body2" sx={{ color: 'var(--text-muted)' }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                   Price
                 </Typography>
                 <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 600 }}>
@@ -165,7 +165,7 @@ export default function FollowDetailModal({ open, onClose, entry }: FollowDetail
           </Box>
 
           <Box>
-            <Typography variant="body2" sx={{ color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
               By confirming, you&apos;ll receive the next <strong>{numPlays}</strong> trades from{' '}
               <strong>{entry.alias || entry.whopDisplayName}</strong> directly in your Following feed.
             </Typography>
@@ -178,7 +178,7 @@ export default function FollowDetailModal({ open, onClose, entry }: FollowDetail
           onClick={onClose}
           variant="outlined"
           sx={{
-            color: 'var(--app-text)',
+            color: 'text.secondary',
             borderColor: borderColor,
             '&:hover': {
               borderColor: theme.palette.primary.main,
