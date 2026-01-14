@@ -186,7 +186,7 @@ export default function FollowingPage() {
       },
     },
     '& .MuiInputBase-input::placeholder': {
-      color: 'var(--text-muted)',
+      color: 'text.secondary',
       opacity: 1,
     },
   };
@@ -348,7 +348,7 @@ export default function FollowingPage() {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ color: 'var(--text-muted)' }} />
+                  <SearchIcon sx={{ color: 'text.secondary' }} />
                 </InputAdornment>
               ),
             }}

@@ -288,7 +288,7 @@ export default function AutoIQPage() {
                             control={
                                 <Radio
                                     sx={{
-                                        color: 'var(--text-muted)',
+                                        color: 'text.secondary',
                                         '&.Mui-checked': {
                                             color: palette.primary.main,
                                         },
@@ -323,7 +323,7 @@ export default function AutoIQPage() {
                             control={
                                 <Radio
                                     sx={{
-                                        color: 'var(--text-muted)',
+                                        color: 'text.secondary',
                                         '&.Mui-checked': {
                                             color: palette.primary.main,
                                         },
@@ -372,7 +372,7 @@ export default function AutoIQPage() {
                                 displayEmpty
                                 renderValue={(selected) => {
                                     if (!selected || selected === '') {
-                                        return <em style={{ color: 'var(--text-muted)' }}>None (use first available)</em>;
+                                        return <em style={{ color: 'text.secondary' }}>None (use first available)</em>;
                                     }
                                     const account = brokerAccounts.find(acc => String(acc.id) === String(selected));
                                     if (account) {

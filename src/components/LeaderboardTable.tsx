@@ -315,7 +315,7 @@ export default function LeaderboardTable() {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ color: 'var(--text-muted)' }} />
+                  <SearchIcon sx={{ color: 'text.secondary' }} />
                 </InputAdornment>
               ),
             }}
@@ -329,7 +329,7 @@ export default function LeaderboardTable() {
                 '&.Mui-focused fieldset': { borderColor: theme.palette.primary.main },
               },
               '& .MuiInputBase-input::placeholder': {
-                color: 'var(--text-muted)',
+                color: 'text.secondary',
                 opacity: 1,
               },
             }}
@@ -802,7 +802,7 @@ export default function LeaderboardTable() {
           <Button
             onClick={handleCloseModal}
             sx={{
-              color: 'text.secondary',
+              color: 'var(--app-text)',
               '&:hover': {
                 background: 'rgba(45, 80, 61, 0.1)',
               },

@@ -350,7 +350,7 @@ export default function UsersPage() {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ color: 'var(--text-muted)' }} />
+                  <SearchIcon sx={{ color: 'text.secondary' }} />
                 </InputAdornment>
               ),
             }}
@@ -358,7 +358,7 @@ export default function UsersPage() {
               flex: { xs: '1 1 100%', sm: 1 },
               minWidth: { xs: '100%', sm: 250 },
               '& .MuiInputBase-input::placeholder': {
-                color: 'var(--text-muted)',
+                color: 'text.secondary',
                 opacity: 1,
               },
               ...controlStyles,
