@@ -142,6 +142,7 @@ function buildCalendar(days: CalendarDay[], monthAnchor: Date) {
 export default function StatsCalendarPage() {
   const { userId, companyId, role, hideCompanyStatsFromMembers } = useAccess();
   const theme = useTheme();
+  const { palette } = useBranding();
   const isDark = theme.palette.mode === 'dark';
 
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -262,7 +263,13 @@ export default function StatsCalendarPage() {
           gap={1.5}
         >
           <Box display="flex" alignItems="center" gap={1.25} flexWrap="wrap">
-            <Typography variant="h5" fontWeight={700}>
+            <Typography variant="h5" fontWeight={700} sx={{
+              background: palette.gradients.primaryToSecondary,
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontSize: { xs: '1.75rem', sm: '2.125rem' },
+            }}>
               Performance Calendar
             </Typography>
             {(() => {

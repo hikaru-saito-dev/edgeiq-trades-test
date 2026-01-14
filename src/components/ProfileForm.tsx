@@ -728,7 +728,14 @@ export default function ProfileForm() {
           {(userData?.whopDisplayName || userData?.alias || 'U').charAt(0).toUpperCase()}
         </Avatar>
         <Box>
-          <Typography variant="h4" component="h1" sx={{ color: 'var(--app-text)', fontWeight: 700 }}>
+          <Typography variant="h4" component="h1" sx={{
+            background: palette.gradients.primaryToSecondary,
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            fontSize: { xs: '1.75rem', sm: '2.125rem' },
+            fontWeight: 700,
+          }}>
             {userData?.whopDisplayName || userData?.alias || 'Profile'}
           </Typography>
           {userData?.whopUsername && (
@@ -1002,7 +1009,7 @@ export default function ProfileForm() {
                   textAlign: 'center',
                 }}
               >
-                  <AccountBalanceIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2, opacity: 0.5 }} />
+                <AccountBalanceIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2, opacity: 0.5 }} />
                 <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 1, fontWeight: 600 }}>
                   No broker accounts connected
                 </Typography>
@@ -1726,7 +1733,7 @@ export default function ProfileForm() {
                   <Typography variant="body2" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
                     Hide Leaderboard from Members
                   </Typography>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
                     When enabled, users with the member role will not be able to see the leaderboard tab. They will only see their Profile and Trades tabs.
                   </Typography>
                 </Box>
@@ -2234,7 +2241,7 @@ export default function ProfileForm() {
                         >
                           {alias || 'Your Name'}
                         </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                           Leaderboard Entry
                         </Typography>
                       </Box>

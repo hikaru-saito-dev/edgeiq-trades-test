@@ -213,9 +213,11 @@ export default function FollowingPage() {
           <Typography
             variant="h4"
             sx={{
-              color: 'var(--app-text)',
-              fontWeight: 700,
-              mb: 1,
+              background: palette.gradients.primaryToSecondary,
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontSize: { xs: '1.75rem', sm: '2.125rem' },
             }}
           >
             Following
