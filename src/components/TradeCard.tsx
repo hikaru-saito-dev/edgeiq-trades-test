@@ -261,7 +261,7 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
           mb: 2,
           backgroundColor: theme.palette.background.paper,
           color: theme.palette.text.primary,
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.25)}`,
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.5)}`,
           borderRadius: 3,
           boxShadow: isDark
             ? '0 20px 40px rgba(0, 0, 0, 0.45)'
@@ -272,11 +272,7 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
               ? '0 24px 48px rgba(0, 0, 0, 0.5)'
               : `0 12px 40px ${palette.shadows.medium}`,
             transform: 'translateY(-4px)',
-            borderColor: trade.status === 'REJECTED'
-              ? alpha(theme.palette.error.main, 0.8)
-              : trade.status === 'CLOSED'
-                ? alpha(theme.palette.success.main, 0.7)
-                : alpha(theme.palette.primary.main, 0.5),
+            borderColor: alpha(theme.palette.primary.main, 0.8),
           }
         }}
       >
