@@ -100,43 +100,42 @@ export default function ThemeProvider({
             // Extract all colors from dark gradient
             const darkBgMatches = palette.gradients.backgroundGradientDark.match(/#[0-9A-Fa-f]{6}/g) || [];
             const darkBg1Hex = darkBgMatches[0] || darkBg;
-            const darkBg3Hex = darkBgMatches[2] || '#1a3a2a';
 
             const darkBg1Rgb = hexToRgb(darkBg1Hex) || [4, 32, 24];
-            const darkBg3Rgb = hexToRgb(darkBg3Hex) || [26, 58, 42];
 
             // Helper to clamp RGB channels
             const clampChannel = (value: number) => Math.max(0, Math.min(255, value));
 
             // Dark surface background:
-            // Derived from the first dark gradient stop by adding the same RGB offsets
-            // observed in the original project: (4, 32, 24) from base (2, 21, 11)
+            // Derived from the first dark gradient stop by adding the exact RGB offsets
+            // from the original project: base (2, 21, 11) -> surface (4, 32, 24)
             const surfaceBgDarkRgb: [number, number, number] = [
-                clampChannel(darkBg1Rgb[0] + 1),  // +1 => 3 -> 4
-                clampChannel(darkBg1Rgb[1] + 12), // +12 => 20 -> 32
-                clampChannel(darkBg1Rgb[2] + 15), // +15 => 9  -> 24
+                clampChannel(darkBg1Rgb[0] + 2),
+                clampChannel(darkBg1Rgb[1] + 11),
+                clampChannel(darkBg1Rgb[2] + 13),
             ];
 
             // Dark overlay:
-            // Line color and gradient stops are derived from darkBg1 using the same
-            // RGB deltas as the original project so that, for the default brand color,
-            // the exact values match betting-whop while still scaling with other colors.
+            // Line color and gradient stops are derived from darkBg1 using the exact
+            // RGB deltas from the original project for the default brand color:
+            // base (2, 21, 11) -> line (12, 65, 48), gradTop (3, 23, 16),
+            // gradBottom (6, 44, 32).
             const overlayLineRgb: [number, number, number] = [
-                clampChannel(darkBg1Rgb[0] + 9),  // +9  => 3 -> 12
-                clampChannel(darkBg1Rgb[1] + 45), // +45 => 20 -> 65
-                clampChannel(darkBg1Rgb[2] + 39), // +39 => 9  -> 48
+                clampChannel(darkBg1Rgb[0] + 10),
+                clampChannel(darkBg1Rgb[1] + 44),
+                clampChannel(darkBg1Rgb[2] + 37),
             ];
 
             const overlayGradTopRgb: [number, number, number] = [
-                clampChannel(darkBg1Rgb[0] + 0),  // +0  => 3 -> 3
-                clampChannel(darkBg1Rgb[1] + 3),  // +3  => 20 -> 23
-                clampChannel(darkBg1Rgb[2] + 7),  // +7  => 9  -> 16
+                clampChannel(darkBg1Rgb[0] + 1),
+                clampChannel(darkBg1Rgb[1] + 2),
+                clampChannel(darkBg1Rgb[2] + 5),
             ];
 
             const overlayGradBottomRgb: [number, number, number] = [
-                clampChannel(darkBg1Rgb[0] + 3),  // +3  => 3 -> 6
-                clampChannel(darkBg1Rgb[1] + 24), // +24 => 20 -> 44
-                clampChannel(darkBg1Rgb[2] + 23), // +23 => 9  -> 32
+                clampChannel(darkBg1Rgb[0] + 4),
+                clampChannel(darkBg1Rgb[1] + 23),
+                clampChannel(darkBg1Rgb[2] + 21),
             ];
 
             const overlayDark = `repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(${overlayLineRgb[0]}, ${overlayLineRgb[1]}, ${overlayLineRgb[2]}, 0.45) 1px, rgba(${overlayLineRgb[0]}, ${overlayLineRgb[1]}, ${overlayLineRgb[2]}, 0.45) 2px), linear-gradient(180deg, rgba(${overlayGradTopRgb[0]}, ${overlayGradTopRgb[1]}, ${overlayGradTopRgb[2]}, 0.8) 0%, rgba(${overlayGradBottomRgb[0]}, ${overlayGradBottomRgb[1]}, ${overlayGradBottomRgb[2]}, 0.8) 100%)`;
