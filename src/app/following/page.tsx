@@ -218,6 +218,7 @@ export default function FollowingPage() {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               fontSize: { xs: '1.75rem', sm: '2.125rem' },
+              fontWeight: 700,
             }}
           >
             Following
