@@ -105,8 +105,41 @@ export default function ThemeProvider({
             const darkBg1Rgb = hexToRgb(darkBg1Hex) || [4, 32, 24];
             const darkBg3Rgb = hexToRgb(darkBg3Hex) || [26, 58, 42];
 
-            // Dark overlay: slightly lighter than darkBg1 for lines, use darkBg1 and darkBg3 for gradient
-            const overlayDark = `repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(${Math.min(255, darkBg1Rgb[0] + 8)}, ${Math.min(255, darkBg1Rgb[1] + 17)}, ${Math.min(255, darkBg1Rgb[2] + 16)}, 0.45) 1px, rgba(${Math.min(255, darkBg1Rgb[0] + 8)}, ${Math.min(255, darkBg1Rgb[1] + 17)}, ${Math.min(255, darkBg1Rgb[2] + 16)}, 0.45) 2px), linear-gradient(180deg, rgba(${darkBg1Rgb[0]}, ${darkBg1Rgb[1]}, ${darkBg1Rgb[2]}, 0.8) 0%, rgba(${darkBg3Rgb[0]}, ${darkBg3Rgb[1]}, ${darkBg3Rgb[2]}, 0.8) 100%)`;
+            // Helper to clamp RGB channels
+            const clampChannel = (value: number) => Math.max(0, Math.min(255, value));
+
+            // Dark surface background:
+            // Derived from the first dark gradient stop by adding the same RGB offsets
+            // observed in the original project: (4, 32, 24) from base (2, 21, 11)
+            const surfaceBgDarkRgb: [number, number, number] = [
+                clampChannel(darkBg1Rgb[0] + 1),  // +1 => 3 -> 4
+                clampChannel(darkBg1Rgb[1] + 12), // +12 => 20 -> 32
+                clampChannel(darkBg1Rgb[2] + 15), // +15 => 9  -> 24
+            ];
+
+            // Dark overlay:
+            // Line color and gradient stops are derived from darkBg1 using the same
+            // RGB deltas as the original project so that, for the default brand color,
+            // the exact values match betting-whop while still scaling with other colors.
+            const overlayLineRgb: [number, number, number] = [
+                clampChannel(darkBg1Rgb[0] + 9),  // +9  => 3 -> 12
+                clampChannel(darkBg1Rgb[1] + 45), // +45 => 20 -> 65
+                clampChannel(darkBg1Rgb[2] + 39), // +39 => 9  -> 48
+            ];
+
+            const overlayGradTopRgb: [number, number, number] = [
+                clampChannel(darkBg1Rgb[0] + 0),  // +0  => 3 -> 3
+                clampChannel(darkBg1Rgb[1] + 3),  // +3  => 20 -> 23
+                clampChannel(darkBg1Rgb[2] + 7),  // +7  => 9  -> 16
+            ];
+
+            const overlayGradBottomRgb: [number, number, number] = [
+                clampChannel(darkBg1Rgb[0] + 3),  // +3  => 3 -> 6
+                clampChannel(darkBg1Rgb[1] + 24), // +24 => 20 -> 44
+                clampChannel(darkBg1Rgb[2] + 23), // +23 => 9  -> 32
+            ];
+
+            const overlayDark = `repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(${overlayLineRgb[0]}, ${overlayLineRgb[1]}, ${overlayLineRgb[2]}, 0.45) 1px, rgba(${overlayLineRgb[0]}, ${overlayLineRgb[1]}, ${overlayLineRgb[2]}, 0.45) 2px), linear-gradient(180deg, rgba(${overlayGradTopRgb[0]}, ${overlayGradTopRgb[1]}, ${overlayGradTopRgb[2]}, 0.8) 0%, rgba(${overlayGradBottomRgb[0]}, ${overlayGradBottomRgb[1]}, ${overlayGradBottomRgb[2]}, 0.8) 100%)`;
 
             // Generate scroll track color (lightened version of primary for light mode, darkened for dark mode)
             const scrollTrackLight = primaryRgb
@@ -137,7 +170,7 @@ export default function ThemeProvider({
                     --text-secondary: ${appTextSecondary};
                     --text-muted: ${palette.text.muted};
                     --accent-strong: ${isDark ? palette.primary.light : palette.secondary.dark};
-                    --surface-bg: ${isDark ? `rgba(${hexToRgb(darkBg)?.join(', ') || '4, 32, 24'}, 0.92)` : palette.backgrounds.surfaceBg};
+                    --surface-bg: ${isDark ? `rgba(${surfaceBgDarkRgb[0]}, ${surfaceBgDarkRgb[1]}, ${surfaceBgDarkRgb[2]}, 0.92)` : palette.backgrounds.surfaceBg};
                     --surface-border: ${darkBorder};
                     --scroll-track: ${isDark ? scrollTrackDark : scrollTrackLight};
                     --scroll-thumb-start: ${isDark ? palette.secondary.light : palette.primary.main};
@@ -150,7 +183,7 @@ export default function ThemeProvider({
                     --text-secondary: ${appTextSecondary};
                     --text-muted: ${palette.text.muted};
                     --accent-strong: ${isDark ? palette.primary.light : palette.secondary.dark};
-                    --surface-bg: ${isDark ? `rgba(${hexToRgb(darkBg)?.join(', ') || '4, 32, 24'}, 0.92)` : palette.backgrounds.surfaceBg};
+                    --surface-bg: ${isDark ? `rgba(${surfaceBgDarkRgb[0]}, ${surfaceBgDarkRgb[1]}, ${surfaceBgDarkRgb[2]}, 0.92)` : palette.backgrounds.surfaceBg};
                     --surface-border: ${darkBorder};
                     --scroll-track: ${isDark ? scrollTrackDark : scrollTrackLight};
                     --scroll-thumb-start: ${isDark ? palette.secondary.light : palette.primary.main};
