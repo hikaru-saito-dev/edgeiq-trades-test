@@ -172,14 +172,35 @@ function generateLightBackgroundColor(hex: string, lightnessIncrease: number): s
 /**
  * Generate a dark background color from primary color
  * Based on pattern: decrease lightness significantly while maintaining hue
+ * Ensures minimum lightness to match original project's dark mode (#02150B has ~4.5% lightness)
  */
-function generateDarkBackgroundColor(hex: string, lightnessDecrease: number): string {
+function generateDarkBackgroundColor(hex: string, targetLightness: number): string {
   const rgb = hexToRgb(hex);
   if (!rgb) return hex;
-  const [h, s, l] = rgbToHsl(rgb.r, rgb.g, rgb.b);
-  // Decrease lightness significantly, adjust saturation
-  const newL = Math.max(0, l - lightnessDecrease);
-  const newS = Math.max(35, Math.min(85, s + 10)); // Keep saturation in range 35-85
+  const [h, s] = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+  // Target specific lightness values to match original project
+  // Original #02150B has ~4.5% lightness, we'll target similar range (4-17%)
+  // For gradient stops, use slightly different target lightness values
+  const minLightness = 4; // Minimum to prevent pure black
+  const maxLightness = 17; // Maximum for darkest stop (BG3 uses 16.5%)
+  const newL = Math.max(minLightness, Math.min(maxLightness, targetLightness));
+
+  // Adjust saturation based on target lightness to match original project
+  // Darker backgrounds (4-8%) have higher saturation (~75-85%)
+  // Lighter dark backgrounds (10-17%) have lower saturation (~35-50%)
+  let newS: number;
+  if (targetLightness <= 8) {
+    // Very dark backgrounds: higher saturation (matches #02150B ~82%, #0a1f0f ~51%)
+    newS = Math.max(50, Math.min(85, s + 5));
+  } else if (targetLightness <= 11) {
+    // Medium dark backgrounds: moderate saturation (matches #063021 ~78%)
+    newS = Math.max(40, Math.min(80, s * 1.1));
+  } else {
+    // Lighter dark backgrounds: lower saturation (matches #1a3a2a ~38%)
+    newS = Math.max(35, Math.min(50, s * 0.55));
+  }
+
   const [r, g, b] = hslToRgb(h, newS, newL);
   return rgbToHex(r, g, b);
 }
@@ -374,14 +395,14 @@ export function generateColorPalette(
   const primaryToSecondary = `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryDark} 100%)`;
   const buttonGradient = `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryDark} 100%)`;
   // Header gradients: use generateDarkBackgroundColor for proper scaling
-  // Dark mode header: very dark to dark (pattern from original: #02150B to #063021)
-  const headerDark1 = generateDarkBackgroundColor(primaryColor, 40.8); // Very dark
-  const headerDark2 = generateDarkBackgroundColor(primaryColor, 37.3); // Dark
+  // Dark mode header: very dark to dark (pattern from original: #02150B ~4.5% to #063021 ~10.6%)
+  const headerDark1 = generateDarkBackgroundColor(primaryColor, 4.5); // Very dark (matches #02150B)
+  const headerDark2 = generateDarkBackgroundColor(primaryColor, 10.6); // Dark (matches #063021)
   const headerGradient = `linear-gradient(180deg, ${headerDark1} 0%, ${headerDark2} 100%)`;
-  // Light mode header: darker gradient (pattern from original: #1e3a2a to #2D503D)
+  // Light mode header: darker gradient (pattern from original: #1e3a2a ~18% to #2D503D ~22%)
   // Use darker colors but not as dark as dark mode
-  const headerLight1 = generateDarkBackgroundColor(primaryColor, 28.8); // Medium dark
-  const headerLight2 = generateDarkBackgroundColor(primaryColor, 25.0); // Slightly lighter
+  const headerLight1 = generateDarkBackgroundColor(primaryColor, 18.0); // Medium dark (matches #1e3a2a)
+  const headerLight2 = generateDarkBackgroundColor(primaryColor, 22.0); // Slightly lighter (matches #2D503D)
   const headerGradientLight = `linear-gradient(180deg, ${headerLight1} 0%, ${headerLight2} 100%)`;
 
   // Generate light mode background gradient
@@ -392,10 +413,11 @@ export function generateColorPalette(
   const backgroundGradient = `linear-gradient(180deg, ${lightBg1} 0%, ${lightBg2} 50%, ${lightBg3} 100%)`;
 
   // Generate dark mode background gradient
-  // Pattern: Very dark (41% lightness decrease) -> Dark (37% decrease) -> Medium dark (29% decrease)
-  const darkBg1 = generateDarkBackgroundColor(primaryColor, 40.8);
-  const darkBg2 = generateDarkBackgroundColor(primaryColor, 37.3);
-  const darkBg3 = generateDarkBackgroundColor(primaryColor, 28.8);
+  // Target lightness values to match original project exactly:
+  // #02150B = 4.51%, #0a1f0f = 8.04%, #1a3a2a = 16.47%
+  const darkBg1 = generateDarkBackgroundColor(primaryColor, 4.5); // Very dark (matches #02150B)
+  const darkBg2 = generateDarkBackgroundColor(primaryColor, 8.0); // Dark (matches #0a1f0f)
+  const darkBg3 = generateDarkBackgroundColor(primaryColor, 16.5); // Medium dark (matches #1a3a2a)
   const backgroundGradientDark = `linear-gradient(180deg, ${darkBg1} 0%, ${darkBg2} 50%, ${darkBg3} 100%)`;
 
   // Generate backgrounds (light mode)

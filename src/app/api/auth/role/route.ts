@@ -153,9 +153,9 @@ export async function GET(request: NextRequest) {
     let brandColor: string | null = null;
     let logoUrl: string | null = null;
 
-    try {
+      try {
       const company = await Company.findOne({ companyId }).select('hideLeaderboardFromMembers hideCompanyStatsFromMembers brandColor logoUrl');
-      if (company) {
+        if (company) {
         if (role === 'member' || role === 'admin') {
           hideLeaderboardFromMembers = company.hideLeaderboardFromMembers ?? false;
           hideCompanyStatsFromMembers = company.hideCompanyStatsFromMembers ?? false;
@@ -163,10 +163,10 @@ export async function GET(request: NextRequest) {
         // Branding data available to all authorized users (for app theming)
         brandColor = company.brandColor || null;
         logoUrl = company.logoUrl || null;
-      }
-    } catch (error) {
-      console.error('Error fetching company settings:', error);
-      // Use defaults if company lookup fails
+        }
+      } catch (error) {
+        console.error('Error fetching company settings:', error);
+        // Use defaults if company lookup fails
     }
 
     // Get hasAutoIQ and autoTradeMode from user
