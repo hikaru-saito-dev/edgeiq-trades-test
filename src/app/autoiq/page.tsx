@@ -166,7 +166,7 @@ export default function AutoIQPage() {
                 <Paper
                     sx={{
                         p: 4,
-                        bgcolor: 'var(--surface-bg)',
+                        background: 'var(--surface-bg)',
                         backdropFilter: 'blur(6px)',
                         borderRadius: 2,
                         border: '1px solid var(--surface-border)',
@@ -221,7 +221,7 @@ export default function AutoIQPage() {
                 <Paper
                     sx={{
                         p: 4,
-                        bgcolor: 'var(--surface-bg)',
+                        background: 'var(--surface-bg)',
                         backdropFilter: 'blur(6px)',
                         borderRadius: 2,
                         border: '1px solid var(--surface-border)',
@@ -291,7 +291,7 @@ export default function AutoIQPage() {
             <Paper
                 sx={{
                     p: 4,
-                    bgcolor: 'var(--surface-bg)',
+                    background: 'var(--surface-bg)',
                     backdropFilter: 'blur(6px)',
                     borderRadius: 2,
                     border: '1px solid var(--surface-border)',
