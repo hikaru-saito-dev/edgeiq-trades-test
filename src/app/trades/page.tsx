@@ -379,19 +379,19 @@ export default function TradesPage() {
               }}
             >
               <Box display="flex" alignItems="center" gap={2} mb={2}>
-                <Skeleton variant="circular" width={48} height={48} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                <Skeleton variant="circular" width={48} height={48} sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)' }} />
                 <Box flex={1}>
-                  <Skeleton variant="text" width="40%" height={24} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 1 }} />
-                  <Skeleton variant="text" width="60%" height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
+                  <Skeleton variant="text" width="40%" height={24} sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)', mb: 1 }} />
+                  <Skeleton variant="text" width="60%" height={20} sx={{ bgcolor: 'rgba(45, 80, 61, 0.05)' }} />
                 </Box>
-                <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1, bgcolor: 'rgba(45, 80, 61, 0.1)' }} />
               </Box>
               <Box display="flex" gap={2} mb={2}>
-                <Skeleton variant="text" width="20%" height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
-                <Skeleton variant="text" width="20%" height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
-                <Skeleton variant="text" width="20%" height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                <Skeleton variant="text" width="20%" height={20} sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)' }} />
+                <Skeleton variant="text" width="20%" height={20} sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)' }} />
+                <Skeleton variant="text" width="20%" height={20} sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)' }} />
               </Box>
-              <Skeleton variant="rectangular" width="100%" height={120} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
+              <Skeleton variant="rectangular" width="100%" height={120} sx={{ borderRadius: 1, bgcolor: 'rgba(45, 80, 61, 0.05)' }} />
             </Paper>
           ))}
         </Box>

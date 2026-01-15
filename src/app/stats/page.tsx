@@ -372,7 +372,7 @@ export default function StatsCalendarPage() {
                       variant="text"
                       width="100%"
                       height={20}
-                      sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', display: { xs: 'none', md: 'block' } }}
+                      sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)', display: { xs: 'none', md: 'block' } }}
                     />
                   ))}
                 </Box>
@@ -394,9 +394,9 @@ export default function StatsCalendarPage() {
                         border: '1px solid var(--surface-border)',
                       }}
                     >
-                      <Skeleton variant="text" width="60%" height={16} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 1 }} />
-                      <Skeleton variant="text" width="80%" height={24} sx={{ bgcolor: 'rgba(255, 255, 255, 0.15)', mb: 0.5 }} />
-                      <Skeleton variant="text" width="50%" height={16} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                      <Skeleton variant="text" width="60%" height={16} sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)', mb: 1 }} />
+                      <Skeleton variant="text" width="80%" height={24} sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)', mb: 0.5 }} />
+                      <Skeleton variant="text" width="50%" height={16} sx={{ bgcolor: 'rgba(45, 80, 61, 0.05)' }} />
                     </Box>
                   ))}
                 </Box>

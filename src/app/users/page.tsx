@@ -445,25 +445,25 @@ export default function UsersPage() {
                       <TableRow key={i}>
                         <TableCell>
                           <Box display="flex" alignItems="center" gap={2}>
-                            <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                            <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)' }} />
                             <Box>
-                              <Skeleton variant="text" width={120} height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 0.5 }} />
-                              <Skeleton variant="text" width={80} height={16} sx={{ bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
+                              <Skeleton variant="text" width={120} height={20} sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)', mb: 0.5 }} />
+                              <Skeleton variant="text" width={80} height={16} sx={{ bgcolor: 'rgba(45, 80, 61, 0.05)' }} />
                             </Box>
                           </Box>
                         </TableCell>
                         <TableCell>
-                          <Skeleton variant="rectangular" width={80} height={24} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                          <Skeleton variant="rectangular" width={80} height={24} sx={{ borderRadius: 1, bgcolor: 'rgba(45, 80, 61, 0.1)' }} />
                         </TableCell>
                         <TableCell>
-                          <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                          <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 1, bgcolor: 'rgba(45, 80, 61, 0.1)' }} />
                         </TableCell>
                         <TableCell>
-                          <Skeleton variant="rectangular" width={80} height={36} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                          <Skeleton variant="rectangular" width={80} height={36} sx={{ borderRadius: 1, bgcolor: 'rgba(45, 80, 61, 0.1)' }} />
                         </TableCell>
                         {currentRole === 'companyOwner' && (
                           <TableCell>
-                            <Skeleton variant="rectangular" width={100} height={36} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                            <Skeleton variant="rectangular" width={100} height={36} sx={{ borderRadius: 1, bgcolor: 'rgba(45, 80, 61, 0.1)' }} />
                           </TableCell>
                         )}
                       </TableRow>

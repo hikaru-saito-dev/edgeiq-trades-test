@@ -160,8 +160,8 @@ export default function AutoIQPage() {
         return (
             <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
                 <Box sx={{ mb: 4 }}>
-                    <Skeleton variant="text" width="40%" height={40} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 1 }} />
-                    <Skeleton variant="text" width="60%" height={24} sx={{ bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
+                    <Skeleton variant="text" width="40%" height={40} sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)', mb: 1 }} />
+                    <Skeleton variant="text" width="60%" height={24} sx={{ bgcolor: 'rgba(45, 80, 61, 0.05)' }} />
                 </Box>
                 <Paper
                     sx={{
@@ -172,15 +172,15 @@ export default function AutoIQPage() {
                         border: '1px solid var(--surface-border)',
                     }}
                 >
-                    <Skeleton variant="text" width="30%" height={32} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 3 }} />
+                    <Skeleton variant="text" width="30%" height={32} sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)', mb: 3 }} />
                     <Box sx={{ mb: 3 }}>
-                        <Skeleton variant="rectangular" width="100%" height={80} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.05)', mb: 2 }} />
-                        <Skeleton variant="rectangular" width="100%" height={80} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
+                        <Skeleton variant="rectangular" width="100%" height={80} sx={{ borderRadius: 1, bgcolor: 'rgba(45, 80, 61, 0.05)', mb: 2 }} />
+                        <Skeleton variant="rectangular" width="100%" height={80} sx={{ borderRadius: 1, bgcolor: 'rgba(45, 80, 61, 0.05)' }} />
                     </Box>
-                    <Skeleton variant="text" width="25%" height={28} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 2 }} />
-                    <Skeleton variant="rectangular" width="100%" height={100} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.05)', mb: 4 }} />
+                    <Skeleton variant="text" width="25%" height={28} sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)', mb: 2 }} />
+                    <Skeleton variant="rectangular" width="100%" height={100} sx={{ borderRadius: 1, bgcolor: 'rgba(45, 80, 61, 0.05)', mb: 4 }} />
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <Skeleton variant="rectangular" width={150} height={40} sx={{ borderRadius: 2, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                        <Skeleton variant="rectangular" width={150} height={40} sx={{ borderRadius: 2, bgcolor: 'rgba(45, 80, 61, 0.1)' }} />
                     </Box>
                 </Paper>
             </Container>
