@@ -160,8 +160,23 @@ export default function AutoIQPage() {
         return (
             <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
                 <Box sx={{ mb: 4 }}>
-                    <Skeleton variant="text" width="40%" height={40} sx={{ bgcolor: 'rgba(45, 80, 61, 0.1)', mb: 1 }} />
-                    <Skeleton variant="text" width="60%" height={24} sx={{ bgcolor: 'rgba(45, 80, 61, 0.05)' }} />
+                    <Typography
+                        variant="h4"
+                        component="h1"
+                        sx={{
+                            fontWeight: 700,
+                            mb: 1,
+                            background: palette.gradients.primaryToSecondary,
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
+                        }}
+                    >
+                        AutoIQ
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary">
+                        Automated trading for followed creators.
+                    </Typography>
                 </Box>
                 <Paper
                     sx={{
