@@ -6,6 +6,7 @@ import {
   Typography,
   Container,
   Paper,
+  CircularProgress,
   Alert,
   Pagination,
   FormControl,
@@ -27,7 +28,6 @@ import { useAccess } from '@/components/AccessProvider';
 import { useBranding } from '@/components/BrandingProvider';
 import { apiRequest } from '@/lib/apiClient';
 import { alpha, useTheme } from '@mui/material/styles';
-import { TradeCardSkeleton } from '@/components/skeletons/TradeCardSkeleton';
 
 interface Trade {
   _id: string;
@@ -158,12 +158,9 @@ export default function FollowingPage() {
   if (accessLoading) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Box mb={3}>
-          <Skeleton variant="rectangular" width="100%" height={56} sx={{ borderRadius: 2, mb: 2 }} />
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress />
         </Box>
-        {[...Array(3)].map((_, i) => (
-          <TradeCardSkeleton key={i} />
-        ))}
       </Container>
     );
   }
@@ -436,9 +433,33 @@ export default function FollowingPage() {
         </Box>
 
         {loading ? (
-          <Box>
-            {[...Array(3)].map((_, i) => (
-              <TradeCardSkeleton key={i} />
+          <Box display="flex" flexDirection="column" gap={3}>
+            {[1, 2, 3].map((i) => (
+              <Paper
+                key={i}
+                sx={{
+                  p: 3,
+                  bgcolor: 'var(--surface-bg)',
+                  backdropFilter: 'blur(6px)',
+                  borderRadius: 2,
+                  border: `1px solid ${alpha(theme.palette.primary.main, isDark ? 0.3 : 0.2)}`,
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={2} mb={2}>
+                  <Skeleton variant="circular" width={48} height={48} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                  <Box flex={1}>
+                    <Skeleton variant="text" width="40%" height={24} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 1 }} />
+                    <Skeleton variant="text" width="60%" height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
+                  </Box>
+                  <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                </Box>
+                <Box display="flex" gap={2} mb={2}>
+                  <Skeleton variant="text" width="20%" height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                  <Skeleton variant="text" width="20%" height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                  <Skeleton variant="text" width="20%" height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                </Box>
+                <Skeleton variant="rectangular" width="100%" height={120} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
+              </Paper>
             ))}
           </Box>
         ) : filteredTrades.length === 0 ? (

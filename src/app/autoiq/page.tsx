@@ -1,12 +1,11 @@
 'use client';
 
-import { Container, Box, Typography, Paper, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel, Button, Alert, Select, MenuItem, InputLabel } from '@mui/material';
+import { Container, Box, Typography, Paper, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel, Button, CircularProgress, Alert, Select, MenuItem, InputLabel, Skeleton } from '@mui/material';
 import { useState, useEffect, useCallback } from 'react';
 import { useAccess } from '@/components/AccessProvider';
 import { useBranding } from '@/components/BrandingProvider';
 import { useToast } from '@/components/ToastProvider';
 import { apiRequest } from '@/lib/apiClient';
-import { AutoIQFormSkeleton } from '@/components/skeletons/AutoIQFormSkeleton';
 
 interface BrokerAccount {
     id: string;
@@ -147,10 +146,43 @@ export default function AutoIQPage() {
         }
     };
 
-    if (accessLoading || loading) {
+    if (accessLoading) {
+        return (
+            <Container maxWidth="md" sx={{ py: 8 }}>
+                <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
+                    <CircularProgress />
+                </Box>
+            </Container>
+        );
+    }
+
+    if (loading) {
         return (
             <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
-                <AutoIQFormSkeleton />
+                <Box sx={{ mb: 4 }}>
+                    <Skeleton variant="text" width="40%" height={40} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 1 }} />
+                    <Skeleton variant="text" width="60%" height={24} sx={{ bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
+                </Box>
+                <Paper
+                    sx={{
+                        p: 4,
+                        bgcolor: 'var(--surface-bg)',
+                        backdropFilter: 'blur(6px)',
+                        borderRadius: 2,
+                        border: '1px solid var(--surface-border)',
+                    }}
+                >
+                    <Skeleton variant="text" width="30%" height={32} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 3 }} />
+                    <Box sx={{ mb: 3 }}>
+                        <Skeleton variant="rectangular" width="100%" height={80} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.05)', mb: 2 }} />
+                        <Skeleton variant="rectangular" width="100%" height={80} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
+                    </Box>
+                    <Skeleton variant="text" width="25%" height={28} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 2 }} />
+                    <Skeleton variant="rectangular" width="100%" height={100} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.05)', mb: 4 }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <Skeleton variant="rectangular" width={150} height={40} sx={{ borderRadius: 2, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                    </Box>
+                </Paper>
             </Container>
         );
     }

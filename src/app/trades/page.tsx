@@ -7,6 +7,7 @@ import {
   Button,
   Container,
   Paper,
+  CircularProgress,
   TextField,
   InputAdornment,
   FormControl,
@@ -19,6 +20,7 @@ import {
   Alert,
   Tabs,
   Tab,
+  Skeleton,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
@@ -31,7 +33,6 @@ import { useAccess } from '@/components/AccessProvider';
 import { useBranding } from '@/components/BrandingProvider';
 import { apiRequest } from '@/lib/apiClient';
 import { isMarketOpen, getMarketStatusMessage } from '@/utils/marketHours';
-import { TradeCardSkeleton } from '@/components/skeletons/TradeCardSkeleton';
 
 interface Trade {
   _id: string;
@@ -169,10 +170,18 @@ export default function TradesPage() {
   if (accessLoading) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Box>
-          {[...Array(3)].map((_, i) => (
-            <TradeCardSkeleton key={i} />
-          ))}
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight={400} gap={3}>
+          <CircularProgress
+            size={60}
+            thickness={4}
+            sx={{
+              color: palette.primary.main,
+              filter: `drop-shadow(0 0 10px ${palette.primary.alpha50})`,
+            }}
+          />
+          <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
+            Checking access...
+          </Typography>
         </Box>
       </Container>
     );
@@ -357,9 +366,33 @@ export default function TradesPage() {
       </motion.div>
 
       {loading ? (
-        <Box>
-          {[...Array(3)].map((_, i) => (
-            <TradeCardSkeleton key={i} />
+        <Box display="flex" flexDirection="column" gap={3}>
+          {[1, 2, 3].map((i) => (
+            <Paper
+              key={i}
+              sx={{
+                p: 3,
+                bgcolor: 'var(--surface-bg)',
+                backdropFilter: 'blur(6px)',
+                borderRadius: 2,
+                border: '1px solid var(--surface-border)',
+              }}
+            >
+              <Box display="flex" alignItems="center" gap={2} mb={2}>
+                <Skeleton variant="circular" width={48} height={48} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                <Box flex={1}>
+                  <Skeleton variant="text" width="40%" height={24} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 1 }} />
+                  <Skeleton variant="text" width="60%" height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
+                </Box>
+                <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+              </Box>
+              <Box display="flex" gap={2} mb={2}>
+                <Skeleton variant="text" width="20%" height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                <Skeleton variant="text" width="20%" height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                <Skeleton variant="text" width="20%" height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+              </Box>
+              <Skeleton variant="rectangular" width="100%" height={120} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
+            </Paper>
           ))}
         </Box>
       ) : trades.length === 0 ? (

@@ -12,6 +12,7 @@ import {
   IconButton,
   Button,
   Container,
+  Skeleton,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
@@ -19,7 +20,6 @@ import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { apiRequest } from '@/lib/apiClient';
 import { useAccess } from '@/components/AccessProvider';
 import { useBranding } from '@/components/BrandingProvider';
-import { StatsCalendarSkeleton } from '@/components/skeletons/StatsCalendarSkeleton';
 
 type CalendarDay = {
   date: string;
@@ -363,7 +363,45 @@ export default function StatsCalendarPage() {
           }}
         >
           <CardContent>
-            {loading && <StatsCalendarSkeleton />}
+            {loading && (
+              <Box>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                    <Skeleton
+                      key={d}
+                      variant="text"
+                      width="100%"
+                      height={20}
+                      sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', display: { xs: 'none', md: 'block' } }}
+                    />
+                  ))}
+                </Box>
+                <Box
+                  display="grid"
+                  gridTemplateColumns={{
+                    xs: 'repeat(2, minmax(0, 1fr))',
+                    sm: 'repeat(4, minmax(0, 1fr))',
+                    md: 'repeat(7, minmax(0, 1fr))',
+                  }}
+                >
+                  {Array.from({ length: 35 }).map((_, i) => (
+                    <Box
+                      key={i}
+                      sx={{
+                        p: { xs: 0.6, md: 0.75 },
+                        borderRadius: 0,
+                        minHeight: { xs: 92, md: 110 },
+                        border: '1px solid var(--surface-border)',
+                      }}
+                    >
+                      <Skeleton variant="text" width="60%" height={16} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 1 }} />
+                      <Skeleton variant="text" width="80%" height={24} sx={{ bgcolor: 'rgba(255, 255, 255, 0.15)', mb: 0.5 }} />
+                      <Skeleton variant="text" width="50%" height={16} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            )}
             {error && (
               <Typography color="error" textAlign="center">
                 {error}

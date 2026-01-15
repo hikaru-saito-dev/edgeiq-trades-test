@@ -40,7 +40,6 @@ import PersonIcon from '@mui/icons-material/Person';
 import SaveIcon from '@mui/icons-material/Save';
 import TransferOwnershipIcon from '@mui/icons-material/AccountBalanceWallet';
 import { alpha, useTheme } from '@mui/material/styles';
-import { UsersTableSkeleton } from '@/components/skeletons/UsersTableSkeleton';
 
 interface User {
   whopUserId: string;
@@ -261,24 +260,20 @@ export default function UsersPage() {
     }
   };
 
-  if (accessLoading || loading) {
+  if (accessLoading) {
     return (
-      <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
-        <Box mb={3}>
-          <Box
-            display="flex"
-            flexDirection={{ xs: 'column', sm: 'row' }}
-            gap={2}
-            mb={3}
-            alignItems={{ xs: 'stretch', sm: 'center' }}
-          >
-            <Box sx={{ flex: { xs: '1 1 100%', sm: 1 }, minWidth: { xs: '100%', sm: 250 } }}>
-              <Skeleton variant="rectangular" width="100%" height={40} sx={{ borderRadius: 1 }} />
-            </Box>
-            <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 1 }} />
-          </Box>
-        </Box>
-        <UsersTableSkeleton />
+      <Container maxWidth="lg" sx={{ py: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+        <CircularProgress
+          size={60}
+          thickness={4}
+          sx={{
+            color: palette.primary.main,
+            filter: `drop-shadow(0 0 10px ${palette.primary.alpha50})`,
+          }}
+        />
+        <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
+          Loading...
+        </Typography>
       </Container>
     );
   }
@@ -445,11 +440,35 @@ export default function UsersPage() {
               </TableHead>
               <TableBody>
                 {loading && users.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={currentRole === 'companyOwner' ? 5 : 4} align="center" sx={{ py: 4 }}>
-                      <CircularProgress size={40} sx={{ color: palette.primary.main }} />
-                    </TableCell>
-                  </TableRow>
+                  <>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <TableRow key={i}>
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={2}>
+                            <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                            <Box>
+                              <Skeleton variant="text" width={120} height={20} sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 0.5 }} />
+                              <Skeleton variant="text" width={80} height={16} sx={{ bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton variant="rectangular" width={80} height={24} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton variant="rectangular" width={80} height={36} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                        </TableCell>
+                        {currentRole === 'companyOwner' && (
+                          <TableCell>
+                            <Skeleton variant="rectangular" width={100} height={36} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </>
                 ) : users.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={currentRole === 'companyOwner' ? 5 : 4} align="center" sx={{ py: 4 }}>
