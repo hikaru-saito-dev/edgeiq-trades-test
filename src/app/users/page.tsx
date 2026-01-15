@@ -27,6 +27,7 @@ import {
   DialogContent,
   DialogActions,
   DialogContentText,
+  Skeleton,
 } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search';
 import { motion } from 'framer-motion';
@@ -39,6 +40,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import SaveIcon from '@mui/icons-material/Save';
 import TransferOwnershipIcon from '@mui/icons-material/AccountBalanceWallet';
 import { alpha, useTheme } from '@mui/material/styles';
+import { UsersTableSkeleton } from '@/components/skeletons/UsersTableSkeleton';
 
 interface User {
   whopUserId: string;
@@ -261,18 +263,22 @@ export default function UsersPage() {
 
   if (accessLoading || loading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-        <CircularProgress
-          size={60}
-          thickness={4}
-          sx={{
-            color: palette.primary.main,
-            filter: `drop-shadow(0 0 10px ${palette.primary.alpha50})`,
-          }}
-        />
-        <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
-          Loading...
-        </Typography>
+      <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
+        <Box mb={3}>
+          <Box
+            display="flex"
+            flexDirection={{ xs: 'column', sm: 'row' }}
+            gap={2}
+            mb={3}
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+          >
+            <Box sx={{ flex: { xs: '1 1 100%', sm: 1 }, minWidth: { xs: '100%', sm: 250 } }}>
+              <Skeleton variant="rectangular" width="100%" height={40} sx={{ borderRadius: 1 }} />
+            </Box>
+            <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 1 }} />
+          </Box>
+        </Box>
+        <UsersTableSkeleton />
       </Container>
     );
   }

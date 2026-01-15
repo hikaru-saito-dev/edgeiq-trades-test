@@ -7,7 +7,6 @@ import {
   Button,
   Container,
   Paper,
-  CircularProgress,
   TextField,
   InputAdornment,
   FormControl,
@@ -32,6 +31,7 @@ import { useAccess } from '@/components/AccessProvider';
 import { useBranding } from '@/components/BrandingProvider';
 import { apiRequest } from '@/lib/apiClient';
 import { isMarketOpen, getMarketStatusMessage } from '@/utils/marketHours';
+import { TradeCardSkeleton } from '@/components/skeletons/TradeCardSkeleton';
 
 interface Trade {
   _id: string;
@@ -169,18 +169,10 @@ export default function TradesPage() {
   if (accessLoading) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight={400} gap={3}>
-          <CircularProgress
-            size={60}
-            thickness={4}
-            sx={{
-              color: palette.primary.main,
-              filter: `drop-shadow(0 0 10px ${palette.primary.alpha50})`,
-            }}
-          />
-          <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
-            Checking access...
-          </Typography>
+        <Box>
+          {[...Array(3)].map((_, i) => (
+            <TradeCardSkeleton key={i} />
+          ))}
         </Box>
       </Container>
     );
@@ -365,36 +357,10 @@ export default function TradesPage() {
       </motion.div>
 
       {loading ? (
-        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight={400} gap={3}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            <CircularProgress
-              size={60}
-              thickness={4}
-              sx={{
-                color: palette.primary.main,
-                filter: `drop-shadow(0 0 10px ${palette.primary.alpha50})`,
-              }}
-            />
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-          >
-            <Typography
-              variant="h6"
-              sx={{
-                color: 'var(--app-text)',
-                fontWeight: 500,
-              }}
-            >
-              Loading your trades...
-            </Typography>
-          </motion.div>
+        <Box>
+          {[...Array(3)].map((_, i) => (
+            <TradeCardSkeleton key={i} />
+          ))}
         </Box>
       ) : trades.length === 0 ? (
         <motion.div

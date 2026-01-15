@@ -1,11 +1,12 @@
 'use client';
 
-import { Container, Box, Typography, Paper, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel, Button, CircularProgress, Alert, Select, MenuItem, InputLabel } from '@mui/material';
+import { Container, Box, Typography, Paper, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel, Button, Alert, Select, MenuItem, InputLabel } from '@mui/material';
 import { useState, useEffect, useCallback } from 'react';
 import { useAccess } from '@/components/AccessProvider';
 import { useBranding } from '@/components/BrandingProvider';
 import { useToast } from '@/components/ToastProvider';
 import { apiRequest } from '@/lib/apiClient';
+import { AutoIQFormSkeleton } from '@/components/skeletons/AutoIQFormSkeleton';
 
 interface BrokerAccount {
     id: string;
@@ -148,10 +149,8 @@ export default function AutoIQPage() {
 
     if (accessLoading || loading) {
         return (
-            <Container maxWidth="md" sx={{ py: 8 }}>
-                <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
-                    <CircularProgress />
-                </Box>
+            <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
+                <AutoIQFormSkeleton />
             </Container>
         );
     }

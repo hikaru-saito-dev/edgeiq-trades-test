@@ -8,7 +8,6 @@ import {
   Typography,
   ToggleButton,
   ToggleButtonGroup,
-  CircularProgress,
   Chip,
   IconButton,
   Button,
@@ -20,6 +19,7 @@ import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { apiRequest } from '@/lib/apiClient';
 import { useAccess } from '@/components/AccessProvider';
 import { useBranding } from '@/components/BrandingProvider';
+import { StatsCalendarSkeleton } from '@/components/skeletons/StatsCalendarSkeleton';
 
 type CalendarDay = {
   date: string;
@@ -363,11 +363,7 @@ export default function StatsCalendarPage() {
           }}
         >
           <CardContent>
-            {loading && (
-              <Box display="flex" justifyContent="center" py={6}>
-                <CircularProgress size={32} />
-              </Box>
-            )}
+            {loading && <StatsCalendarSkeleton />}
             {error && (
               <Typography color="error" textAlign="center">
                 {error}

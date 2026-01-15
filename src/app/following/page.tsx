@@ -6,7 +6,6 @@ import {
   Typography,
   Container,
   Paper,
-  CircularProgress,
   Alert,
   Pagination,
   FormControl,
@@ -18,6 +17,7 @@ import {
   Collapse,
   TextField,
   InputAdornment,
+  Skeleton,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import TradeCard from '@/components/TradeCard';
@@ -27,6 +27,7 @@ import { useAccess } from '@/components/AccessProvider';
 import { useBranding } from '@/components/BrandingProvider';
 import { apiRequest } from '@/lib/apiClient';
 import { alpha, useTheme } from '@mui/material/styles';
+import { TradeCardSkeleton } from '@/components/skeletons/TradeCardSkeleton';
 
 interface Trade {
   _id: string;
@@ -157,9 +158,12 @@ export default function FollowingPage() {
   if (accessLoading) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress />
+        <Box mb={3}>
+          <Skeleton variant="rectangular" width="100%" height={56} sx={{ borderRadius: 2, mb: 2 }} />
         </Box>
+        {[...Array(3)].map((_, i) => (
+          <TradeCardSkeleton key={i} />
+        ))}
       </Container>
     );
   }
@@ -432,8 +436,10 @@ export default function FollowingPage() {
         </Box>
 
         {loading ? (
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-            <CircularProgress />
+          <Box>
+            {[...Array(3)].map((_, i) => (
+              <TradeCardSkeleton key={i} />
+            ))}
           </Box>
         ) : filteredTrades.length === 0 ? (
           <Paper
@@ -449,7 +455,7 @@ export default function FollowingPage() {
             <Typography variant="h6" sx={{ color: 'var(--app-text)', mb: 1 }}>
               {selectedFollowId !== 'all' ? 'No trades from this creator' : 'No trades yet'}
             </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               {selectedFollowId !== 'all'
                 ? "This creator doesn't have any trades matching your search criteria on this page."
                 : follows.length === 0
