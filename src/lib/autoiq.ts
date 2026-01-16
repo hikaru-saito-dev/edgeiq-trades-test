@@ -9,7 +9,7 @@ import { BrokerConnection } from '@/models/BrokerConnection';
 import { FollowPurchase } from '@/models/FollowPurchase';
 import { Types } from 'mongoose';
 import { createBroker } from '@/lib/brokers/factory';
-import { getMarketFillPrice } from '@/lib/polygon';
+// Removed Massive.com API - using broker execution prices directly
 
 /**
  * Automatically create and execute trades for followers with AutoIQ enabled
@@ -131,35 +131,9 @@ async function autoTradeForSingleFollower(
         return; // Not a single-leg option
     }
 
-    // Get market fill price for the follower's trade
-    let fillPrice = creatorTrade.fillPrice;
-    try {
-        const { getOptionContractSnapshot, formatExpiryDateForAPI } = await import('@/lib/polygon');
-        // Format expiry date from Date to MM/DD/YYYY string, then to YYYY-MM-DD
-        const expiryDate = creatorTrade.expiryDate instanceof Date
-            ? creatorTrade.expiryDate
-            : new Date(creatorTrade.expiryDate);
-        const month = String(expiryDate.getMonth() + 1).padStart(2, '0');
-        const day = String(expiryDate.getDate()).padStart(2, '0');
-        const year = expiryDate.getFullYear();
-        const expiryDateStr = `${month}/${day}/${year}`;
-        const expiryDateAPI = formatExpiryDateForAPI(expiryDateStr);
-        const contractType = creatorTrade.optionType === 'C' ? 'call' : 'put';
-        const { snapshot, error: snapshotError } = await getOptionContractSnapshot(
-            creatorTrade.ticker,
-            creatorTrade.strike,
-            expiryDateAPI,
-            contractType
-        );
-        if (snapshot && !snapshotError) {
-            const marketPrice = getMarketFillPrice(snapshot);
-            if (marketPrice) {
-                fillPrice = marketPrice;
-            }
-        }
-    } catch {
-        // If market price fetch fails, use creator's fill price
-    }
+    // Use creator's fill price (already executed by broker)
+    // The broker will determine the actual execution price when placing the follower's order
+    const fillPrice = creatorTrade.fillPrice;
 
     // Create the follower's trade
     const followerTradeData: Partial<ITrade> = {
@@ -216,6 +190,14 @@ async function autoTradeForSingleFollower(
         if (result.executionPrice !== null && result.executionPrice !== undefined) {
             followerTradeData.fillPrice = result.executionPrice;
             followerTradeData.totalBuyNotional = followerTradeData.contracts! * result.executionPrice * 100;
+        }
+
+        // Use creator's tradeExecutedAt if available (for accurate timestamp)
+        // Otherwise use the follower's broker execution timestamp
+        if (creatorTrade.tradeExecutedAt) {
+            followerTradeData.tradeExecutedAt = creatorTrade.tradeExecutedAt;
+        } else if (result.executedAt) {
+            followerTradeData.tradeExecutedAt = result.executedAt;
         }
     } catch {
         // Broker execution failed - DO NOT create the trade
@@ -377,6 +359,7 @@ async function autoSettleForSingleFollower(
     // Execute the sell order on the follower's broker account FIRST
     // Only create the settlement record if broker order succeeds
     let actualFillPrice = fillPrice; // Default to creator's fill price
+    let fillExecutedAt: Date | undefined;
     try {
         const broker = createBroker(brokerConnection.brokerType, brokerConnection);
         const result = await broker.placeOptionOrder(
@@ -394,6 +377,11 @@ async function autoSettleForSingleFollower(
         // Use broker execution price if available (actual fill price for follower)
         if (result.executionPrice !== null && result.executionPrice !== undefined) {
             actualFillPrice = result.executionPrice;
+        }
+
+        // Store execution timestamp from broker
+        if (result.executedAt) {
+            fillExecutedAt = result.executedAt;
         }
     } catch {
         // Broker execution failed - DO NOT create the settlement record
@@ -420,6 +408,7 @@ async function autoSettleForSingleFollower(
             priceVerified: true,
             notional: sellNotional,
             isMarketOrder: true,
+            ...(fillExecutedAt && { fillExecutedAt }),
         }], { session });
 
         // Get all SELL fills for this trade to calculate totals (within transaction)

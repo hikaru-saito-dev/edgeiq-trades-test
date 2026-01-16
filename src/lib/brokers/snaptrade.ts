@@ -101,6 +101,7 @@ export class SnapTradeBroker implements IBroker {
         id?: string;
         orders?: Array<{
           execution_price?: number | null;
+          time_placed?: string | null; // ISO 8601 timestamp when order was placed
           [key: string]: unknown;
         }>;
       };
@@ -113,17 +114,22 @@ export class SnapTradeBroker implements IBroker {
         };
       }
 
-      // Extract execution_price from the orders array if available
+      // Extract execution_price and time_placed from the orders array if available
       // MlegOrderResponse contains an 'orders' array with AccountOrderRecord objects
       let executionPrice: number | null = null;
       let priceSource: 'broker' | 'market_data' = 'market_data';
+      let executedAt: Date | null = null;
 
       if (data.orders && Array.isArray(data.orders) && data.orders.length > 0) {
-        // Get execution_price from the first order (for single-leg orders, there's only one)
+        // Get execution_price and time_placed from the first order (for single-leg orders, there's only one)
         const firstOrder = data.orders[0];
         if (firstOrder.execution_price !== undefined && firstOrder.execution_price !== null) {
           executionPrice = firstOrder.execution_price;
           priceSource = 'broker';
+        }
+        // Extract time_placed timestamp (when order was placed with broker)
+        if (firstOrder.time_placed) {
+          executedAt = new Date(firstOrder.time_placed);
         }
       }
 
@@ -137,6 +143,7 @@ export class SnapTradeBroker implements IBroker {
         orderDetails: orderData as unknown as Record<string, unknown>,
         executionPrice,
         priceSource,
+        executedAt,
         costInfo: {
           grossCost,
           commission: 0,
@@ -219,7 +226,12 @@ export class SnapTradeBroker implements IBroker {
             brokerage_order_id: result.orderId,
           });
 
-          const order = orderDetailResponse.data;
+          const order = orderDetailResponse.data as {
+            execution_price?: number | null;
+            time_placed?: string | null;
+            time_executed?: string | null;
+            [key: string]: unknown;
+          };
           // Check if order has executed and execution_price is available
           if (order?.execution_price !== undefined && order.execution_price !== null) {
             result.executionPrice = order.execution_price;
@@ -234,6 +246,13 @@ export class SnapTradeBroker implements IBroker {
               estimatedFees: {},
               totalCost: grossCost,
             };
+          }
+          // Update executedAt from order detail if available (time_executed or time_placed)
+          // Prefer time_executed if available, otherwise use time_placed
+          if (order?.time_executed) {
+            result.executedAt = new Date(order.time_executed);
+          } else if (order?.time_placed && !result.executedAt) {
+            result.executedAt = new Date(order.time_placed);
           }
         } catch (error) {
           // If order detail check fails, continue with market data price (non-blocking)

@@ -14,6 +14,7 @@ export interface BrokerOrderResult {
     };
     executionPrice?: number | null; // Actual fill price from broker (if available)
     priceSource?: 'broker' | 'market_data'; // Source of the price used
+    executedAt?: Date | null; // Timestamp when order was placed with broker (from brokerOrderDetails.orders[0].time_placed)
 }
 
 export interface IBroker {

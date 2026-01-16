@@ -205,6 +205,7 @@ export async function POST(request: NextRequest) {
       let brokerExecutionPrice: number | null | undefined;
       let priceSource: 'broker' | 'market_data' = 'market_data';
       let brokerOrderDetails: Record<string, unknown> | undefined;
+      let fillExecutedAt: Date | undefined;
 
       if (trade.brokerOrderId && trade.brokerOrderId !== 'unknown' && trade.brokerConnectionId) {
         try {
@@ -240,6 +241,11 @@ export async function POST(request: NextRequest) {
             // Extract execution price and price source from broker response
             brokerExecutionPrice = result.executionPrice;
             priceSource = result.priceSource || 'market_data';
+
+            // Extract execution timestamp from broker response
+            if (result.executedAt) {
+              fillExecutedAt = result.executedAt;
+            }
 
             // If broker provided execution price, use it instead of market data price
             // Ensure execution price is a valid number
@@ -277,6 +283,7 @@ export async function POST(request: NextRequest) {
         refTimestamp,
         notional: sellNotional,
         isMarketOrder: true, // Always market orders
+        ...(fillExecutedAt && { fillExecutedAt }),
       }], { session });
 
       // Get all SELL fills for this trade to calculate totals (within transaction)

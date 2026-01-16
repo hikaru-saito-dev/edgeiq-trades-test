@@ -40,6 +40,7 @@ interface TradeFill {
   contracts: number;
   fillPrice: number;
   createdAt: string;
+  fillExecutedAt?: string; // Timestamp when SELL order was placed with broker
   notional: number;
 }
 
@@ -60,6 +61,7 @@ interface TradeCardProps {
     totalSellNotional?: number;
     priceVerified: boolean;
     createdAt: string;
+    tradeExecutedAt?: string; // Timestamp when order was placed with broker
     fills?: TradeFill[];
     actionStatus?: {
       action: 'follow' | 'fade';
@@ -314,7 +316,7 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
                     fontSize: { xs: '0.75rem', sm: '0.875rem' },
                   }}
                 >
-                  {new Date(trade.createdAt).toLocaleString()}
+                  {new Date(trade.tradeExecutedAt || trade.createdAt).toLocaleString()}
                 </Typography>
                 {!trade.priceVerified && (
                   <Chip
@@ -477,7 +479,7 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
                         @{fill.fillPrice.toFixed(2)}
                       </Typography>
                       <Typography variant="caption" sx={{ color: timestampColor }}>
-                        {new Date(fill.createdAt).toLocaleString()}
+                        {new Date(fill.fillExecutedAt || fill.createdAt).toLocaleString()}
                       </Typography>
                     </Box>
                   ))}

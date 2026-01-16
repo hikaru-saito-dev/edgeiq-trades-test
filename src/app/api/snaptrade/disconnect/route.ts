@@ -41,14 +41,38 @@ export async function DELETE(request: NextRequest) {
         }
 
         // Find and deactivate the connection
-       await BrokerConnection.deleteOne({
+        await BrokerConnection.deleteOne({
             _id: connectionId,
             userId: user._id,
         });
-        
+
         // Invalidate broker cache
         const { invalidateBrokerCache } = await import('@/lib/cache/brokerCache');
         invalidateBrokerCache(user.whopUserId, String(user._id));
+
+        // If user has AutoIQ enabled and is in auto-trade mode, automatically switch to notify-only
+        if (user.hasAutoIQ && user.autoTradeMode === 'auto-trade') {
+            // Check if this was their default broker connection
+            const wasDefaultBroker = user.defaultBrokerConnectionId &&
+                String(user.defaultBrokerConnectionId) === connectionId;
+
+            // Check if they have any other active broker connections
+            const otherActiveConnections = await BrokerConnection.countDocuments({
+                userId: user._id,
+                isActive: true,
+                brokerType: 'snaptrade',
+            });
+
+            // If this was their default broker OR they have no other active connections,
+            // switch to notify-only mode
+            if (wasDefaultBroker || otherActiveConnections === 0) {
+                user.autoTradeMode = 'notify-only';
+                if (wasDefaultBroker) {
+                    user.defaultBrokerConnectionId = undefined;
+                }
+                await user.save();
+            }
+        }
 
         return NextResponse.json({ success: true, message: 'Broker connection disconnected successfully' });
     } catch (error) {

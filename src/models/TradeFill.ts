@@ -10,6 +10,7 @@ export interface ITradeFill extends Document {
   refTimestamp?: Date; // Timestamp when ref price was fetched
   notional: number; // contracts * fill_price * 100
   isMarketOrder?: boolean; // Whether this was a market order (always true now)
+  fillExecutedAt?: Date; // Timestamp when SELL order was placed with broker (from brokerOrderDetails.orders[0].time_placed)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,6 +25,7 @@ const TradeFillSchema = new Schema<ITradeFill>({
   refTimestamp: { type: Date },
   notional: { type: Number, required: true }, // contracts * fill_price * 100
   isMarketOrder: { type: Boolean, default: true }, // Always true - market orders only
+  fillExecutedAt: { type: Date },
 }, {
   timestamps: true,
 });

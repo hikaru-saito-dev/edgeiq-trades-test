@@ -347,6 +347,7 @@ export async function POST(request: NextRequest) {
     let brokerOrderId: string | undefined;
     let brokerConnectionId: Types.ObjectId | undefined;
     let brokerOrderDetails: Record<string, unknown> | undefined;
+    let tradeExecutedAt: Date | undefined;
     let brokerCostInfo: {
       grossCost: number;
       commission: number;
@@ -431,6 +432,9 @@ export async function POST(request: NextRequest) {
         brokerExecutionPrice = result.executionPrice;
         priceSource = result.priceSource || 'market_data';
 
+        // Extract execution timestamp from broker response
+        tradeExecutedAt = result.executedAt || undefined;
+
         // If broker provided execution price, use it instead of market data price
         // Ensure execution price is a valid number
         if (brokerExecutionPrice !== null && brokerExecutionPrice !== undefined) {
@@ -487,6 +491,7 @@ export async function POST(request: NextRequest) {
         ...(brokerConnectionId && { brokerConnectionId }),
         ...(brokerOrderDetails && { brokerOrderDetails }),
         ...(brokerCostInfo && { brokerCostInfo }),
+        ...(tradeExecutedAt && { tradeExecutedAt }),
       }], { session });
 
       // Track consumed plays for follow purchases (within transaction)

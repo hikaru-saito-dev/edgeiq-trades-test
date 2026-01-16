@@ -567,6 +567,7 @@ export async function PATCH(request: NextRequest) {
       userUpdates.autoTradeMode = validated.autoTradeMode;
     }
     // Update default broker connection for AutoIQ (only if user has AutoIQ subscription)
+    // Only validate broker connection if mode is auto-trade (not needed for notify-only)
     if (validated.defaultBrokerConnectionId !== undefined) {
       if (!user.hasAutoIQ) {
         return NextResponse.json(
@@ -574,8 +575,10 @@ export async function PATCH(request: NextRequest) {
           { status: 403 }
         );
       }
-      // Validate that the broker connection exists and belongs to the user
-      if (validated.defaultBrokerConnectionId) {
+      // Only validate broker connection if auto-trade mode is enabled
+      // For notify-only mode, we don't need a broker connection
+      const currentMode = validated.autoTradeMode !== undefined ? validated.autoTradeMode : user.autoTradeMode;
+      if (validated.defaultBrokerConnectionId && currentMode === 'auto-trade') {
         const { BrokerConnection } = await import('@/models/BrokerConnection');
         const brokerConnection = await BrokerConnection.findOne({
           _id: validated.defaultBrokerConnectionId,
@@ -590,6 +593,7 @@ export async function PATCH(request: NextRequest) {
         }
         userUpdates.defaultBrokerConnectionId = brokerConnection._id;
       } else {
+        // For notify-only mode or when clearing the default, no validation needed
         userUpdates.defaultBrokerConnectionId = undefined;
       }
     }

@@ -37,6 +37,7 @@ export interface ITrade extends Document {
     estimatedFees: Record<string, number>;
     totalCost: number;
   }; // Cost breakdown from broker
+  tradeExecutedAt?: Date; // Timestamp when order was placed with broker (from brokerOrderDetails.orders[0].time_placed)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -89,6 +90,9 @@ const TradeSchema = new Schema<ITrade>({
   },
   brokerCostInfo: {
     type: Schema.Types.Mixed,
+  },
+  tradeExecutedAt: {
+    type: Date,
   },
 }, {
   timestamps: true,
