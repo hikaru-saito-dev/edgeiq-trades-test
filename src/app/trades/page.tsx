@@ -281,13 +281,36 @@ export default function TradesPage() {
 
         {/* Market Status Alert with real-time countdown */}
         {!marketOpen && (
-          <Alert severity="warning" sx={{ mb: 3 }}>
-            {getMarketStatusMessage()}
-            {marketCountdown && (
-              <Box component="span" sx={{ ml: 1, fontWeight: 600 }}>
-                {marketCountdown}
+          <Alert
+            severity="warning"
+            sx={{
+              mb: 3,
+              '& .MuiAlert-message': {
+                width: '100%',
+              },
+            }}
+          >
+            <Box>
+              <Box component="span" sx={{ display: 'block', mb: marketCountdown ? 0.5 : 0 }}>
+                {getMarketStatusMessage()}
               </Box>
-            )}
+              {marketCountdown && (
+                <Box
+                  component="span"
+                  sx={{
+                    display: 'block',
+                    fontWeight: 700,
+                    fontSize: '1.1rem',
+                    color: palette.primary.main,
+                    fontFamily: 'monospace',
+                    letterSpacing: '0.05em',
+                    mt: 0.5,
+                  }}
+                >
+                  {marketCountdown}
+                </Box>
+              )}
+            </Box>
           </Alert>
         )}
 
