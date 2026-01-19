@@ -32,7 +32,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import { useAccess } from '@/components/AccessProvider';
 import { useBranding } from '@/components/BrandingProvider';
 import { apiRequest } from '@/lib/apiClient';
-import { isMarketOpen, getMarketStatusMessage } from '@/utils/marketHours';
+import { isMarketOpen, getMarketStatusMessage, getMarketCountdown } from '@/utils/marketHours';
 
 interface Trade {
   _id: string;
@@ -69,6 +69,7 @@ export default function TradesPage() {
   const { isAuthorized, loading: accessLoading, userId, companyId } = useAccess();
   const { palette } = useBranding();
   const [marketOpen, setMarketOpen] = useState(true);
+  const [marketCountdown, setMarketCountdown] = useState<string | null>(null);
 
   // Pagination & search
   const [page, setPage] = useState(1);
@@ -104,13 +105,17 @@ export default function TradesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, isAuthorized, selectedStatus, search]);
 
-  // Check market hours
+  // Check market hours + real-time countdown
   useEffect(() => {
-    const checkMarket = () => {
-      setMarketOpen(isMarketOpen());
+    const updateMarketStatus = () => {
+      const open = isMarketOpen();
+      setMarketOpen(open);
+      const { label } = getMarketCountdown();
+      setMarketCountdown(label);
     };
-    checkMarket();
-    const interval = setInterval(checkMarket, 60000); // Check every minute
+
+    updateMarketStatus();
+    const interval = setInterval(updateMarketStatus, 1000); // Update every second for smooth countdown
     return () => clearInterval(interval);
   }, []);
 
@@ -274,10 +279,15 @@ export default function TradesPage() {
           </Button>
         </Box>
 
-        {/* Market Status Alert */}
+        {/* Market Status Alert with real-time countdown */}
         {!marketOpen && (
           <Alert severity="warning" sx={{ mb: 3 }}>
             {getMarketStatusMessage()}
+            {marketCountdown && (
+              <Box component="span" sx={{ ml: 1, fontWeight: 600 }}>
+                {marketCountdown}
+              </Box>
+            )}
           </Alert>
         )}
 
