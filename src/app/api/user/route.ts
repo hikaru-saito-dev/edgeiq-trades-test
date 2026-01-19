@@ -564,6 +564,12 @@ export async function PATCH(request: NextRequest) {
           { status: 403 }
         );
       }
+      if (validated.autoTradeMode === 'auto-trade' && !validated.defaultBrokerConnectionId) {
+        return NextResponse.json(
+          { error: 'A default broker connection is required for auto-trade mode' },
+          { status: 400 }
+        );
+      }
       userUpdates.autoTradeMode = validated.autoTradeMode;
     }
     // Update default broker connection for AutoIQ (only if user has AutoIQ subscription)
@@ -575,6 +581,7 @@ export async function PATCH(request: NextRequest) {
           { status: 403 }
         );
       }
+      
       // Only validate broker connection if auto-trade mode is enabled
       // For notify-only mode, we don't need a broker connection
       const currentMode = validated.autoTradeMode !== undefined ? validated.autoTradeMode : user.autoTradeMode;

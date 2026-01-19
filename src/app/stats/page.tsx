@@ -357,7 +357,7 @@ export default function StatsCalendarPage() {
         <Card
           sx={{
             border: `1px solid ${alpha(theme.palette.primary.main, isDark ? 0.12 : 0.1)}`,
-            background: alpha(theme.palette.background.default, isDark ? 0.5 : 0.09),
+            background: 'var(--surface-bg)',
             borderRadius: 1,
             boxShadow: 'none',
           }}

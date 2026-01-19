@@ -59,12 +59,12 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [roleChanges, setRoleChanges] = useState<Record<string, 'companyOwner' | 'owner' | 'admin' | 'member'>>({});
-
+  
   // Transfer ownership state
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [transferringUserId, setTransferringUserId] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
-
+  
   // Pagination & search
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -125,7 +125,7 @@ export default function UsersPage() {
     }
     try {
       // Only show loading on initial load, not on search/pagination
-
+      
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
       if (search.trim()) params.set('search', search.trim());
       const response = await apiRequest(`/api/users?${params.toString()}`, {
@@ -227,7 +227,7 @@ export default function UsersPage() {
 
   const handleTransferOwnership = async () => {
     if (!transferringUserId) return;
-
+    
     try {
       setTransferring(true);
       const response = await apiRequest('/api/users/transfer-ownership', {
@@ -263,13 +263,13 @@ export default function UsersPage() {
   if (accessLoading) {
     return (
       <Container maxWidth="lg" sx={{ py: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-        <CircularProgress
+        <CircularProgress 
           size={60}
           thickness={4}
-          sx={{
+          sx={{ 
             color: palette.primary.main,
             filter: `drop-shadow(0 0 10px ${palette.primary.alpha50})`,
-          }}
+          }} 
         />
         <Typography variant="h6" sx={{ color: 'var(--app-text)', fontWeight: 500 }}>
           Loading...
@@ -281,17 +281,17 @@ export default function UsersPage() {
   if (currentRole !== 'companyOwner' && currentRole !== 'owner') {
     return (
       <Container maxWidth="md" sx={{ py: 6 }}>
-        <Paper
-          sx={{
-            p: 6,
-            textAlign: 'center',
-            borderRadius: 3,
-            background: 'var(--surface-bg)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid var(--surface-border)',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-          }}
-        >
+      <Paper
+        sx={{
+          p: 6,
+          textAlign: 'center',
+          borderRadius: 3,
+          background: 'var(--surface-bg)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid var(--surface-border)',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+        }}
+      >
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 600 }}>
             Access Restricted
           </Typography>
@@ -326,8 +326,8 @@ export default function UsersPage() {
           >
             User Management
           </Typography>
-          <Typography
-            variant="body2"
+          <Typography 
+            variant="body2" 
             color="text.secondary"
             sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
           >
@@ -336,11 +336,11 @@ export default function UsersPage() {
         </Box>
 
         {/* Search & Pagination controls */}
-        <Box
-          display="flex"
+        <Box 
+          display="flex" 
           flexDirection={{ xs: 'column', sm: 'row' }}
-          gap={2}
-          mb={3}
+          gap={2} 
+          mb={3} 
           alignItems={{ xs: 'stretch', sm: 'center' }}
         >
           <TextField
@@ -464,9 +464,9 @@ export default function UsersPage() {
                         {currentRole === 'companyOwner' && (
                           <TableCell>
                             <Skeleton variant="rectangular" width={100} height={36} sx={{ borderRadius: 1, bgcolor: 'rgba(45, 80, 61, 0.1)' }} />
-                          </TableCell>
+                    </TableCell>
                         )}
-                      </TableRow>
+                  </TableRow>
                     ))}
                   </>
                 ) : users.length === 0 ? (
@@ -612,7 +612,7 @@ export default function UsersPage() {
               </TableBody>
             </Table>
           </TableContainer>
-
+          
           {/* Pagination */}
           <Box display="flex" justifyContent="center" py={2} gap={2} alignItems="center">
             <Button
@@ -707,16 +707,16 @@ export default function UsersPage() {
             {transferringUserId && (() => {
               const targetUser = users.find(u => u.whopUserId === transferringUserId);
               if (!targetUser) return null;
-
+              
               return (
                 <Box sx={{ textAlign: 'center', py: 2 }}>
                   <Avatar
                     src={targetUser.whopAvatarUrl}
                     alt={targetUser.alias}
-                    sx={{
-                      width: 80,
-                      height: 80,
-                      mx: 'auto',
+                    sx={{ 
+                      width: 80, 
+                      height: 80, 
+                      mx: 'auto', 
                       mb: 2,
                       border: `2px solid ${alpha(theme.palette.primary.main, 0.5)}`,
                     }}
