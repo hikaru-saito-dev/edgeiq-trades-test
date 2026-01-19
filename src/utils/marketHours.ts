@@ -112,18 +112,45 @@ export function getMarketStatusMessage(): string {
     return `Market is open. Closes in ${minutesUntilClose} minutes.`;
   }
 
-  // Get weekday to check if weekend
-  const weekdayFormatter = new Intl.DateTimeFormat('en-US', {
+  // Get current weekday / time in New York
+  const closedFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
     weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
   });
-  const weekday = weekdayFormatter.format(now);
+  const closedParts = closedFormatter.formatToParts(now);
+  const weekday = closedParts.find(p => p.type === 'weekday')?.value || '';
+  const hour = parseInt(closedParts.find(p => p.type === 'hour')?.value || '0');
+  const minute = parseInt(closedParts.find(p => p.type === 'minute')?.value || '0');
 
+  // Weekend message stays static
   if (weekday === 'Sat' || weekday === 'Sun') {
     return 'Market is closed (weekend). Trades can only be created/settled between 09:30–16:00 EST on weekdays.';
   }
 
-  // Before or after market hours
+  // Weekday but outside hours: show a simple countdown when BEFORE market open
+  const marketOpenHour = 9;
+  const marketOpenMinute = 30;
+  const currentMinutes = hour * 60 + minute;
+  const openMinutes = marketOpenHour * 60 + marketOpenMinute;
+
+  if (currentMinutes < openMinutes) {
+    const minutesUntilOpen = openMinutes - currentMinutes;
+    const hours = Math.floor(minutesUntilOpen / 60);
+    const minutes = minutesUntilOpen % 60;
+
+    // Build a compact countdown string like "1h 12m" or "12m"
+    const parts: string[] = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    parts.push(`${minutes}m`);
+    const countdown = parts.join(' ');
+
+    return `Market is closed. Opens in ${countdown} (09:30 EST).`;
+  }
+
+  // After market close on a weekday – keep the existing static guidance
   return 'Market is closed. Trades can only be created/settled between 09:30–16:00 EST.';
 }
 
