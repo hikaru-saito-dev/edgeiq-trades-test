@@ -255,6 +255,33 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
         const data = await res.json();
         toast.showSuccess(data.message || 'Trade created successfully');
 
+        // Log transaction details to console for debugging
+        console.group('✅ Trade Created Successfully');
+        console.log('📊 Trade Details:', {
+          id: data.trade?._id,
+          status: data.trade?.status,
+          ticker: data.trade?.ticker,
+          strike: data.trade?.strike,
+          optionType: data.trade?.optionType,
+          expiryDate: data.trade?.expiryDate,
+          contracts: data.trade?.contracts,
+          fillPrice: data.trade?.fillPrice,
+          totalBuyNotional: data.trade?.totalBuyNotional,
+          remainingOpenContracts: data.trade?.remainingOpenContracts,
+          createdAt: data.trade?.createdAt,
+          tradeExecutedAt: data.trade?.tradeExecutedAt,
+        });
+        console.log('💰 Price Info:', data.priceInfo);
+        console.log('🔗 Broker Info:', {
+          brokerOrderId: data.trade?.brokerOrderId,
+          brokerType: data.trade?.brokerType,
+          brokerCostInfo: data.brokerCostInfo,
+          tradeExecutedAt: data.tradeExecutedAt,
+        });
+        console.log('📋 Broker Order Details:', data.brokerOrderDetails);
+        console.log('📝 Full Trade Object:', data.trade);
+        console.groupEnd();
+
         // Reset form
         setContracts('1');
         setTicker('');

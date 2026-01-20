@@ -246,6 +246,21 @@ export class SnapTradeBroker implements IBroker {
             };
             const order = Array.isArray(detail?.orders) && detail.orders.length > 0 ? detail.orders[0] : detail;
 
+            // Persist the latest order-detail payload so DB/debugging reflects reality.
+            // (Initial place-order response often has execution_price=null while PENDING.)
+            if (result.orderDetails) {
+              result.orderDetails = {
+                ...result.orderDetails,
+                ...(Array.isArray(detail?.orders) ? { orders: detail.orders } : {}),
+                orderDetail: detail,
+              };
+            } else {
+              result.orderDetails = {
+                ...(Array.isArray(detail?.orders) ? { orders: detail.orders } : {}),
+                orderDetail: detail,
+              };
+            }
+
             // Always update executedAt from order detail if available (even if execution_price is null)
             // Prefer time_executed if available (order has filled), otherwise use time_placed (order is pending)
             if (order?.time_executed) {

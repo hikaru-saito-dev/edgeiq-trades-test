@@ -6,7 +6,7 @@ import { TradeFill } from '@/models/TradeFill';
 import { Log } from '@/models/Log';
 import { createTradeSchema, parseExpiryDate } from '@/utils/tradeValidation';
 import { isMarketOpen } from '@/utils/marketHours';
-import { formatExpiryDateForAPI, getOptionContractSnapshot, getMarketFillPrice } from '@/lib/polygon';
+// Removed Massive.com API - only using broker execution_price
 import { notifyTradeCreated, notifyTradeDeleted } from '@/lib/tradeNotifications';
 import { z } from 'zod';
 import { PipelineStage } from 'mongoose';
@@ -259,70 +259,17 @@ export async function POST(request: NextRequest) {
 
     // Parse expiry date
     const expiryDate = parseExpiryDate(validated.expiryDate);
-    const expiryDateAPI = formatExpiryDateForAPI(validated.expiryDate);
-    const contractType = validated.optionType === 'C' ? 'call' : 'put';
 
-    // Always use market orders - fetch market price
-    const { snapshot, error: snapshotError } = await getOptionContractSnapshot(
-      validated.ticker,
-      validated.strike,
-      expiryDateAPI,
-      contractType
-    );
-
-    if (snapshotError || !snapshot) {
-      // Determine error message based on error type
-      let errorMessage = 'Unable to fetch market data to place order. Please try again.';
-      let metricStatus = 'market_data_unavailable';
-
-      if (snapshotError) {
-        switch (snapshotError.type) {
-          case 'not_found':
-            errorMessage = snapshotError.message;
-            metricStatus = 'contract_not_found';
-            break;
-          case 'invalid_input':
-            errorMessage = snapshotError.message;
-            metricStatus = 'invalid_input';
-            break;
-          case 'auth_error':
-            errorMessage = 'Market data service authentication failed. Please contact support.';
-            metricStatus = 'auth_error';
-            break;
-          case 'network_error':
-            errorMessage = 'Unable to connect to market data service. Please try again.';
-            metricStatus = 'network_error';
-            break;
-          case 'api_error':
-            errorMessage = 'Market data service error. Please try again.';
-            metricStatus = 'api_error';
-            break;
-          default:
-            errorMessage = snapshotError.message || errorMessage;
-        }
-      }
-
-      metricMeta = { status: metricStatus };
-      return NextResponse.json({
-        error: errorMessage,
-      }, { status: 400 });
-    }
-
-    const marketFillPrice = getMarketFillPrice(snapshot);
-    if (marketFillPrice === null) {
-      metricMeta = { status: 'market_price_unavailable' };
-      return NextResponse.json({
-        error: 'Unable to determine market price. Please try again.',
-      }, { status: 400 });
-    }
-
-    let finalFillPrice = marketFillPrice;
-    const optionContractTicker = snapshot.details?.ticker || snapshot.ticker || null;
-    const referencePrice = snapshot.last_quote?.midpoint ?? snapshot.last_trade?.price ?? marketFillPrice;
+    // Removed Massive.com API - only using broker execution_price
+    // If broker doesn't provide execution_price, trade will be rejected
+    // We'll set finalFillPrice from broker execution_price after broker order is placed
+    let finalFillPrice = 0; // Will be set from broker execution_price
+    const optionContractTicker = undefined; // Not needed without Massive.com
+    const referencePrice = undefined; // Not needed without Massive.com
     const refTimestamp = new Date();
 
-    // Calculate notional
-    let notional = validated.contracts * finalFillPrice * 100;
+    // Calculate notional - will be recalculated with broker execution_price
+    let notional = 0; // Will be set from broker execution_price
 
     // Normalize selectedWebhookIds if provided
     // If selectedWebhookIds is provided (even if empty array), validate and use it
@@ -431,14 +378,14 @@ export async function POST(request: NextRequest) {
 
         // Extract execution price and price source from broker response
         brokerExecutionPrice = result.executionPrice;
-        priceSource = result.priceSource || 'market_data';
+        priceSource = result.priceSource || 'broker';
 
         // Extract execution timestamp from broker response
         tradeExecutedAt = result.executedAt || undefined;
         brokerExecutionPriceTimedOut = Boolean(result.executionPriceTimedOut);
 
-        // If broker provided execution price, use it instead of market data price
-        // Ensure execution price is a valid number
+        // Require broker execution_price - if null/undefined, trade will be rejected
+        // Removed Massive.com API fallback - only broker execution_price is used
         if (brokerExecutionPrice !== null && brokerExecutionPrice !== undefined) {
           const executionPriceNum = typeof brokerExecutionPrice === 'number'
             ? brokerExecutionPrice
@@ -448,7 +395,14 @@ export async function POST(request: NextRequest) {
             finalFillPrice = executionPriceNum;
             // Recalculate notional with broker execution price
             notional = validated.contracts * finalFillPrice * 100;
+          } else {
+            // Invalid execution price - mark as timed out to reject trade
+            brokerExecutionPriceTimedOut = true;
+            brokerExecutionPrice = null;
           }
+        } else {
+          // No execution price from broker - mark as timed out to reject trade
+          brokerExecutionPriceTimedOut = true;
         }
       }
     } catch (brokerError) {
@@ -600,10 +554,11 @@ export async function POST(request: NextRequest) {
           fillPrice: finalFillPrice,
           priceSource: priceSource,
           brokerExecutionPrice: brokerExecutionPrice ?? null,
-          marketDataPrice: marketFillPrice,
         },
         // Include broker order details for frontend debugging
         brokerOrderDetails: brokerOrderDetails ?? null,
+        brokerCostInfo: brokerCostInfo ?? null,
+        tradeExecutedAt: tradeExecutedAt ?? null,
       };
 
       return NextResponse.json(responsePayload, { status: 201 });
