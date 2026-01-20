@@ -19,7 +19,7 @@ function LoadingOrbitSpinner() {
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const logicalSize = 260;
+    const logicalSize = 320;
     canvas.width = logicalSize * dpr;
     canvas.height = logicalSize * dpr;
     canvas.style.width = `${logicalSize}px`;
@@ -35,112 +35,92 @@ function LoadingOrbitSpinner() {
     glowCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const center = logicalSize / 2;
-    const baseRadius = 86;
+    const baseRadius = 90; // base path radius
     const rings = [
-      { r: baseRadius + 8, width: 3.2, alpha: 0.08 },
-      { r: baseRadius, width: 3.4, alpha: 0.12 },
-      { r: baseRadius - 10, width: 3.0, alpha: 0.09 },
+      { r: baseRadius - 15 },
+      { r: baseRadius },
+      { r: baseRadius + 15 },
+      { r: baseRadius + 30 },
     ];
 
     // Multiple comets across 2–3 rings to match the reference density
     const comets = [
       // outer ring
-      { ring: 0, phase: 0.10, speed: 0.55, tail: 1.25 },
-      { ring: 0, phase: 0.42, speed: 0.55, tail: 1.25 },
-      { ring: 0, phase: 0.76, speed: 0.55, tail: 1.25 },
+      { ring: 0, phase: 0.50, speed: 0.8, tail: 3 },
+      { ring: 1, phase: 0.40, speed: 0.7, tail: 3 },
+      { ring: 2, phase: 0.30, speed: 0.6, tail: 3 },
+      { ring: 3, phase: 0.20, speed: 0.5, tail: 3 },
       // middle ring
-      { ring: 1, phase: 0.18, speed: 0.72, tail: 1.10 },
-      { ring: 1, phase: 0.52, speed: 0.72, tail: 1.10 },
-      { ring: 1, phase: 0.86, speed: 0.72, tail: 1.10 },
+      // { ring: 0, phase: 1, speed: 0.3, tail: 3 },
+      // { ring: 1, phase: 0.90, speed: 0.3, tail: 3 },
+      // { ring: 2, phase: 0.80, speed: 0.3, tail: 3 },
+      // { ring: 3, phase: 0.70, speed: 0.3, tail: 3 },
       // inner ring
-      { ring: 2, phase: 0.30, speed: 0.92, tail: 0.95 },
-      { ring: 2, phase: 0.64, speed: 0.92, tail: 0.95 },
     ];
 
     const start = performance.now();
     let frameId: number;
 
     const TAU = Math.PI * 2;
-    const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-
-    const drawGlowRing = (c: CanvasRenderingContext2D, r: number) => {
-      c.save();
-      c.beginPath();
-      c.arc(0, 0, r, 0, TAU);
-      c.lineWidth = 10;
-      c.strokeStyle = 'rgba(56,189,248,0.06)';
-      c.shadowBlur = 40;
-      c.shadowColor = 'rgba(56,189,248,0.35)';
-      c.stroke();
-      c.restore();
-    };
-
-    const drawTrack = (c: CanvasRenderingContext2D, r: number, width: number, alpha: number) => {
-      c.save();
-      c.beginPath();
-      c.arc(0, 0, r, 0, TAU);
-      c.lineWidth = width;
-      c.strokeStyle = `rgba(37,99,235,${alpha})`;
-      c.shadowBlur = 18;
-      c.shadowColor = 'rgba(56,189,248,0.22)';
-      c.stroke();
-      c.restore();
-    };
 
     const drawComet = (c: CanvasRenderingContext2D, r: number, angle: number, tailLen: number) => {
-      // Tail: many arc slices (smooth) with decreasing alpha and width
-      const slices = 34;
-      for (let i = 0; i < slices; i++) {
-        const t0 = i / slices;
-        const t1 = (i + 1) / slices;
-        const a1 = angle - t0 * tailLen;
-        const a0 = angle - t1 * tailLen;
+      // Smooth tail: single continuous arc (no per-segment dots)
+      const tailStart = angle - tailLen;
+      const tailEnd = angle;
 
-        const w = 8 - t0 * 6.2; // thick near head, thin at tail
-        const a = clamp01(0.42 * (1 - t0) ** 1.2);
+      // outer glow stroke
+      c.save();
+      c.globalAlpha = 0.75;
+      c.beginPath();
+      c.arc(0, 0, r, tailStart, tailEnd);
+      c.lineWidth = 4.6;
+      c.lineCap = 'round';
+      const gx0 = Math.cos(tailStart) * r;
+      const gy0 = Math.sin(tailStart) * r;
+      const gx1 = Math.cos(tailEnd) * r;
+      const gy1 = Math.sin(tailEnd) * r;
+      const gradOuter = c.createLinearGradient(gx0, gy0, gx1, gy1);
+      gradOuter.addColorStop(0, 'rgba(56,189,248,0.0)');
+      gradOuter.addColorStop(0.35, 'rgba(56,189,248,0.26)');
+      gradOuter.addColorStop(1, 'rgba(56,189,248,0.85)');
+      c.strokeStyle = gradOuter;
+      c.shadowBlur = 24;
+      c.shadowColor = 'rgba(56,189,248,0.85)';
+      c.stroke();
+      c.restore();
 
-        c.save();
-        c.globalAlpha = a;
-        c.beginPath();
-        c.arc(0, 0, r, a0, a1);
-        c.lineWidth = w;
-        c.lineCap = 'round';
-        // electric blue gradient-ish by layering
-        c.strokeStyle = 'rgba(56,189,248,0.95)';
-        c.shadowBlur = 26;
-        c.shadowColor = 'rgba(56,189,248,0.95)';
-        c.stroke();
-        c.restore();
-
-        // subtle inner core
-        c.save();
-        c.globalAlpha = a * 0.55;
-        c.beginPath();
-        c.arc(0, 0, r, a0, a1);
-        c.lineWidth = Math.max(1.5, w * 0.35);
-        c.lineCap = 'round';
-        c.strokeStyle = 'rgba(191,219,254,0.95)';
-        c.shadowBlur = 10;
-        c.shadowColor = 'rgba(191,219,254,0.65)';
-        c.stroke();
-        c.restore();
-      }
+      // inner core stroke
+      c.save();
+      c.globalAlpha = 0.75;
+      c.beginPath();
+      c.arc(0, 0, r, tailStart, tailEnd);
+      c.lineWidth = 1.7;
+      c.lineCap = 'round';
+      const gradInner = c.createLinearGradient(gx0, gy0, gx1, gy1);
+      gradInner.addColorStop(0, 'rgba(191,219,254,0.0)');
+      gradInner.addColorStop(0.45, 'rgba(191,219,254,0.42)');
+      gradInner.addColorStop(1, 'rgba(191,219,254,0.8)');
+      c.strokeStyle = gradInner;
+      c.shadowBlur = 9;
+      c.shadowColor = 'rgba(191,219,254,0.7)';
+      c.stroke();
+      c.restore();
 
       // Head: bright nucleus + glow
       const hx = Math.cos(angle) * r;
       const hy = Math.sin(angle) * r;
 
       c.save();
-      const g = c.createRadialGradient(hx, hy, 0, hx, hy, 18);
+      const g = c.createRadialGradient(hx, hy, 0, hx, hy, 13);
       g.addColorStop(0, 'rgba(219,234,254,1)');
       g.addColorStop(0.25, 'rgba(56,189,248,1)');
-      g.addColorStop(0.65, 'rgba(37,99,235,0.55)');
+      g.addColorStop(0.6, 'rgba(37,99,235,0.55)');
       g.addColorStop(1, 'rgba(37,99,235,0)');
       c.fillStyle = g;
       c.shadowBlur = 44;
       c.shadowColor = 'rgba(56,189,248,1)';
       c.beginPath();
-      c.arc(hx, hy, 11, 0, TAU);
+      c.arc(hx, hy, 8.8, 0, TAU);
       c.fill();
       c.restore();
     };
@@ -154,8 +134,6 @@ function LoadingOrbitSpinner() {
       glowCtx.save();
       glowCtx.translate(center, center);
       glowCtx.globalCompositeOperation = 'source-over';
-      drawGlowRing(glowCtx, baseRadius + 6);
-      rings.forEach((ring) => drawTrack(glowCtx, ring.r, ring.width, ring.alpha));
       comets.forEach((c) => {
         const ring = rings[c.ring];
         const a = t * c.speed * TAU + c.phase * TAU;
@@ -170,13 +148,13 @@ function LoadingOrbitSpinner() {
 
       // bloom pass (large blur)
       ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.55;
-      ctx.filter = 'blur(10px)';
+      ctx.globalAlpha = 0.52;
+      ctx.filter = 'blur(14px)';
       ctx.drawImage(glowCanvas, 0, 0, logicalSize, logicalSize);
 
       // bloom pass (medium blur)
       ctx.globalAlpha = 0.7;
-      ctx.filter = 'blur(5px)';
+      ctx.filter = 'blur(6px)';
       ctx.drawImage(glowCanvas, 0, 0, logicalSize, logicalSize);
 
       // bloom pass (small blur)
@@ -200,8 +178,8 @@ function LoadingOrbitSpinner() {
   return (
     <Box
       sx={{
-        width: 190,
-        height: 190,
+        width: 220,
+        height: 220,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -227,63 +205,63 @@ function HomeContent() {
   }, [experienceId]);
 
   if (loading) {
-    return (
+  return (
+    <Box
+      sx={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#000',
+        overflow: 'hidden',
+      }}
+    >
       <Box
         sx={{
-          position: 'fixed',
+          position: 'absolute',
           inset: 0,
-          zIndex: 2000,
+          background: 'radial-gradient(circle at 30% 30%, rgba(80,80,80,0.2), transparent 40%), radial-gradient(circle at 70% 70%, rgba(80,80,80,0.15), transparent 45%)',
+          opacity: 0.8,
+        }}
+      />
+      <Box
+        sx={{
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
-          background: '#000',
-          overflow: 'hidden',
+          gap: 5,
         }}
       >
-        <Box
+        <LoadingOrbitSpinner />
+        <Typography
+          variant="h6"
           sx={{
-            position: 'absolute',
-            inset: 0,
-            background: 'radial-gradient(circle at 30% 30%, rgba(80,80,80,0.2), transparent 40%), radial-gradient(circle at 70% 70%, rgba(80,80,80,0.15), transparent 45%)',
-            opacity: 0.8,
-          }}
-        />
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
+            position: 'relative',
+            color: '#e5e7eb',
+            fontWeight: 600,
+            letterSpacing: 0.4,
           }}
         >
-          <LoadingOrbitSpinner />
-          <Typography
-            variant="h6"
+          Verifying access
+          <Box
+            component="span"
             sx={{
-              position: 'relative',
-              color: '#e5e7eb',
-              fontWeight: 600,
-              letterSpacing: 0.4,
+              display: 'inline-block',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+              width: '0ch',
+              verticalAlign: 'bottom',
+              '&::after': {
+                content: '"..."',
+              },
+              animation: 'ellipsis 1.2s steps(3,end) infinite',
             }}
-          >
-            Verifying access
-            <Box
-              component="span"
-              sx={{
-                display: 'inline-block',
-                overflow: 'hidden',
-                whiteSpace: 'nowrap',
-                width: '0ch',
-                verticalAlign: 'bottom',
-                '&::after': {
-                  content: '"..."',
-                },
-                animation: 'ellipsis 1.2s steps(3,end) infinite',
-              }}
-            />
-          </Typography>
-        </Box>
-        <style jsx global>{`
+          />
+        </Typography>
+      </Box>
+      <style jsx global>{`
           @keyframes ellipsis {
             0% {
               width: 0ch;
@@ -299,8 +277,8 @@ function HomeContent() {
             }
           }
         `}</style>
-      </Box>
-    );
+    </Box>
+  );
   }
 
   return (
