@@ -157,6 +157,7 @@ export default function StatsCalendarPage() {
   const [data, setData] = useState<CalendarResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openTooltip, setOpenTooltip] = useState<string | null>(null);
 
   const fetchData = async (monthAnchor: Date, nextScope: 'personal' | 'company') => {
     setLoading(true);
@@ -412,6 +413,7 @@ export default function StatsCalendarPage() {
 
             {!loading && !error && weeks.length > 0 && (
               <Box
+                onClick={() => setOpenTooltip(null)}
                 display="grid"
                 gridTemplateColumns={{
                   xs: 'repeat(7, minmax(0, 1fr))',
@@ -502,12 +504,18 @@ export default function StatsCalendarPage() {
                       </Paper>
                     ) : null;
 
+                    const isTooltipOpen = openTooltip === d.date;
+
                     return (
                       <Tooltip
                         key={d.date}
                         title={tooltipContent || ''}
                         arrow
-                        disableHoverListener={isEmpty}
+                        open={isTooltipOpen && !isEmpty}
+                        onClose={() => setOpenTooltip(null)}
+                        disableHoverListener
+                        disableFocusListener
+                        disableTouchListener
                         placement="top"
                         componentsProps={{
                           tooltip: {
@@ -521,6 +529,12 @@ export default function StatsCalendarPage() {
                         }}
                       >
                         <Box
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isEmpty) {
+                              setOpenTooltip(isTooltipOpen ? null : d.date);
+                            }
+                          }}
                           sx={{
                             p: { xs: 0.4, sm: 0.6, md: 0.75 },
                             borderRadius: 0,
@@ -544,9 +558,11 @@ export default function StatsCalendarPage() {
                             opacity: muted ? 0.45 : 1,
                             boxShadow: 'none',
                             cursor: isEmpty ? 'default' : 'pointer',
-                            '&:hover': isEmpty ? {} : {
-                              transform: 'scale(1.02)',
-                              transition: 'transform 0.2s',
+                            userSelect: 'none',
+                            WebkitTapHighlightColor: 'transparent',
+                            '&:active': isEmpty ? {} : {
+                              transform: 'scale(0.98)',
+                              transition: 'transform 0.1s',
                             },
                           }}
                         >
