@@ -1,6 +1,6 @@
 'use client';
 
-import { Container, Typography, Box, Button, CircularProgress } from '@mui/material';
+import { Container, Typography, Box, Button } from '@mui/material';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useAccess, setExperienceId } from '@/components/AccessProvider';
@@ -13,7 +13,8 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const experienceId = searchParams?.get('experience') || null;
   const { isAuthorized, loading, role, hideLeaderboardFromMembers } = useAccess();
-  const { palette } = useBranding();
+  const { palette, appName } = useBranding();
+  const displayAppName = appName?.trim() || 'EdgeIQ Trades';
 
   // Set experienceId in AccessProvider when it's available from page.tsx
   useEffect(() => {
@@ -26,19 +27,79 @@ function HomeContent() {
     return (
       <Box
         sx={{
-          minHeight: 'calc(100vh - 64px)',
+          position: 'fixed',
+          inset: 0,
+          zIndex: 2000,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          py: { xs: 4, md: 8 },
+          background: '#000',
+          overflow: 'hidden',
         }}
       >
-        <Box textAlign="center">
-          <CircularProgress size={56} sx={{ mb: 2, color: 'primary.main' }} />
-          <Typography variant="h6" color="text.primary">
-            Verifying your access…
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            background: 'radial-gradient(circle at 30% 30%, rgba(80,80,80,0.2), transparent 40%), radial-gradient(circle at 70% 70%, rgba(80,80,80,0.15), transparent 45%)',
+            opacity: 0.8,
+          }}
+        />
+        <Box
+          sx={{
+            position: 'relative',
+            width: 160,
+            height: 160,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Box
+            sx={{
+              position: 'absolute',
+              width: '100%',
+              height: '100%',
+              borderRadius: '50%',
+              background: 'conic-gradient(#0f172a, #22c55e, #0ea5e9, #0f172a)',
+              animation: 'spin 2.8s linear infinite',
+              filter: 'drop-shadow(0 0 24px rgba(34,197,94,0.45))',
+              mask: 'radial-gradient(farthest-side, transparent 55%, black 60%)',
+            }}
+          />
+          <Box
+            sx={{
+              position: 'absolute',
+              width: '65%',
+              height: '65%',
+              borderRadius: '50%',
+              background: 'linear-gradient(145deg, rgba(34,197,94,0.22), rgba(15,118,110,0.22))',
+              boxShadow: '0 0 30px rgba(34,197,94,0.25) inset, 0 0 12px rgba(14,165,233,0.25)',
+              filter: 'blur(0.3px)',
+            }}
+          />
+          <Typography
+            variant="h6"
+            sx={{
+              position: 'relative',
+              color: '#e5e7eb',
+              fontWeight: 600,
+              letterSpacing: 0.4,
+            }}
+          >
+            Verifying access…
           </Typography>
         </Box>
+        <style jsx global>{`
+          @keyframes spin {
+            from {
+              transform: rotate(0deg);
+            }
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
       </Box>
     );
   }
@@ -151,7 +212,7 @@ function HomeContent() {
               textShadow: `0 0 20px ${alpha(palette.primary.main, 0.5)}, 0 0 40px ${alpha(palette.primary.main, 0.3)}`,
             }}
           >
-            EdgeIQ Trades
+            {displayAppName}
           </Typography>
         </motion.div>
 

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useBranding } from './BrandingProvider';
 
 export default function Logo() {
-  const { logoUrl } = useBranding();
+  const { logoUrl, appName } = useBranding();
   const logoWidth = 160;
   const logoSrc = logoUrl || '/logo.webp';
   const isExternalUrl = logoUrl && (logoUrl.startsWith('http://') || logoUrl.startsWith('https://'));
@@ -35,12 +35,12 @@ export default function Logo() {
       >
         <Image
           src={logoSrc}
-          alt="Company Logo"
+          alt={appName || 'Company Logo'}
           width={logoWidth}
           height={logoWidth}
           style={
             logoUrl
-              ? undefined: {
+              ? { maxHeight: 100 } : {
                 objectFit: 'contain',
                 position: 'absolute',
                 top: -80,

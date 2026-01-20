@@ -16,6 +16,7 @@ type AccessContextValue = {
   hideCompanyStatsFromMembers?: boolean;
   brandColor?: string | null;
   logoUrl?: string | null;
+  appName?: string | null;
   refresh: () => Promise<void>;
 };
 
@@ -31,6 +32,7 @@ const AccessContext = createContext<AccessContextValue>({
   hideCompanyStatsFromMembers: false,
   brandColor: null,
   logoUrl: null,
+  appName: null,
   refresh: async () => { },
 });
 
@@ -67,6 +69,7 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
   hideCompanyStatsFromMembers?: boolean;
   brandColor?: string | null;
   logoUrl?: string | null;
+  appName?: string | null;
 }> {
   try {
     // Include experienceId in the URL if present (from query parameter ?experience=exp_...)
@@ -83,7 +86,7 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     });
 
     if (!response.ok) {
-      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false, brandColor: null, logoUrl: null };
+      return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false, brandColor: null, logoUrl: null, appName: null };
     }
 
     const data = await response.json();
@@ -97,15 +100,16 @@ async function fetchAccessRole(experienceId?: string | null): Promise<{
     const hideCompanyStatsFromMembers = data.hideCompanyStatsFromMembers ?? false;
     const brandColor = data.brandColor || null;
     const logoUrl = data.logoUrl || null;
+    const appName = data.appName || null;
 
     if (role === 'companyOwner' || role === 'owner' || role === 'admin' || role === 'member' || role === 'none') {
-      return { role, isAuthorized, userId, companyId, hasAutoIQ, autoTradeMode, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, brandColor, logoUrl };
+      return { role, isAuthorized, userId, companyId, hasAutoIQ, autoTradeMode, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, brandColor, logoUrl, appName };
     }
 
-    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false, brandColor: null, logoUrl: null };
+    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false, brandColor: null, logoUrl: null, appName: null };
   } catch (error) {
     console.error('Failed to load access role', error);
-    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false, brandColor: null, logoUrl: null };
+    return { role: 'none', isAuthorized: false, userId: null, companyId: null, hasAutoIQ: false, autoTradeMode: 'notify-only', hideLeaderboardFromMembers: false, hideCompanyStatsFromMembers: false, brandColor: null, logoUrl: null, appName: null };
   }
 }
 
@@ -121,6 +125,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
   const [hideCompanyStatsFromMembers, setHideCompanyStatsFromMembers] = useState(false);
   const [brandColor, setBrandColor] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [appName, setAppName] = useState<string | null>(null);
   const [experienceId, setExperienceIdState] = useState<string | null>(null);
 
   // Listen for experienceId changes from page.tsx
@@ -152,6 +157,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     setHideCompanyStatsFromMembers(result.hideCompanyStatsFromMembers ?? false);
     setBrandColor(result.brandColor?.trim() || null);
     setLogoUrl(result.logoUrl?.trim() || null);
+    setAppName(result.appName?.trim() || null);
     setLoading(false);
   }, [experienceId]);
 
@@ -172,9 +178,10 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       hideCompanyStatsFromMembers,
       brandColor,
       logoUrl,
+      appName,
       refresh,
     }),
-    [role, isAuthorized, loading, userId, companyId, hasAutoIQ, autoTradeMode, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, brandColor, logoUrl, refresh],
+    [role, isAuthorized, loading, userId, companyId, hasAutoIQ, autoTradeMode, hideLeaderboardFromMembers, hideCompanyStatsFromMembers, brandColor, logoUrl, appName, refresh],
   );
 
   return (

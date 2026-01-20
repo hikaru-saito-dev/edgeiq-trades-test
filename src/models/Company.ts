@@ -4,6 +4,7 @@ import { MembershipPlan } from './User';
 export interface ICompany extends Document {
   companyId: string; // Primary key, unique
   companyName?: string;
+  appName?: string; // Display name for the app (hero/header text)
   companyDescription?: string;
   membershipPlans?: MembershipPlan[]; // Array of membership plans for this company
   optIn?: boolean; // Leaderboard opt-in (default true - company appears on leaderboard)
@@ -38,6 +39,7 @@ const CompanySchema = new Schema<ICompany>({
   },
   companyName: { type: String, trim: true },
   companyDescription: { type: String, trim: true },
+  appName: { type: String, trim: true },
   membershipPlans: { type: [MembershipPlanSchema], default: [] },
   optIn: { type: Boolean, default: true }, // Default true - company appears on leaderboard
   hideLeaderboardFromMembers: { type: Boolean, default: false },

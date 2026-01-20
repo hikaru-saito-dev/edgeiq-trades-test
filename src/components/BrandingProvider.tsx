@@ -7,17 +7,19 @@ import { generateColorPalette, type ColorPalette } from '@/utils/colorPalette';
 type BrandingContextValue = {
     brandColor: string | null;
     logoUrl: string | null;
+    appName: string | null;
     palette: ColorPalette; // Generated color palette from brandColor
 };
 
 const BrandingContext = createContext<BrandingContextValue>({
     brandColor: null,
     logoUrl: null,
+    appName: null,
     palette: generateColorPalette(null), // Default palette
 });
 
 export function BrandingProvider({ children }: { children: React.ReactNode }) {
-    const { brandColor, logoUrl } = useAccess();
+    const { brandColor, logoUrl, appName } = useAccess();
 
     // Generate color palette from brandColor (or use default if not set)
     const palette = useMemo(() => {
@@ -28,9 +30,10 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
         () => ({
             brandColor: brandColor ?? null,
             logoUrl: logoUrl ?? null,
+            appName: appName ?? null,
             palette,
         }),
-        [brandColor, logoUrl, palette],
+        [brandColor, logoUrl, appName, palette],
     );
 
     return (

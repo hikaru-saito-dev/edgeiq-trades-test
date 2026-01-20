@@ -96,6 +96,7 @@ interface UserData {
   whopUserId: string;
   companyId?: string;
   companyName?: string;
+  appName?: string | null;
   companyDescription?: string;
   whopName?: string;
   whopUsername?: string;
@@ -133,6 +134,7 @@ export default function ProfileForm() {
   const [optIn, setOptIn] = useState(true); // Default to true (opted in)
   const [hideLeaderboardFromMembers, setHideLeaderboardFromMembers] = useState(false);
   const [hideCompanyStatsFromMembers, setHideCompanyStatsFromMembers] = useState(false);
+  const [appName, setAppName] = useState<string>('');
   const [brandColor, setBrandColor] = useState<string>('');
   const [logoUrl, setLogoUrl] = useState<string>('');
   const [brandColorPickerAnchor, setBrandColorPickerAnchor] = useState<HTMLButtonElement | null>(null);
@@ -325,6 +327,7 @@ export default function ProfileForm() {
       setOptIn(profileData.user.optIn !== undefined ? profileData.user.optIn : true);
       setHideLeaderboardFromMembers(profileData.user.hideLeaderboardFromMembers ?? false);
       setHideCompanyStatsFromMembers(profileData.user.hideCompanyStatsFromMembers ?? false);
+      setAppName(profileData.user.appName || '');
       setBrandColor(profileData.user.brandColor || '');
       setLogoUrl(profileData.user.logoUrl || '');
       setPrimaryColor(profileData.user.primaryColor || '');
@@ -505,6 +508,7 @@ export default function ProfileForm() {
         followingDiscordWebhook?: string | null;
         followingWhopWebhook?: string | null;
         membershipPlans?: typeof membershipPlans;
+        appName?: string | null;
         brandColor?: string | null;
         logoUrl?: string | null;
         primaryColor?: string | null;
@@ -526,6 +530,7 @@ export default function ProfileForm() {
         updateData.hideLeaderboardFromMembers = hideLeaderboardFromMembers;
         updateData.hideCompanyStatsFromMembers = hideCompanyStatsFromMembers;
         updateData.membershipPlans = validPlans;
+        updateData.appName = appName.trim() ? appName.trim() : null;
         // Branding colors - only save valid hex colors
         updateData.brandColor = isValidHexColor(brandColor) ? brandColor.trim() : null;
         updateData.logoUrl = logoUrl.trim() || null;
@@ -1783,6 +1788,25 @@ export default function ProfileForm() {
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
                 Customize your app&apos;s overall appearance. The brand color will be used to generate all theme colors automatically.
               </Typography>
+
+              {/* App Name */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
+                  App Name
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
+                  Displayed in the hero headline and other branded spots (leave empty to use the default name).
+                </Typography>
+                <TextField
+                  fullWidth
+                  value={appName}
+                  onChange={(e) => setAppName(e.target.value)}
+                  placeholder="EdgeIQ Trades"
+                  size="small"
+                  inputProps={{ maxLength: 100 }}
+                  sx={fieldStyles}
+                />
+              </Box>
 
               {/* Brand Color */}
               <Box sx={{ mb: 3 }}>

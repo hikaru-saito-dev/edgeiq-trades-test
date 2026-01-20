@@ -227,6 +227,7 @@ const updateUserSchema = z.object({
   alias: z.string().min(1).max(50).optional(),
   // companyId is auto-set from Whop headers, cannot be manually updated
   companyName: z.string().max(100).optional(), // Only companyOwners can set
+  appName: z.string().max(100).optional().nullable(), // Only companyOwners can set - display name
   companyDescription: z.string().max(500).optional(), // Only companyOwners can set
   optIn: z.boolean().optional(), // Only owners and companyOwners can opt out (default is opted in)
   hideLeaderboardFromMembers: z.boolean().optional(), // Only companyOwners can set
@@ -352,6 +353,7 @@ export async function GET() {
         role: membership.role,
         companyId: companyId,
         companyName: company?.companyName,
+        appName: company?.appName,
         companyDescription: company?.companyDescription,
         optIn: company?.optIn ?? true, // optIn is now in Company model
         brandColor: company?.brandColor || null,
@@ -505,6 +507,9 @@ export async function PATCH(request: NextRequest) {
       if (validated.companyName !== undefined) {
         companyUpdates.companyName = validated.companyName || undefined;
       }
+      if (validated.appName !== undefined) {
+        companyUpdates.appName = validated.appName || undefined;
+      }
       if (validated.companyDescription !== undefined) {
         companyUpdates.companyDescription = validated.companyDescription || undefined;
       }
@@ -540,7 +545,7 @@ export async function PATCH(request: NextRequest) {
         validated.membershipPlans !== undefined || validated.hideLeaderboardFromMembers !== undefined ||
         validated.hideCompanyStatsFromMembers !== undefined || validated.brandColor !== undefined ||
         validated.logoUrl !== undefined || validated.primaryColor !== undefined ||
-        validated.secondaryColor !== undefined) {
+        validated.secondaryColor !== undefined || validated.appName !== undefined) {
         return NextResponse.json(
           { error: 'Only company owners can update company settings' },
           { status: 403 }
@@ -581,7 +586,7 @@ export async function PATCH(request: NextRequest) {
           { status: 403 }
         );
       }
-      
+
       // Only validate broker connection if auto-trade mode is enabled
       // For notify-only mode, we don't need a broker connection
       const currentMode = validated.autoTradeMode !== undefined ? validated.autoTradeMode : user.autoTradeMode;
