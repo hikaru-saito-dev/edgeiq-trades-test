@@ -13,6 +13,8 @@ import {
   Button,
   Container,
   Skeleton,
+  Tooltip,
+  Paper,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
@@ -464,129 +466,207 @@ export default function StatsCalendarPage() {
                       day: '2-digit',
                     });
 
-                    return (
-                      <Box
-                        key={d.date}
-                        sx={{
-                          p: { xs: 0.4, sm: 0.6, md: 0.75 },
-                          borderRadius: 0,
-                          minHeight: { xs: 60, sm: 80, md: 110 },
-                          border: `1px solid ${isToday
-                            ? alpha(theme.palette.primary.main, 0.8)
-                            : alpha(theme.palette.divider, 0.35)
-                            }`,
-                          backgroundColor: isEmpty
-                            ? alpha(theme.palette.background.default, isDark ? 0.55 : 0.09)
-                            : effectivePnl > 0
-                              ? alpha(theme.palette.success.main, 0.2)
-                              : effectivePnl < 0
-                                ? alpha(theme.palette.error.main, 0.25)
-                                : alpha(theme.palette.background.default, isDark ? 0.55 : 0.09),
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          textAlign: 'center',
-                          gap: 0.35,
-                          opacity: muted ? 0.45 : 1,
-                          boxShadow: 'none',
-                        }}
-                      >
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: muted ? 'text.disabled' : 'text.secondary',
-                            fontWeight: 700,
-                            fontSize: { xs: 10, sm: 11, md: 12 },
-                            alignSelf: 'center',
-                          }}
-                        >
+                    // Prepare tooltip content
+                    const tooltipContent = isEmpty ? null : hasWeeklyRecap && weekSummary ? (
+                      <Paper sx={{ p: 1.5, maxWidth: 250 }}>
+                        <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                          Week {weekSummary.weekIndex} Summary
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: pnlColor(weekSummary.totalPnl), fontWeight: 600, mb: 0.5 }}>
+                          P&L: {weekSummary.totalPnl >= 0 ? '+' : ''}${weekSummary.totalPnl.toFixed(2)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Total Trades: {weekSummary.totalTrades}
+                        </Typography>
+                      </Paper>
+                    ) : d.data ? (
+                      <Paper sx={{ p: 1.5, maxWidth: 250 }}>
+                        <Typography variant="subtitle2" fontWeight={700} gutterBottom>
                           {dateObj.toLocaleDateString(undefined, {
-                            month: 'short',
+                            month: 'long',
                             day: 'numeric',
+                            year: 'numeric',
                           })}
                         </Typography>
-                        {!isEmpty ? (
-                          <Box
+                        <Typography variant="body2" sx={{ color: pnlColor(pnl), fontWeight: 600, mb: 0.5 }}>
+                          P&L: {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                          Trades: {trades}
+                        </Typography>
+                        {d.data.wins !== undefined && d.data.losses !== undefined && (
+                          <Typography variant="body2" color="text.secondary" fontSize="0.75rem">
+                            Wins: {d.data.wins} | Losses: {d.data.losses}
+                          </Typography>
+                        )}
+                      </Paper>
+                    ) : null;
+
+                    return (
+                      <Tooltip
+                        key={d.date}
+                        title={tooltipContent || ''}
+                        arrow
+                        disableHoverListener={isEmpty}
+                        placement="top"
+                        componentsProps={{
+                          tooltip: {
+                            sx: {
+                              bgcolor: 'var(--surface-bg)',
+                              border: '1px solid var(--surface-border)',
+                              p: 0,
+                              maxWidth: 300,
+                            },
+                          },
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            p: { xs: 0.4, sm: 0.6, md: 0.75 },
+                            borderRadius: 0,
+                            minHeight: { xs: 60, sm: 80, md: 110 },
+                            border: `1px solid ${isToday
+                              ? alpha(theme.palette.primary.main, 0.8)
+                              : alpha(theme.palette.divider, 0.35)
+                              }`,
+                            backgroundColor: isEmpty
+                              ? alpha(theme.palette.background.default, isDark ? 0.55 : 0.09)
+                              : effectivePnl > 0
+                                ? alpha(theme.palette.success.main, 0.2)
+                                : effectivePnl < 0
+                                  ? alpha(theme.palette.error.main, 0.25)
+                                  : alpha(theme.palette.background.default, isDark ? 0.55 : 0.09),
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            textAlign: 'center',
+                            gap: 0.35,
+                            opacity: muted ? 0.45 : 1,
+                            boxShadow: 'none',
+                            cursor: isEmpty ? 'default' : 'pointer',
+                            '&:hover': isEmpty ? {} : {
+                              transform: 'scale(1.02)',
+                              transition: 'transform 0.2s',
+                            },
+                          }}
+                        >
+                          <Typography
+                            variant="body2"
                             sx={{
-                              flexGrow: 1,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              justifyContent: 'flex-end',
-                              gap: 0.7,
-                              width: '100%',
+                              color: muted ? 'text.disabled' : 'text.secondary',
+                              fontWeight: 700,
+                              fontSize: { xs: 10, sm: 11, md: 12 },
+                              alignSelf: 'center',
                             }}
                           >
-                            {hasWeeklyRecap && weekSummary ? (
-                              <>
-                                <Typography
-                                  variant="subtitle2"
-                                  sx={{
-                                    color: pnlColor(weekSummary.totalPnl),
-                                    fontWeight: 900,
-                                    lineHeight: 1.15,
-                                    fontSize: { xs: 14, sm: 16, md: 18 },
-                                  }}
-                                >
-                                  {weekSummary.totalPnl >= 0 ? '+' : '-'}$
-                                  {Math.abs(weekSummary.totalPnl).toFixed(2)}
-                                </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{
-                                    color: muted ? 'text.disabled' : 'text.secondary',
-                                    fontSize: { xs: 9, sm: 10, md: 11 },
-                                    fontWeight: 700,
-                                  }}
-                                >
-                                  Week {weekSummary.weekIndex}
-                                </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{
-                                    color: muted ? 'text.disabled' : 'text.secondary',
-                                    fontSize: { xs: 9, sm: 10, md: 11 },
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {weekSummary.totalTrades} trade
-                                  {weekSummary.totalTrades === 1 ? '' : 's'}
-                                </Typography>
-                              </>
-                            ) : (
-                              <>
-                                <Typography
-                                  variant="subtitle2"
-                                  sx={{
-                                    color: pnlColor(pnl),
-                                    fontWeight: 900,
-                                    lineHeight: 1.15,
-                                    fontSize: { xs: 16, sm: 18, md: 20 },
-                                  }}
-                                >
-                                  {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
-                                </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{
-                                    color: muted ? 'text.disabled' : 'text.secondary',
-                                    fontSize: { xs: 10, sm: 11, md: 12 },
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {trades} trade{trades === 1 ? '' : 's'}
-                                </Typography>
-                              </>
-                            )}
-                          </Box>
-                        ) : (
-                          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Typography variant="body2" sx={{ color: muted ? 'text.disabled' : 'text.disabled' }}>
-                              &nbsp;
-                            </Typography>
-                          </Box>
-                        )}
-                      </Box>
+                            {dateObj.toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </Typography>
+                          {!isEmpty ? (
+                            <Box
+                              sx={{
+                                flexGrow: 1,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'flex-end',
+                                gap: 0.7,
+                                width: '100%',
+                              }}
+                            >
+                              {hasWeeklyRecap && weekSummary ? (
+                                <>
+                                  <Typography
+                                    variant="subtitle2"
+                                    sx={{
+                                      color: pnlColor(weekSummary.totalPnl),
+                                      fontWeight: 900,
+                                      lineHeight: 1.15,
+                                      fontSize: { xs: 14, sm: 16, md: 18 },
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      width: '100%',
+                                    }}
+                                  >
+                                    {weekSummary.totalPnl >= 0 ? '+' : '-'}$
+                                    {Math.abs(weekSummary.totalPnl).toFixed(2)}
+                                  </Typography>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
+                                      color: muted ? 'text.disabled' : 'text.secondary',
+                                      fontSize: { xs: 9, sm: 10, md: 11 },
+                                      fontWeight: 700,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      width: '100%',
+                                    }}
+                                  >
+                                    Week {weekSummary.weekIndex}
+                                  </Typography>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
+                                      color: muted ? 'text.disabled' : 'text.secondary',
+                                      fontSize: { xs: 9, sm: 10, md: 11 },
+                                      fontWeight: 600,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      width: '100%',
+                                    }}
+                                  >
+                                    {weekSummary.totalTrades} trade
+                                    {weekSummary.totalTrades === 1 ? '' : 's'}
+                                  </Typography>
+                                </>
+                              ) : (
+                                <>
+                                  <Typography
+                                    variant="subtitle2"
+                                    sx={{
+                                      color: pnlColor(pnl),
+                                      fontWeight: 900,
+                                      lineHeight: 1.15,
+                                      fontSize: { xs: 16, sm: 18, md: 20 },
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      width: '100%',
+                                    }}
+                                  >
+                                    {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
+                                  </Typography>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
+                                      color: muted ? 'text.disabled' : 'text.secondary',
+                                      fontSize: { xs: 10, sm: 11, md: 12 },
+                                      fontWeight: 600,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      width: '100%',
+                                    }}
+                                  >
+                                    {trades} trade{trades === 1 ? '' : 's'}
+                                  </Typography>
+                                </>
+                              )}
+                            </Box>
+                          ) : (
+                            <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Typography variant="body2" sx={{ color: muted ? 'text.disabled' : 'text.disabled' }}>
+                                &nbsp;
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </Tooltip>
                     );
                   })
                 )}
