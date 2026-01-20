@@ -267,6 +267,38 @@ export function isMarketOpen(timestamp?: Date): boolean {
  * - If market is open: countdown until close (16:00 EST)
  * - If market is closed: countdown until next open (09:30 EST on next business day)
  */
+/**
+ * Check if a date falls during daylight saving time in New York.
+ * DST: 2nd Sunday in March (at 2 AM) to 1st Sunday in November (at 2 AM)
+ */
+function isDaylightSavingTime(year: number, month: number, day: number): boolean {
+  // DST starts: 2nd Sunday in March
+  // DST ends: 1st Sunday in November
+  const march2ndSunday = getNthWeekdayOfMonth(year, 2, 0, 2); // month 2 = March, weekday 0 = Sunday
+  const november1stSunday = getNthWeekdayOfMonth(year, 10, 0, 1); // month 10 = November
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  if (date < march2ndSunday) return false; // Before DST starts (before 2nd Sunday in March)
+  if (date >= november1stSunday) return false; // After DST ends (on or after 1st Sunday in November)
+  return true; // During DST
+}
+
+/**
+ * Create a Date object representing a specific New York local time.
+ * This properly handles EST/EDT timezone conversion.
+ */
+function makeNewYorkDate(year: number, month: number, day: number, hour: number, min: number, sec: number): Date {
+  // EST = UTC-5, EDT = UTC-4
+  // Calculate if this date falls during DST
+  const isDST = isDaylightSavingTime(year, month, day);
+  const offsetHours = isDST ? 4 : 5;
+
+  // Create UTC date by adding the offset (NY time + offset = UTC time)
+  // Example: 9:30 AM NY (EST) = 9:30 + 5 = 14:30 UTC
+  return new Date(Date.UTC(year, month - 1, day, hour + offsetHours, min, sec));
+}
+
 export function getMarketCountdown(now: Date = new Date()): { isOpen: boolean; label: string | null } {
   const isOpen = isMarketOpen(now);
   const { year, month, day, hour, minute, second, weekday } = getNewYorkDateParts(now);
@@ -274,15 +306,12 @@ export function getMarketCountdown(now: Date = new Date()): { isOpen: boolean; l
   // Define market session times in New York local time (respect early close days)
   const { openHour, openMinute, closeHour, closeMinute } = getSessionHours(now);
 
-  const makeNYDate = (y: number, m: number, d: number, h: number, min: number, s: number) =>
-    new Date(Date.UTC(y, m - 1, d, h, min, s));
-
   let targetUtc: Date;
   let prefix: string;
 
   if (isOpen) {
-    // Countdown until today's close (16:00)
-    targetUtc = makeNYDate(year, month, day, closeHour, closeMinute, 0);
+    // Countdown until today's close
+    targetUtc = makeNewYorkDate(year, month, day, closeHour, closeMinute, 0);
     prefix = 'Closes in';
   } else {
     // Find next open time (09:30 on next business day)
@@ -296,7 +325,7 @@ export function getMarketCountdown(now: Date = new Date()): { isOpen: boolean; l
     if (isWeekend) {
       // Move forward to Monday
       // Use a Date object based on NY local components, then advance days
-      let cursor = makeNYDate(year, month, day, hour, minute, second);
+      let cursor = makeNewYorkDate(year, month, day, hour, minute, second);
       // Advance until weekday is Mon-Fri
       while (true) {
         cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
@@ -314,7 +343,7 @@ export function getMarketCountdown(now: Date = new Date()): { isOpen: boolean; l
         // Before open: today at 09:30
         if (isMarketHoliday(now)) {
           // Today is a holiday; move to next business day
-          let cursor = makeNYDate(year, month, day, hour, minute, second);
+          let cursor = makeNewYorkDate(year, month, day, hour, minute, second);
           while (true) {
             cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
             const nextParts = getNewYorkDateParts(cursor);
@@ -332,7 +361,7 @@ export function getMarketCountdown(now: Date = new Date()): { isOpen: boolean; l
         }
       } else {
         // After close: next business day at 09:30
-        let cursor = makeNYDate(year, month, day, hour, minute, second);
+        let cursor = makeNewYorkDate(year, month, day, hour, minute, second);
         while (true) {
           cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
           const nextParts = getNewYorkDateParts(cursor);
@@ -346,7 +375,7 @@ export function getMarketCountdown(now: Date = new Date()): { isOpen: boolean; l
       }
     }
 
-    targetUtc = makeNYDate(targetYear, targetMonth, targetDay, openHour, openMinute, 0);
+    targetUtc = makeNewYorkDate(targetYear, targetMonth, targetDay, openHour, openMinute, 0);
     prefix = 'Opens in';
   }
 
