@@ -348,6 +348,7 @@ export async function POST(request: NextRequest) {
     let brokerConnectionId: Types.ObjectId | undefined;
     let brokerOrderDetails: Record<string, unknown> | undefined;
     let tradeExecutedAt: Date | undefined;
+    let brokerExecutionPriceTimedOut = false;
     let brokerCostInfo: {
       grossCost: number;
       commission: number;
@@ -434,6 +435,7 @@ export async function POST(request: NextRequest) {
 
         // Extract execution timestamp from broker response
         tradeExecutedAt = result.executedAt || undefined;
+        brokerExecutionPriceTimedOut = Boolean(result.executionPriceTimedOut);
 
         // If broker provided execution price, use it instead of market data price
         // Ensure execution price is a valid number
@@ -477,13 +479,13 @@ export async function POST(request: NextRequest) {
         optionType: validated.optionType,
         expiryDate: expiryDate,
         fillPrice: finalFillPrice,
-        status: 'OPEN',
-        priceVerified: true,
+        status: brokerExecutionPriceTimedOut ? 'REJECTED' : 'OPEN',
+        priceVerified: brokerExecutionPriceTimedOut ? false : true,
         optionContract: optionContractTicker || undefined,
         refPrice: referencePrice || undefined,
         refTimestamp,
-        remainingOpenContracts: validated.contracts,
-        totalBuyNotional: notional,
+        remainingOpenContracts: brokerExecutionPriceTimedOut ? 0 : validated.contracts,
+        totalBuyNotional: brokerExecutionPriceTimedOut ? 0 : notional,
         isMarketOrder: true, // Always market orders
         ...(normalizedSelectedWebhookIds !== undefined && { selectedWebhookIds: normalizedSelectedWebhookIds }),
         ...(brokerType && { brokerType }),

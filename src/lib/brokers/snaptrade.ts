@@ -210,53 +210,82 @@ export class SnapTradeBroker implements IBroker {
       // Try MARKET order first
       const result = await tryPlaceOrder(false);
 
-      // If execution price not available immediately (status is PENDING), wait briefly and check once
-      // Market orders typically execute within 2-5 seconds
+      // If execution price not available immediately (status is PENDING), poll continuously until data appears
+      // Poll without delays until execution_price is found or timeout is reached
       if (result.success && result.orderId && (!result.executionPrice || result.executionPrice === null)) {
-        // Wait 3 seconds for market order to execute
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        const maxTimeoutMs = parseInt(process.env.EXECUTION_PRICE_TIMEOUT_MS || '30000', 10); // Default 30 seconds timeout
+        const startTime = Date.now();
+        let attempt = 0;
 
-        // Make a single call to get order detail with execution price
-        try {
-          const userSecret = await this.getUserSecret();
-          const orderDetailResponse = await this.client.accountInformation.getUserAccountOrderDetail({
-            accountId: this.connection.accountId!,
-            userId: this.connection.snaptradeUserId,
-            userSecret,
-            brokerage_order_id: result.orderId,
-          });
+        // Poll continuously without delays until execution data appears
+        while (Date.now() - startTime < maxTimeoutMs) {
+          attempt++;
+          try {
+            const userSecret = await this.getUserSecret();
+            const orderDetailResponse = await this.client.accountInformation.getUserAccountOrderDetail({
+              accountId: this.connection.accountId!,
+              userId: this.connection.snaptradeUserId,
+              userSecret,
+              brokerage_order_id: result.orderId,
+            });
 
-          const order = orderDetailResponse.data as {
-            execution_price?: number | null;
-            time_placed?: string | null;
-            time_executed?: string | null;
-            [key: string]: unknown;
-          };
-          // Check if order has executed and execution_price is available
-          if (order?.execution_price !== undefined && order.execution_price !== null) {
-            result.executionPrice = order.execution_price;
-            result.priceSource = 'broker';
-
-            // Recalculate cost info with actual execution price
-            const fillPrice = order.execution_price;
-            const grossCost = fillPrice * contracts * 100;
-            result.costInfo = {
-              grossCost,
-              commission: 0,
-              estimatedFees: {},
-              totalCost: grossCost,
+            const order = orderDetailResponse.data as {
+              execution_price?: number | null;
+              time_placed?: string | null;
+              time_executed?: string | null;
+              status?: string | null;
+              [key: string]: unknown;
             };
+
+            // Always update executedAt from order detail if available (even if execution_price is null)
+            // Prefer time_executed if available (order has filled), otherwise use time_placed (order is pending)
+            if (order?.time_executed) {
+              result.executedAt = new Date(order.time_executed);
+            } else if (order?.time_placed) {
+              // Update time_placed even if executedAt was already set (order detail is more accurate)
+              result.executedAt = new Date(order.time_placed);
+            }
+
+            // Check if order has executed and execution_price is available
+            if (order?.execution_price !== undefined && order.execution_price !== null) {
+              result.executionPrice = order.execution_price;
+              result.priceSource = 'broker';
+
+              // Recalculate cost info with actual execution price
+              const fillPrice = order.execution_price;
+              const grossCost = fillPrice * contracts * 100;
+              result.costInfo = {
+                grossCost,
+                commission: 0,
+                estimatedFees: {},
+                totalCost: grossCost,
+              };
+              // Order has executed, exit loop immediately
+              console.log(`Order executed after ${attempt} attempts (${Date.now() - startTime}ms)`);
+              break;
+            }
+
+            // If order status is not PENDING (e.g., FILLED, EXECUTED), stop polling even if execution_price is null
+            // Some brokers may not provide execution_price immediately even after fill
+            if (order?.status && order.status !== 'PENDING' && order.status !== 'pending') {
+              console.log(`Order status changed to ${order.status} after ${attempt} attempts (${Date.now() - startTime}ms)`);
+              break;
+            }
+
+            // Continue polling immediately (no delay) - only break if timeout or data found
+          } catch (error) {
+            // If order detail check fails, log warning but continue polling
+            console.warn(`Could not fetch execution price from order detail (attempt ${attempt}):`, error);
+            // Continue polling - don't break on errors unless timeout
           }
-          // Update executedAt from order detail if available (time_executed or time_placed)
-          // Prefer time_executed if available, otherwise use time_placed
-          if (order?.time_executed) {
-            result.executedAt = new Date(order.time_executed);
-          } else if (order?.time_placed && !result.executedAt) {
-            result.executedAt = new Date(order.time_placed);
-          }
-        } catch (error) {
-          // If order detail check fails, continue with market data price (non-blocking)
-          console.warn('Could not fetch execution price from order detail:', error);
+
+          // Small delay only to prevent overwhelming the API (10ms - minimal)
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+
+        if (attempt > 0 && (!result.executionPrice || result.executionPrice === null)) {
+          result.executionPriceTimedOut = true;
+          console.warn(`Order detail polling timed out after ${attempt} attempts (${Date.now() - startTime}ms). Continuing with market data price.`);
         }
       }
 
