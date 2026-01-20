@@ -379,8 +379,8 @@ export default function StatsCalendarPage() {
                 <Box
                   display="grid"
                   gridTemplateColumns={{
-                    xs: 'repeat(2, minmax(0, 1fr))',
-                    sm: 'repeat(4, minmax(0, 1fr))',
+                    xs: 'repeat(7, minmax(0, 1fr))',
+                    sm: 'repeat(7, minmax(0, 1fr))',
                     md: 'repeat(7, minmax(0, 1fr))',
                   }}
                 >
@@ -388,9 +388,9 @@ export default function StatsCalendarPage() {
                     <Box
                       key={i}
                       sx={{
-                        p: { xs: 0.6, md: 0.75 },
+                        p: { xs: 0.4, sm: 0.6, md: 0.75 },
                         borderRadius: 0,
-                        minHeight: { xs: 92, md: 110 },
+                        minHeight: { xs: 60, sm: 80, md: 110 },
                         border: '1px solid var(--surface-border)',
                       }}
                     >
@@ -412,8 +412,8 @@ export default function StatsCalendarPage() {
               <Box
                 display="grid"
                 gridTemplateColumns={{
-                  xs: 'repeat(2, minmax(0, 1fr))',
-                  sm: 'repeat(4, minmax(0, 1fr))',
+                  xs: 'repeat(7, minmax(0, 1fr))',
+                  sm: 'repeat(7, minmax(0, 1fr))',
                   md: 'repeat(7, minmax(0, 1fr))',
                 }}
               >
@@ -468,9 +468,9 @@ export default function StatsCalendarPage() {
                       <Box
                         key={d.date}
                         sx={{
-                          p: { xs: 0.6, md: 0.75 },
+                          p: { xs: 0.4, sm: 0.6, md: 0.75 },
                           borderRadius: 0,
-                          minHeight: { xs: 92, md: 110 },
+                          minHeight: { xs: 60, sm: 80, md: 110 },
                           border: `1px solid ${isToday
                             ? alpha(theme.palette.primary.main, 0.8)
                             : alpha(theme.palette.divider, 0.35)
@@ -496,7 +496,7 @@ export default function StatsCalendarPage() {
                           sx={{
                             color: muted ? 'text.disabled' : 'text.secondary',
                             fontWeight: 700,
-                            fontSize: 12,
+                            fontSize: { xs: 10, sm: 11, md: 12 },
                             alignSelf: 'center',
                           }}
                         >
@@ -525,7 +525,7 @@ export default function StatsCalendarPage() {
                                     color: pnlColor(weekSummary.totalPnl),
                                     fontWeight: 900,
                                     lineHeight: 1.15,
-                                    fontSize: 18,
+                                    fontSize: { xs: 14, sm: 16, md: 18 },
                                   }}
                                 >
                                   {weekSummary.totalPnl >= 0 ? '+' : '-'}$
@@ -535,7 +535,7 @@ export default function StatsCalendarPage() {
                                   variant="body2"
                                   sx={{
                                     color: muted ? 'text.disabled' : 'text.secondary',
-                                    fontSize: 11,
+                                    fontSize: { xs: 9, sm: 10, md: 11 },
                                     fontWeight: 700,
                                   }}
                                 >
@@ -545,7 +545,7 @@ export default function StatsCalendarPage() {
                                   variant="body2"
                                   sx={{
                                     color: muted ? 'text.disabled' : 'text.secondary',
-                                    fontSize: 11,
+                                    fontSize: { xs: 9, sm: 10, md: 11 },
                                     fontWeight: 600,
                                   }}
                                 >
@@ -561,7 +561,7 @@ export default function StatsCalendarPage() {
                                     color: pnlColor(pnl),
                                     fontWeight: 900,
                                     lineHeight: 1.15,
-                                    fontSize: 20,
+                                    fontSize: { xs: 16, sm: 18, md: 20 },
                                   }}
                                 >
                                   {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
@@ -570,7 +570,7 @@ export default function StatsCalendarPage() {
                                   variant="body2"
                                   sx={{
                                     color: muted ? 'text.disabled' : 'text.secondary',
-                                    fontSize: 12,
+                                    fontSize: { xs: 10, sm: 11, md: 12 },
                                     fontWeight: 600,
                                   }}
                                 >
@@ -598,4 +598,3 @@ export default function StatsCalendarPage() {
     </Container>
   );
 }
-
