@@ -6,8 +6,211 @@ import { motion } from 'framer-motion';
 import { useAccess, setExperienceId } from '@/components/AccessProvider';
 import { useBranding } from '@/components/BrandingProvider';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { alpha } from '@mui/material/styles';
+
+function LoadingOrbitSpinner() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const logicalSize = 260;
+    canvas.width = logicalSize * dpr;
+    canvas.height = logicalSize * dpr;
+    canvas.style.width = `${logicalSize}px`;
+    canvas.style.height = `${logicalSize}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Offscreen buffer for true multi-pass additive bloom
+    const glowCanvas = document.createElement('canvas');
+    glowCanvas.width = logicalSize * dpr;
+    glowCanvas.height = logicalSize * dpr;
+    const glowCtx = glowCanvas.getContext('2d');
+    if (!glowCtx) return;
+    glowCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const center = logicalSize / 2;
+    const baseRadius = 86;
+    const rings = [
+      { r: baseRadius + 8, width: 3.2, alpha: 0.08 },
+      { r: baseRadius, width: 3.4, alpha: 0.12 },
+      { r: baseRadius - 10, width: 3.0, alpha: 0.09 },
+    ];
+
+    // Multiple comets across 2–3 rings to match the reference density
+    const comets = [
+      // outer ring
+      { ring: 0, phase: 0.10, speed: 0.55, tail: 1.25 },
+      { ring: 0, phase: 0.42, speed: 0.55, tail: 1.25 },
+      { ring: 0, phase: 0.76, speed: 0.55, tail: 1.25 },
+      // middle ring
+      { ring: 1, phase: 0.18, speed: 0.72, tail: 1.10 },
+      { ring: 1, phase: 0.52, speed: 0.72, tail: 1.10 },
+      { ring: 1, phase: 0.86, speed: 0.72, tail: 1.10 },
+      // inner ring
+      { ring: 2, phase: 0.30, speed: 0.92, tail: 0.95 },
+      { ring: 2, phase: 0.64, speed: 0.92, tail: 0.95 },
+    ];
+
+    const start = performance.now();
+    let frameId: number;
+
+    const TAU = Math.PI * 2;
+    const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+    const drawGlowRing = (c: CanvasRenderingContext2D, r: number) => {
+      c.save();
+      c.beginPath();
+      c.arc(0, 0, r, 0, TAU);
+      c.lineWidth = 10;
+      c.strokeStyle = 'rgba(56,189,248,0.06)';
+      c.shadowBlur = 40;
+      c.shadowColor = 'rgba(56,189,248,0.35)';
+      c.stroke();
+      c.restore();
+    };
+
+    const drawTrack = (c: CanvasRenderingContext2D, r: number, width: number, alpha: number) => {
+      c.save();
+      c.beginPath();
+      c.arc(0, 0, r, 0, TAU);
+      c.lineWidth = width;
+      c.strokeStyle = `rgba(37,99,235,${alpha})`;
+      c.shadowBlur = 18;
+      c.shadowColor = 'rgba(56,189,248,0.22)';
+      c.stroke();
+      c.restore();
+    };
+
+    const drawComet = (c: CanvasRenderingContext2D, r: number, angle: number, tailLen: number) => {
+      // Tail: many arc slices (smooth) with decreasing alpha and width
+      const slices = 34;
+      for (let i = 0; i < slices; i++) {
+        const t0 = i / slices;
+        const t1 = (i + 1) / slices;
+        const a1 = angle - t0 * tailLen;
+        const a0 = angle - t1 * tailLen;
+
+        const w = 8 - t0 * 6.2; // thick near head, thin at tail
+        const a = clamp01(0.42 * (1 - t0) ** 1.2);
+
+        c.save();
+        c.globalAlpha = a;
+        c.beginPath();
+        c.arc(0, 0, r, a0, a1);
+        c.lineWidth = w;
+        c.lineCap = 'round';
+        // electric blue gradient-ish by layering
+        c.strokeStyle = 'rgba(56,189,248,0.95)';
+        c.shadowBlur = 26;
+        c.shadowColor = 'rgba(56,189,248,0.95)';
+        c.stroke();
+        c.restore();
+
+        // subtle inner core
+        c.save();
+        c.globalAlpha = a * 0.55;
+        c.beginPath();
+        c.arc(0, 0, r, a0, a1);
+        c.lineWidth = Math.max(1.5, w * 0.35);
+        c.lineCap = 'round';
+        c.strokeStyle = 'rgba(191,219,254,0.95)';
+        c.shadowBlur = 10;
+        c.shadowColor = 'rgba(191,219,254,0.65)';
+        c.stroke();
+        c.restore();
+      }
+
+      // Head: bright nucleus + glow
+      const hx = Math.cos(angle) * r;
+      const hy = Math.sin(angle) * r;
+
+      c.save();
+      const g = c.createRadialGradient(hx, hy, 0, hx, hy, 18);
+      g.addColorStop(0, 'rgba(219,234,254,1)');
+      g.addColorStop(0.25, 'rgba(56,189,248,1)');
+      g.addColorStop(0.65, 'rgba(37,99,235,0.55)');
+      g.addColorStop(1, 'rgba(37,99,235,0)');
+      c.fillStyle = g;
+      c.shadowBlur = 44;
+      c.shadowColor = 'rgba(56,189,248,1)';
+      c.beginPath();
+      c.arc(hx, hy, 11, 0, TAU);
+      c.fill();
+      c.restore();
+    };
+
+    const render = (now: number) => {
+      const t = (now - start) / 1000;
+      ctx.clearRect(0, 0, logicalSize, logicalSize);
+
+      // 1) Draw crisp scene into glow buffer (no blur)
+      glowCtx.clearRect(0, 0, logicalSize, logicalSize);
+      glowCtx.save();
+      glowCtx.translate(center, center);
+      glowCtx.globalCompositeOperation = 'source-over';
+      drawGlowRing(glowCtx, baseRadius + 6);
+      rings.forEach((ring) => drawTrack(glowCtx, ring.r, ring.width, ring.alpha));
+      comets.forEach((c) => {
+        const ring = rings[c.ring];
+        const a = t * c.speed * TAU + c.phase * TAU;
+        drawComet(glowCtx, ring.r, a, c.tail);
+      });
+      glowCtx.restore();
+
+      // 2) Composite multiple blurred additive passes for true bloom
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.clearRect(0, 0, logicalSize, logicalSize);
+
+      // bloom pass (large blur)
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.55;
+      ctx.filter = 'blur(10px)';
+      ctx.drawImage(glowCanvas, 0, 0, logicalSize, logicalSize);
+
+      // bloom pass (medium blur)
+      ctx.globalAlpha = 0.7;
+      ctx.filter = 'blur(5px)';
+      ctx.drawImage(glowCanvas, 0, 0, logicalSize, logicalSize);
+
+      // bloom pass (small blur)
+      ctx.globalAlpha = 0.85;
+      ctx.filter = 'blur(2px)';
+      ctx.drawImage(glowCanvas, 0, 0, logicalSize, logicalSize);
+
+      // 3) Crisp top layer (no blur) for sharp heads/tails
+      ctx.globalAlpha = 1;
+      ctx.filter = 'none';
+      ctx.drawImage(glowCanvas, 0, 0, logicalSize, logicalSize);
+      ctx.restore();
+
+      frameId = requestAnimationFrame(render);
+    };
+
+    frameId = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(frameId);
+  }, []);
+
+  return (
+    <Box
+      sx={{
+        width: 190,
+        height: 190,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <canvas ref={canvasRef} />
+    </Box>
+  );
+}
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -53,40 +256,7 @@ function HomeContent() {
             gap: 2,
           }}
         >
-          <Box
-            sx={{
-              position: 'relative',
-              width: 80,
-              height: 80,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Box
-              sx={{
-                position: 'absolute',
-                width: '100%',
-                height: '100%',
-                borderRadius: '50%',
-                background: 'conic-gradient(#0f172a, #22c55e, #0ea5e9, #0f172a)',
-                animation: 'spin 2.8s linear infinite',
-                filter: 'drop-shadow(0 0 20px rgba(34,197,94,0.45))',
-                mask: 'radial-gradient(farthest-side, transparent 58%, black 63%)',
-              }}
-            />
-            <Box
-              sx={{
-                position: 'absolute',
-                width: '60%',
-                height: '60%',
-                borderRadius: '50%',
-                background: 'linear-gradient(145deg, rgba(34,197,94,0.22), rgba(14,165,233,0.18))',
-                boxShadow: '0 0 22px rgba(34,197,94,0.22) inset, 0 0 10px rgba(14,165,233,0.2)',
-                filter: 'blur(0.3px)',
-              }}
-            />
-          </Box>
+          <LoadingOrbitSpinner />
           <Typography
             variant="h6"
             sx={{
@@ -114,14 +284,6 @@ function HomeContent() {
           </Typography>
         </Box>
         <style jsx global>{`
-          @keyframes spin {
-            from {
-              transform: rotate(0deg);
-            }
-            to {
-              transform: rotate(360deg);
-            }
-          }
           @keyframes ellipsis {
             0% {
               width: 0ch;
