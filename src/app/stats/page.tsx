@@ -197,6 +197,34 @@ export default function StatsCalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonth, scope, userId, companyId]);
 
+  // Close tooltip when clicking anywhere on the page
+  useEffect(() => {
+    const handleClickAnywhere = (event: MouseEvent) => {
+      // Check if click is outside the tooltip and calendar cells
+      const target = event.target as HTMLElement;
+      // Don't close if clicking on a tooltip element
+      if (target.closest('[role="tooltip"]') || target.closest('[data-calendar-cell]')) {
+        return;
+      }
+      if (openTooltip) {
+        setOpenTooltip(null);
+      }
+    };
+
+    // Add click listener to document when tooltip is open
+    if (openTooltip) {
+      // Use setTimeout to avoid immediate closure on the click that opened it
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('click', handleClickAnywhere, true);
+      }, 100);
+
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('click', handleClickAnywhere, true);
+      };
+    }
+  }, [openTooltip]);
+
   const weeks = useMemo(() => buildCalendar(data?.days || [], currentMonth), [data, currentMonth]);
 
   // Pre-compute weekly summaries so Saturdays can show a weekly recap
@@ -413,7 +441,6 @@ export default function StatsCalendarPage() {
 
             {!loading && !error && weeks.length > 0 && (
               <Box
-                onClick={() => setOpenTooltip(null)}
                 display="grid"
                 gridTemplateColumns={{
                   xs: 'repeat(7, minmax(0, 1fr))',
@@ -529,6 +556,7 @@ export default function StatsCalendarPage() {
                         }}
                       >
                         <Box
+                          data-calendar-cell
                           onClick={(e) => {
                             e.stopPropagation();
                             if (!isEmpty) {
