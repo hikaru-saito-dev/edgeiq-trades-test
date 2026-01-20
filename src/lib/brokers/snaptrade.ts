@@ -229,13 +229,22 @@ export class SnapTradeBroker implements IBroker {
               brokerage_order_id: result.orderId,
             });
 
-            const order = orderDetailResponse.data as {
+            // SnapTrade order detail can be either an order record or a wrapper containing `orders: [...]`
+            const detail = orderDetailResponse.data as {
               execution_price?: number | null;
               time_placed?: string | null;
               time_executed?: string | null;
               status?: string | null;
+              orders?: Array<{
+                execution_price?: number | null;
+                time_placed?: string | null;
+                time_executed?: string | null;
+                status?: string | null;
+                [key: string]: unknown;
+              }>;
               [key: string]: unknown;
             };
+            const order = Array.isArray(detail?.orders) && detail.orders.length > 0 ? detail.orders[0] : detail;
 
             // Always update executedAt from order detail if available (even if execution_price is null)
             // Prefer time_executed if available (order has filled), otherwise use time_placed (order is pending)

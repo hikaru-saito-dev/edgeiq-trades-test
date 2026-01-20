@@ -479,13 +479,14 @@ export async function POST(request: NextRequest) {
         optionType: validated.optionType,
         expiryDate: expiryDate,
         fillPrice: finalFillPrice,
-        status: brokerExecutionPriceTimedOut ? 'REJECTED' : 'OPEN',
-        priceVerified: brokerExecutionPriceTimedOut ? false : true,
+        // If we couldn't obtain an execution_price from the broker, reject so it won't count in stats.
+        status: (brokerExecutionPriceTimedOut || brokerExecutionPrice === null || brokerExecutionPrice === undefined) ? 'REJECTED' : 'OPEN',
+        priceVerified: (brokerExecutionPriceTimedOut || brokerExecutionPrice === null || brokerExecutionPrice === undefined) ? false : true,
         optionContract: optionContractTicker || undefined,
         refPrice: referencePrice || undefined,
         refTimestamp,
-        remainingOpenContracts: brokerExecutionPriceTimedOut ? 0 : validated.contracts,
-        totalBuyNotional: brokerExecutionPriceTimedOut ? 0 : notional,
+        remainingOpenContracts: (brokerExecutionPriceTimedOut || brokerExecutionPrice === null || brokerExecutionPrice === undefined) ? 0 : validated.contracts,
+        totalBuyNotional: (brokerExecutionPriceTimedOut || brokerExecutionPrice === null || brokerExecutionPrice === undefined) ? 0 : notional,
         isMarketOrder: true, // Always market orders
         ...(normalizedSelectedWebhookIds !== undefined && { selectedWebhookIds: normalizedSelectedWebhookIds }),
         ...(brokerType && { brokerType }),
