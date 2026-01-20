@@ -246,18 +246,34 @@ export class SnapTradeBroker implements IBroker {
             };
             const order = Array.isArray(detail?.orders) && detail.orders.length > 0 ? detail.orders[0] : detail;
 
-            // Persist the latest order-detail payload so DB/debugging reflects reality.
-            // (Initial place-order response often has execution_price=null while PENDING.)
+            // Update orders[0] with final execution data - replace stale initial data
+            // This ensures orders[0] always has the latest execution_price, status, etc.
             if (result.orderDetails) {
+              // Extract the final order data (either from detail.orders[0] or detail itself)
+              const finalOrder = Array.isArray(detail?.orders) && detail.orders.length > 0
+                ? detail.orders[0]
+                : order; // 'order' is already extracted above (line 247)
+
+              // Update orders[0] with final execution data, merging initial structure with final data
+              const updatedOrders = Array.isArray(result.orderDetails.orders) && result.orderDetails.orders.length > 0
+                ? [{ ...result.orderDetails.orders[0], ...finalOrder }] // Merge: initial fields + final execution data
+                : [finalOrder]; // If no initial orders, use final order
+
               result.orderDetails = {
                 ...result.orderDetails,
-                ...(Array.isArray(detail?.orders) ? { orders: detail.orders } : {}),
-                orderDetail: detail,
+                brokerage_order_id: detail?.brokerage_order_id || result.orderDetails.brokerage_order_id,
+                orders: updatedOrders,
+                // Remove orderDetail - orders[0] is now the single source of truth
               };
             } else {
+              // No initial orderDetails, create new structure with final data
+              const finalOrder = Array.isArray(detail?.orders) && detail.orders.length > 0
+                ? detail.orders[0]
+                : order;
+
               result.orderDetails = {
-                ...(Array.isArray(detail?.orders) ? { orders: detail.orders } : {}),
-                orderDetail: detail,
+                brokerage_order_id: detail?.brokerage_order_id,
+                orders: [finalOrder],
               };
             }
 
