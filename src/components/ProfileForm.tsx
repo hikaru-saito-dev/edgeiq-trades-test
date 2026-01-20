@@ -2539,6 +2539,16 @@ export default function ProfileForm() {
                   label="Range"
                   value={statsRange}
                   onChange={(e) => setStatsRange(e.target.value as string as '7d' | '30d' | '90d' | 'ytd' | 'all')}
+                  MenuProps={{
+                    anchorOrigin: {
+                      vertical: 'bottom',
+                      horizontal: 'left',
+                    },
+                    transformOrigin: {
+                      vertical: 'top',
+                      horizontal: 'left',
+                    },
+                  }}
                 >
                   <MenuItem value="7d">Last 7 days</MenuItem>
                   <MenuItem value="30d">Last 30 days</MenuItem>
@@ -2747,4 +2757,3 @@ export default function ProfileForm() {
     </Box>
   );
 }
-
