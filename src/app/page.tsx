@@ -205,63 +205,63 @@ function HomeContent() {
   }, [experienceId]);
 
   if (loading) {
-  return (
-    <Box
-      sx={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 2000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#000',
-        overflow: 'hidden',
-      }}
-    >
+    return (
       <Box
         sx={{
-          position: 'absolute',
+          position: 'fixed',
           inset: 0,
-          background: 'radial-gradient(circle at 30% 30%, rgba(80,80,80,0.2), transparent 40%), radial-gradient(circle at 70% 70%, rgba(80,80,80,0.15), transparent 45%)',
-          opacity: 0.8,
-        }}
-      />
-      <Box
-        sx={{
+          zIndex: 2000,
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
-          gap: 5,
+          justifyContent: 'center',
+          background: '#000',
+          overflow: 'hidden',
         }}
       >
-        <LoadingOrbitSpinner />
-        <Typography
-          variant="h6"
+        <Box
           sx={{
-            position: 'relative',
-            color: '#e5e7eb',
-            fontWeight: 600,
-            letterSpacing: 0.4,
+            position: 'absolute',
+            inset: 0,
+            background: 'radial-gradient(circle at 30% 30%, rgba(80,80,80,0.2), transparent 40%), radial-gradient(circle at 70% 70%, rgba(80,80,80,0.15), transparent 45%)',
+            opacity: 0.8,
+          }}
+        />
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 5,
           }}
         >
-          Verifying access
-          <Box
-            component="span"
+          <LoadingOrbitSpinner />
+          <Typography
+            variant="h6"
             sx={{
-              display: 'inline-block',
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              width: '0ch',
-              verticalAlign: 'bottom',
-              '&::after': {
-                content: '"..."',
-              },
-              animation: 'ellipsis 1.2s steps(3,end) infinite',
+              position: 'relative',
+              color: '#e5e7eb',
+              fontWeight: 600,
+              letterSpacing: 0.4,
             }}
-          />
-        </Typography>
-      </Box>
-      <style jsx global>{`
+          >
+            Verifying access
+            <Box
+              component="span"
+              sx={{
+                display: 'inline-block',
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                width: '0ch',
+                verticalAlign: 'bottom',
+                '&::after': {
+                  content: '"..."',
+                },
+                animation: 'ellipsis 1.2s steps(3,end) infinite',
+              }}
+            />
+          </Typography>
+        </Box>
+        <style jsx global>{`
           @keyframes ellipsis {
             0% {
               width: 0ch;
@@ -277,8 +277,8 @@ function HomeContent() {
             }
           }
         `}</style>
-    </Box>
-  );
+      </Box>
+    );
   }
 
   return (
@@ -503,11 +503,78 @@ function HomeContent() {
 export default function Home() {
   return (
     <Suspense fallback={
-      <Container maxWidth="lg" sx={{ py: 8 }}>
-        <Typography variant="h1" sx={{ textAlign: 'center' }}>
-          Loading...
-        </Typography>
-      </Container>
+      <Box
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 2000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#000',
+          overflow: 'hidden',
+        }}
+      >
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            background: 'radial-gradient(circle at 30% 30%, rgba(80,80,80,0.2), transparent 40%), radial-gradient(circle at 70% 70%, rgba(80,80,80,0.15), transparent 45%)',
+            opacity: 0.8,
+          }}
+        />
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 5,
+          }}
+        >
+          <LoadingOrbitSpinner />
+          <Typography
+            variant="h6"
+            sx={{
+              position: 'relative',
+              color: '#e5e7eb',
+              fontWeight: 600,
+              letterSpacing: 0.4,
+            }}
+          >
+            Verifying access
+            <Box
+              component="span"
+              sx={{
+                display: 'inline-block',
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                width: '0ch',
+                verticalAlign: 'bottom',
+                '&::after': {
+                  content: '"..."',
+                },
+                animation: 'ellipsis 1.2s steps(3,end) infinite',
+              }}
+            />
+          </Typography>
+        </Box>
+        <style jsx global>{`
+          @keyframes ellipsis {
+            0% {
+              width: 0ch;
+            }
+            33% {
+              width: 1ch;
+            }
+            66% {
+              width: 2ch;
+            }
+            100% {
+              width: 3ch;
+            }
+          }
+        `}</style>
+      </Box>
     }>
       <HomeContent />
     </Suspense>
