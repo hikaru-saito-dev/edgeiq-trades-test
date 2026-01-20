@@ -47,37 +47,46 @@ function HomeContent() {
         />
         <Box
           sx={{
-            position: 'relative',
-            width: 160,
-            height: 160,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
+            gap: 2,
           }}
         >
           <Box
             sx={{
-              position: 'absolute',
-              width: '100%',
-              height: '100%',
-              borderRadius: '50%',
-              background: 'conic-gradient(#0f172a, #22c55e, #0ea5e9, #0f172a)',
-              animation: 'spin 2.8s linear infinite',
-              filter: 'drop-shadow(0 0 24px rgba(34,197,94,0.45))',
-              mask: 'radial-gradient(farthest-side, transparent 55%, black 60%)',
+              position: 'relative',
+              width: 80,
+              height: 80,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
-          />
-          <Box
-            sx={{
-              position: 'absolute',
-              width: '65%',
-              height: '65%',
-              borderRadius: '50%',
-              background: 'linear-gradient(145deg, rgba(34,197,94,0.22), rgba(15,118,110,0.22))',
-              boxShadow: '0 0 30px rgba(34,197,94,0.25) inset, 0 0 12px rgba(14,165,233,0.25)',
-              filter: 'blur(0.3px)',
-            }}
-          />
+          >
+            <Box
+              sx={{
+                position: 'absolute',
+                width: '100%',
+                height: '100%',
+                borderRadius: '50%',
+                background: 'conic-gradient(#0f172a, #22c55e, #0ea5e9, #0f172a)',
+                animation: 'spin 2.8s linear infinite',
+                filter: 'drop-shadow(0 0 20px rgba(34,197,94,0.45))',
+                mask: 'radial-gradient(farthest-side, transparent 58%, black 63%)',
+              }}
+            />
+            <Box
+              sx={{
+                position: 'absolute',
+                width: '60%',
+                height: '60%',
+                borderRadius: '50%',
+                background: 'linear-gradient(145deg, rgba(34,197,94,0.22), rgba(14,165,233,0.18))',
+                boxShadow: '0 0 22px rgba(34,197,94,0.22) inset, 0 0 10px rgba(14,165,233,0.2)',
+                filter: 'blur(0.3px)',
+              }}
+            />
+          </Box>
           <Typography
             variant="h6"
             sx={{
@@ -87,7 +96,21 @@ function HomeContent() {
               letterSpacing: 0.4,
             }}
           >
-            Verifying access…
+            Verifying access
+            <Box
+              component="span"
+              sx={{
+                display: 'inline-block',
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                width: '0ch',
+                verticalAlign: 'bottom',
+                '&::after': {
+                  content: '"..."',
+                },
+                animation: 'ellipsis 1.2s steps(3,end) infinite',
+              }}
+            />
           </Typography>
         </Box>
         <style jsx global>{`
@@ -97,6 +120,20 @@ function HomeContent() {
             }
             to {
               transform: rotate(360deg);
+            }
+          }
+          @keyframes ellipsis {
+            0% {
+              width: 0ch;
+            }
+            33% {
+              width: 1ch;
+            }
+            66% {
+              width: 2ch;
+            }
+            100% {
+              width: 3ch;
             }
           }
         `}</style>
