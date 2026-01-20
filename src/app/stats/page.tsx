@@ -197,15 +197,15 @@ export default function StatsCalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonth, scope, userId, companyId]);
 
-  // Close tooltip when clicking anywhere on the page
+  // Close tooltip when clicking anywhere on the page (including empty cells)
   useEffect(() => {
     const handleClickAnywhere = (event: MouseEvent) => {
-      // Check if click is outside the tooltip and calendar cells
+      // Check if click is on the tooltip itself - don't close in that case
       const target = event.target as HTMLElement;
-      // Don't close if clicking on a tooltip element
-      if (target.closest('[role="tooltip"]') || target.closest('[data-calendar-cell]')) {
+      if (target.closest('[role="tooltip"]')) {
         return;
       }
+      // Close tooltip when clicking anywhere, including empty calendar cells
       if (openTooltip) {
         setOpenTooltip(null);
       }
@@ -560,7 +560,11 @@ export default function StatsCalendarPage() {
                           onClick={(e) => {
                             e.stopPropagation();
                             if (!isEmpty) {
+                              // Toggle tooltip for cells with data
                               setOpenTooltip(isTooltipOpen ? null : d.date);
+                            } else {
+                              // Close tooltip when clicking empty cells
+                              setOpenTooltip(null);
                             }
                           }}
                           sx={{
