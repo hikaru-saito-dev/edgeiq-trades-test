@@ -46,10 +46,10 @@ function LoadingOrbitSpinner() {
     // Multiple comets across 2–3 rings to match the reference density
     const comets = [
       // outer ring
-      { ring: 0, phase: 0.50, speed: 0.8, tail: 3 },
-      { ring: 1, phase: 0.40, speed: 0.7, tail: 3 },
-      { ring: 2, phase: 0.30, speed: 0.6, tail: 3 },
-      { ring: 3, phase: 0.20, speed: 0.5, tail: 3 },
+      { ring: 0, phase: 0.50, speed: 1, tail: 3 },
+      { ring: 1, phase: 0.40, speed: 0.9, tail: 3 },
+      { ring: 2, phase: 0.30, speed: 0.8, tail: 3 },
+      { ring: 3, phase: 0.20, speed: 0.7, tail: 3 },
       // middle ring
       // { ring: 0, phase: 1, speed: 0.3, tail: 3 },
       // { ring: 1, phase: 0.90, speed: 0.3, tail: 3 },
