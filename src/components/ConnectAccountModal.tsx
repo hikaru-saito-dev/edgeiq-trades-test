@@ -383,7 +383,6 @@ export default function ConnectAccountModal({
                     variant="contained"
                     sx={{
                         background: palette.gradients.buttonGradient,
-                        color: 'white',
                         '&:hover': {
                             background: `linear-gradient(135deg, ${palette.primary.dark}, ${palette.secondary.dark})`,
                         },

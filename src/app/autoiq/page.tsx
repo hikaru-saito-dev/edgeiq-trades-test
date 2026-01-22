@@ -259,7 +259,6 @@ export default function AutoIQPage() {
                         }}
                         sx={{
                             background: palette.gradients.buttonGradient,
-                            color: '#ffffff',
                             px: 6,
                             py: 1.5,
                             fontWeight: 600,
@@ -471,7 +470,6 @@ export default function AutoIQPage() {
                         disabled={saving}
                         sx={{
                             background: palette.gradients.buttonGradient,
-                            color: '#ffffff',
                             px: 4,
                             py: 1.5,
                             fontWeight: 600,

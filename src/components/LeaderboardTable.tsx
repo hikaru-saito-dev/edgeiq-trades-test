@@ -563,7 +563,6 @@ export default function LeaderboardTable() {
                             onClick={() => handleViewMembership(entry)}
                             sx={{
                               background: palette.gradients.buttonGradient,
-                              color: 'white',
                               '&:hover': {
                                 background: `linear-gradient(135deg, ${palette.primary.dark}, ${palette.secondary.dark})`,
                               },
@@ -771,7 +770,6 @@ export default function LeaderboardTable() {
                         startIcon={<LaunchIcon />}
                         sx={{
                           background: palette.gradients.buttonGradient,
-                          color: 'white',
                           py: 1.5,
                           fontWeight: 600,
                           boxShadow: `0 4px 20px ${palette.shadows.medium}`,

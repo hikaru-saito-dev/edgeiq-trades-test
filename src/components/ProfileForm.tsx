@@ -985,7 +985,6 @@ export default function ProfileForm() {
                 startIcon={<AddIcon />}
                 sx={{
                   background: `linear-gradient(135deg, ${palette.secondary.main} 0%, ${palette.secondary.dark} 100%)`,
-                  color: 'white',
                   fontWeight: 600,
                   textTransform: 'none',
                   '&:hover': {
@@ -1027,7 +1026,6 @@ export default function ProfileForm() {
                   startIcon={<AddIcon />}
                   sx={{
                     background: `linear-gradient(135deg, ${palette.secondary.main} 0%, ${palette.secondary.dark} 100%)`,
-                    color: 'white',
                     fontWeight: 600,
                     textTransform: 'none',
                     px: 3,
@@ -1211,7 +1209,6 @@ export default function ProfileForm() {
                 disabled={saving}
                 sx={{
                   background: palette.gradients.buttonGradient,
-                  color: '#ffffff',
                   px: 4,
                   py: 1.5,
                   fontWeight: 600,
@@ -1222,7 +1219,7 @@ export default function ProfileForm() {
                   },
                   '&:disabled': {
                     background: palette.primary.alpha30,
-                    color: 'rgba(255, 255, 255, 0.5)',
+                    color: 'rgba(255, 255, 255, 0.3)',
                   },
                   transition: 'all 0.3s ease',
                 }}
@@ -2527,7 +2524,6 @@ export default function ProfileForm() {
               disabled={saving}
               sx={{
                 background: palette.gradients.buttonGradient,
-                color: '#ffffff',
                 px: 4,
                 py: 1.5,
                 fontWeight: 600,

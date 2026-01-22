@@ -438,7 +438,6 @@ function HomeContent() {
                 href="/trades"
                 sx={{
                   background: palette.gradients.buttonGradient,
-                  color: 'white',
                   px: 5,
                   py: 1.75,
                   fontSize: '1.1rem',

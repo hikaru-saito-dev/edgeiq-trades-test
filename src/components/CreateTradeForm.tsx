@@ -563,7 +563,6 @@ export default function CreateTradeForm({ open, onClose, onSuccess }: CreateTrad
             startIcon={loading ? <CircularProgress size={16} /> : <AddIcon />}
             sx={{
               background: palette.gradients.buttonGradient,
-              color: '#ffffff',
               '&:hover': {
                 background: `linear-gradient(135deg, ${palette.primary.dark} 0%, ${palette.secondary.dark} 100%)`,
               },

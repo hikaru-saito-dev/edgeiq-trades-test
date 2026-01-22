@@ -195,14 +195,13 @@ export default function FollowDetailModal({ open, onClose, entry }: FollowDetail
           endIcon={<LaunchIcon />}
           sx={{
             background: palette.gradients.buttonGradient,
-            color: 'white',
             fontWeight: 600,
             '&:hover': {
               background: `linear-gradient(135deg, ${palette.primary.dark}, ${palette.secondary.dark})`,
             },
             '&:disabled': {
               background: alpha(theme.palette.action.disabled, 0.12),
-              color: theme.palette.action.disabled,
+              color: 'rgba(255, 255, 255, 0.3)',
             },
           }}
         >

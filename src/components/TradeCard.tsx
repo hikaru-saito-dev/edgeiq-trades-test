@@ -683,7 +683,6 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
             disabled={loading}
             sx={{
               background: actionGradient,
-              color: theme.palette.getContrastText(theme.palette.primary.main),
               '&:hover': {
                 background: actionGradientHover,
               },

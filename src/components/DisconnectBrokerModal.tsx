@@ -134,7 +134,6 @@ export default function DisconnectBrokerModal({
                         background: isConfirmed
                             ? palette.gradients.buttonGradient
                             : palette.primary.alpha30,
-                        color: 'white',
                         fontWeight: 600,
                         '&:hover': {
                             background: isConfirmed
@@ -143,7 +142,7 @@ export default function DisconnectBrokerModal({
                         },
                         '&:disabled': {
                             background: palette.primary.alpha30,
-                            color: 'rgba(255, 255, 255, 0.5)',
+                            color: 'rgba(255, 255, 255, 0.3)',
                         },
                     }}
                 >

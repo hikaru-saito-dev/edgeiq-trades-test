@@ -573,7 +573,6 @@ export default function TradesPage() {
             }}
             sx={{
               background: palette.gradients.buttonGradient,
-              color: '#ffffff',
               '&:hover': {
                 background: `linear-gradient(135deg, ${palette.primary.dark} 0%, ${palette.secondary.dark} 100%)`,
               },
