@@ -31,6 +31,37 @@ export class SnapTradeBroker implements IBroker {
     return decrypt(encryptedSecret);
   }
 
+  // Helper to safely serialize error object for debugging
+  private serializeError(err: unknown): string {
+    try {
+      if (err instanceof Error) {
+        const errorObj: Record<string, unknown> = {
+          name: err.name,
+          message: err.message,
+          stack: err.stack,
+        };
+        // Add any additional properties
+        if (err && typeof err === 'object') {
+          Object.keys(err).forEach(key => {
+            if (!['name', 'message', 'stack'].includes(key)) {
+              try {
+                errorObj[key] = (err as unknown as Record<string, unknown>)[key];
+              } catch {
+                errorObj[key] = '[Unable to serialize]';
+              }
+            }
+          });
+        }
+        return JSON.stringify(errorObj, null, 2);
+      } else if (err && typeof err === 'object') {
+        return JSON.stringify(err, null, 2);
+      }
+      return String(err);
+    } catch {
+      return String(err);
+    }
+  }
+
   async placeOptionOrder(
     trade: ITrade,
     side: 'BUY' | 'SELL',
@@ -51,14 +82,88 @@ export class SnapTradeBroker implements IBroker {
     // Refresh account to sync latest permissions and data
     // When closing positions, wait longer to ensure position data is synced
     if (this.connection.authorizationId) {
-      await this.client.connections.refreshBrokerageAuthorization({
-        authorizationId: this.connection.authorizationId,
-        userId: this.connection.snaptradeUserId,
-        userSecret,
-      });
-      // Wait longer when closing to ensure position exists and is synced
-      const waitTime = side === 'SELL' ? 2000 : 1000;
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+      try {
+        await this.client.connections.refreshBrokerageAuthorization({
+          authorizationId: this.connection.authorizationId,
+          userId: this.connection.snaptradeUserId,
+          userSecret,
+        });
+        // Wait longer when closing to ensure position exists and is synced
+        const waitTime = side === 'SELL' ? 2000 : 1000;
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      } catch (refreshError: unknown) {
+        // Extract error message from refresh failure
+        let refreshErrorMessage = 'Failed to refresh broker authorization';
+        let httpStatus: number | undefined;
+        const errorDetails: string[] = [];
+
+        if (refreshError && typeof refreshError === 'object') {
+          if ('status' in refreshError && typeof refreshError.status === 'number') {
+            httpStatus = refreshError.status;
+          } else if ('statusCode' in refreshError && typeof refreshError.statusCode === 'number') {
+            httpStatus = refreshError.statusCode;
+          } else if ('response' in refreshError && refreshError.response && typeof refreshError.response === 'object') {
+            const response = refreshError.response as { status?: number; statusCode?: number; data?: unknown; body?: unknown };
+            if (typeof response.status === 'number') {
+              httpStatus = response.status;
+            } else if (typeof response.statusCode === 'number') {
+              httpStatus = response.statusCode;
+            }
+            const responseBody = response.data || response.body;
+            if (responseBody && typeof responseBody === 'object') {
+              const body = responseBody as { error?: string; message?: string; detail?: string };
+              refreshErrorMessage = body.error || body.message || body.detail || refreshErrorMessage;
+            }
+          }
+
+          // Handle specific status codes for authorization refresh
+          if (httpStatus === 402) {
+            refreshErrorMessage = 'Payment Required: Your SnapTrade account may require a paid subscription to access this broker. Please check your SnapTrade subscription status or contact SnapTrade support.';
+          } else if (httpStatus === 401) {
+            refreshErrorMessage = 'Unauthorized: Your SnapTrade connection has expired. Please reconnect your broker account.';
+          } else if (httpStatus === 404) {
+            refreshErrorMessage = 'Authorization Not Found: Your broker connection may have been deleted. Please reconnect your broker account.';
+          } else if (httpStatus && httpStatus >= 400) {
+            refreshErrorMessage = `Authorization refresh failed (${httpStatus}): ${refreshErrorMessage}`;
+          }
+
+          // Include error structure for debugging
+          errorDetails.push(`Error Structure: ${this.serializeError(refreshError)}`);
+          if (httpStatus) {
+            errorDetails.push(`HTTP Status: ${httpStatus}`);
+          }
+          const responseBody = (refreshError as { response?: { data?: unknown; body?: unknown } })?.response?.data || 
+                               (refreshError as { response?: { data?: unknown; body?: unknown } })?.response?.body;
+          if (responseBody) {
+            errorDetails.push(`Response Body: ${JSON.stringify(responseBody, null, 2)}`);
+          }
+        } else if (refreshError instanceof Error) {
+          refreshErrorMessage = refreshError.message;
+          // Check for status codes in error message
+          const statusMatch = refreshErrorMessage.match(/status code (\d{3})/i) || refreshErrorMessage.match(/(\d{3})/);
+          if (statusMatch) {
+            const status = parseInt(statusMatch[1], 10);
+            httpStatus = status;
+            if (status === 402) {
+              refreshErrorMessage = 'Payment Required: Your SnapTrade account may require a paid subscription to access this broker. Please check your SnapTrade subscription status or contact SnapTrade support.';
+            }
+          }
+          // Include error structure for debugging
+          errorDetails.push(`Error Structure: ${this.serializeError(refreshError)}`);
+          if (httpStatus) {
+            errorDetails.push(`HTTP Status: ${httpStatus}`);
+          }
+        } else {
+          // Unknown error type - include full serialization
+          errorDetails.push(`Error Structure: ${this.serializeError(refreshError)}`);
+        }
+
+        // Throw error with clear message and debug info - don't proceed with order if authorization refresh fails
+        const fullErrorMessage = errorDetails.length > 0
+          ? `${refreshErrorMessage}\n\nDebug Info:\n${errorDetails.join('\n')}`
+          : refreshErrorMessage;
+        throw new Error(fullErrorMessage);
+      }
     }
 
     // Format option symbol in OCC format (21 characters)
@@ -334,25 +439,82 @@ export class SnapTradeBroker implements IBroker {
       // Extract actual error message from SnapTrade response
       let errorMessage = 'Failed to place order with broker';
       let shouldRetryWithLimit = false;
+      let httpStatus: number | undefined;
+      const errorDetails: string[] = [];
 
-      if (error && typeof error === 'object' && 'responseBody' in error) {
-        // Try to extract error message from response body
-        const responseBody = typeof error.responseBody === 'string'
-          ? JSON.parse(error.responseBody)
-          : error.responseBody;
-
-        if (responseBody && typeof responseBody === 'object') {
-          errorMessage = (responseBody as { error?: string; message?: string; detail?: string }).error ||
-            (responseBody as { error?: string; message?: string; detail?: string }).message ||
-            (responseBody as { error?: string; message?: string; detail?: string }).detail ||
-            JSON.stringify(responseBody) ||
-            errorMessage;
-
-          // Check if error is about no available quote - retry with LIMIT order
-          const errorStr = errorMessage.toLowerCase();
-          if (errorStr.includes('no available quote') || errorStr.includes('please reenter with a limit')) {
-            shouldRetryWithLimit = true;
+      // Check for HTTP status code in error object
+      if (error && typeof error === 'object') {
+        // SnapTrade SDK may include status/statusCode directly
+        if ('status' in error && typeof error.status === 'number') {
+          httpStatus = error.status;
+        } else if ('statusCode' in error && typeof error.statusCode === 'number') {
+          httpStatus = error.statusCode;
+        } else if ('response' in error && error.response && typeof error.response === 'object') {
+          // Check nested response object (common in HTTP client libraries)
+          const response = error.response as { status?: number; statusCode?: number; data?: unknown; body?: unknown };
+          if (typeof response.status === 'number') {
+            httpStatus = response.status;
+          } else if (typeof response.statusCode === 'number') {
+            httpStatus = response.statusCode;
           }
+        }
+
+        // Extract response body from various possible locations
+        let responseBody: unknown = null;
+        if ('responseBody' in error) {
+          responseBody = error.responseBody;
+        } else if ('response' in error && error.response && typeof error.response === 'object') {
+          const response = error.response as { data?: unknown; body?: unknown };
+          responseBody = response.data || response.body;
+        } else if ('body' in error) {
+          responseBody = error.body;
+        }
+
+        // Parse response body if it's a string
+        if (typeof responseBody === 'string') {
+          const responseBodyStr = responseBody;
+          try {
+            responseBody = JSON.parse(responseBodyStr);
+          } catch {
+            // If not JSON, use as-is
+            errorMessage = responseBodyStr;
+          }
+        }
+
+        // Extract error message from response body
+        if (responseBody && typeof responseBody === 'object') {
+          const body = responseBody as { error?: string; message?: string; detail?: string; [key: string]: unknown };
+          errorMessage = body.error || body.message || body.detail || JSON.stringify(responseBody) || errorMessage;
+        }
+
+        // Handle specific HTTP status codes with user-friendly messages
+        if (httpStatus === 402) {
+          errorMessage = 'Payment Required: Your SnapTrade account may require a paid subscription to trade with this broker. Please check your SnapTrade subscription status or contact SnapTrade support.';
+        } else if (httpStatus === 403) {
+          errorMessage = 'Forbidden: Options trading may not be enabled for this account, or your account may have restrictions. Please check your broker account settings.';
+        } else if (httpStatus === 401) {
+          errorMessage = 'Unauthorized: Your SnapTrade connection may have expired. Please reconnect your broker account.';
+        } else if (httpStatus === 404) {
+          errorMessage = 'Not Found: The account or authorization may have been deleted. Please reconnect your broker account.';
+        } else if (httpStatus === 429) {
+          errorMessage = 'Rate Limit Exceeded: Too many requests. Please wait a moment and try again.';
+        } else if (httpStatus && httpStatus >= 400) {
+          errorMessage = `Broker API error (${httpStatus}): ${errorMessage}`;
+        }
+
+        // Include error structure for debugging
+        errorDetails.push(`Error Structure: ${this.serializeError(error)}`);
+        if (httpStatus) {
+          errorDetails.push(`HTTP Status: ${httpStatus}`);
+        }
+        if (responseBody) {
+          errorDetails.push(`Response Body: ${JSON.stringify(responseBody, null, 2)}`);
+        }
+
+        // Check if error is about no available quote - retry with LIMIT order
+        const errorStr = errorMessage.toLowerCase();
+        if (errorStr.includes('no available quote') || errorStr.includes('please reenter with a limit')) {
+          shouldRetryWithLimit = true;
         }
       } else if (error instanceof Error) {
         errorMessage = error.message;
@@ -360,6 +522,27 @@ export class SnapTradeBroker implements IBroker {
         if (errorStr.includes('no available quote') || errorStr.includes('please reenter with a limit')) {
           shouldRetryWithLimit = true;
         }
+        // Check if error message contains HTTP status codes (e.g., "Request failed with status code 402")
+        const statusMatch = errorMessage.match(/status code (\d{3})/i) || errorMessage.match(/(\d{3})/);
+        if (statusMatch) {
+          const status = parseInt(statusMatch[1], 10);
+          httpStatus = status;
+          if (status === 402) {
+            errorMessage = 'Payment Required: Your SnapTrade account may require a paid subscription to trade with this broker. Please check your SnapTrade subscription status or contact SnapTrade support.';
+          } else if (status === 403) {
+            errorMessage = 'Forbidden: Options trading may not be enabled for this account, or your account may have restrictions.';
+          } else if (status === 401) {
+            errorMessage = 'Unauthorized: Your SnapTrade connection may have expired. Please reconnect your broker account.';
+          }
+        }
+        // Include error structure for debugging
+        errorDetails.push(`Error Structure: ${this.serializeError(error)}`);
+        if (httpStatus) {
+          errorDetails.push(`HTTP Status: ${httpStatus}`);
+        }
+      } else {
+        // Unknown error type - include full serialization
+        errorDetails.push(`Error Structure: ${this.serializeError(error)}`);
       }
 
       // If error is about no quote, retry with LIMIT order using provided limitPrice or trade.fillPrice
@@ -369,13 +552,20 @@ export class SnapTradeBroker implements IBroker {
           try {
             return await tryPlaceOrder(true, limitPriceValue);
           } catch {
-            // If LIMIT order also fails, throw the original error
-            throw new Error(errorMessage);
+            // If LIMIT order also fails, throw the original error with details
+            const fullErrorMessage = errorDetails.length > 0
+              ? `${errorMessage}\n\nDebug Info:\n${errorDetails.join('\n')}`
+              : errorMessage;
+            throw new Error(fullErrorMessage);
           }
         }
       }
 
-      throw new Error(errorMessage);
+      // Include error details in the final error message
+      const fullErrorMessage = errorDetails.length > 0
+        ? `${errorMessage}\n\nDebug Info:\n${errorDetails.join('\n')}`
+        : errorMessage;
+      throw new Error(fullErrorMessage);
     }
   }
 
