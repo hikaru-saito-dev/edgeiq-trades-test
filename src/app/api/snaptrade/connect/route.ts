@@ -124,23 +124,6 @@ export async function POST() {
             encryptedSecret = encrypt(userSecret);
         }
 
-        // Always create a NEW connection record (don't update existing ones)
-        // This allows users to have multiple broker connections simultaneously
-        const connection = await BrokerConnection.create({
-            userId: user._id,
-            whopUserId: user.whopUserId,
-            brokerType: 'snaptrade',
-            snaptradeUserId,
-            snaptradeUserSecret: encryptedSecret,
-            isActive: false, // Will be activated after OAuth completes
-            connectedAt: new Date(),
-            lastSyncedAt: new Date(),
-        });
-
-        // Invalidate broker cache
-        const { invalidateBrokerCache } = await import('@/lib/cache/brokerCache');
-        invalidateBrokerCache(user.whopUserId, String(user._id));
-
         // Get login redirect URI with trading permissions enabled
         // connectionType: 'trade' is REQUIRED to enable trading (default is 'read' which is read-only)
         const loginResponse = await snaptrade.authentication.loginSnapTradeUser({
@@ -158,22 +141,33 @@ export async function POST() {
 
         const redirectURI = loginResponse.data.redirectURI;
 
-        // Append connectionId and userId to the redirect URI so callback can find the connection
-        // SnapTrade will redirect back to our callback URL after OAuth
-        const callbackUrl = new URL('/api/snaptrade/callback', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
-        callbackUrl.searchParams.set('connectionId', connection._id.toString());
-        callbackUrl.searchParams.set('userId', user.whopUserId);
+        // Store credentials temporarily in a signed cookie for the callback
+        // We'll create the BrokerConnection record only after OAuth succeeds
+        const { cookies } = await import('next/headers');
+        const cookieStore = await cookies();
+        
+        // Create a temporary state token to pass credentials securely
+        // Encode: userId|snaptradeUserId|encryptedSecret (base64)
+        const stateData = {
+            userId: user.whopUserId,
+            snaptradeUserId,
+            encryptedSecret,
+            timestamp: Date.now(),
+        };
+        const stateToken = Buffer.from(JSON.stringify(stateData)).toString('base64url');
 
-        // If SnapTrade allows custom redirect_uri, we can use our callback URL
-        // Otherwise, we'll need to handle it differently
-        // For now, append our callback info to SnapTrade's redirect URI as a fragment or query param
-        // Note: SnapTrade may not allow modifying the redirectURI, so we'll store the connectionId in session/cookie
-        // or find it by userId in the callback
+        // Set cookie with credentials (expires in 10 minutes)
+        cookieStore.set('snaptrade_connect_state', stateToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 600, // 10 minutes
+            path: '/',
+        });
 
         return NextResponse.json({
             success: true,
             redirectURI,
-            connectionId: connection._id.toString(),
             userId: user.whopUserId,
         });
     } catch (error) {

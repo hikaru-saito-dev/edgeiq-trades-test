@@ -108,28 +108,14 @@ export default function ConnectAccountModal({
             }
 
             if (data.redirectURI) {
-                // Store connectionId and userId for callback
-                const connectionId = data.connectionId;
-                const storedUserId = data.userId;
-
                 // Open SnapTrade OAuth in new window
                 const width = 600;
                 const height = 700;
                 const left = window.screen.width / 2 - width / 2;
                 const top = window.screen.height / 2 - height / 2;
 
-                // Append callback parameters to redirect URI if possible
-                // Note: SnapTrade may not allow this, so we'll handle it in the callback route
-                let redirectUrl = data.redirectURI;
-                try {
-                    const url = new URL(redirectUrl);
-                    // Try to append our callback info (may be stripped by SnapTrade)
-                    url.searchParams.set('_callback_connectionId', connectionId || '');
-                    url.searchParams.set('_callback_userId', storedUserId || userId || '');
-                    redirectUrl = url.toString();
-                } catch {
-                    // If URL parsing fails, use original
-                }
+                // Use redirect URI directly (credentials are stored in cookie)
+                const redirectUrl = data.redirectURI;
 
                 const popup = window.open(
                     redirectUrl,
@@ -200,9 +186,18 @@ export default function ConnectAccountModal({
                                     // Refresh broker list
                                     onSuccess();
                                 }
+                            } else {
+                                // Show error if completion failed
+                                const errorData = await completeResponse.json();
+                                const errorMsg = errorData.error || 'Failed to complete connection';
+                                toast.showError(errorMsg);
+                                console.error('Connection completion failed:', errorData);
                             }
-                        } catch {
-                            // Continue anyway - modal is already closed
+                        } catch (err) {
+                            // Show error if request failed
+                            const errorMsg = err instanceof Error ? err.message : 'Failed to complete connection';
+                            toast.showError(errorMsg);
+                            console.error('Connection completion error:', err);
                         }
                     }, 1000);
                 };

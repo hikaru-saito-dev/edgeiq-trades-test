@@ -12,70 +12,48 @@ const SNAPTRADE_CLIENT_ID = process.env.SNAPTRADE_CLIENT_ID;
 
 /**
  * GET /api/snaptrade/callback
- * Handle SnapTrade OAuth callback and finalize connection
+ * Handle SnapTrade OAuth callback and create connection record
  */
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
 
     const { searchParams } = new URL(request.url);
-    const connectionId = searchParams.get('connectionId');
     const userId = searchParams.get('userId');
 
     if (!SNAPTRADE_CONSUMER_KEY || !SNAPTRADE_CLIENT_ID) {
       return NextResponse.redirect(new URL('/profile?error=config_error', request.url));
     }
 
-    let connection;
-    let user;
+    // Get credentials from cookie (set during /connect)
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const stateToken = cookieStore.get('snaptrade_connect_state')?.value;
 
-    // Try to find connection by connectionId first
-    if (connectionId) {
-      connection = await BrokerConnection.findById(connectionId);
-      if (connection) {
-        user = await User.findById(connection.userId);
+    if (!stateToken) {
+      console.error('Callback: No state token found');
+      return NextResponse.redirect(new URL('/profile?error=session_expired', request.url));
+    }
+
+    // Decode state token
+    let stateData: { userId: string; snaptradeUserId: string; encryptedSecret: string; timestamp: number };
+    try {
+      const decoded = Buffer.from(stateToken, 'base64url').toString('utf-8');
+      stateData = JSON.parse(decoded);
+
+      // Check if token is expired (10 minutes)
+      if (Date.now() - stateData.timestamp > 10 * 60 * 1000) {
+        return NextResponse.redirect(new URL('/profile?error=session_expired', request.url));
       }
+    } catch (error) {
+      console.error('Callback: Failed to decode state token', error);
+      return NextResponse.redirect(new URL('/profile?error=invalid_session', request.url));
     }
 
-    // If not found and userId provided, find the most recent inactive connection for this user
-    if (!connection && userId) {
-      user = await User.findOne({ whopUserId: userId });
-      if (user) {
-        // Find most recent inactive connection created in last 10 minutes
-        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-        connection = await BrokerConnection.findOne({
-          userId: user._id,
-          isActive: false,
-          brokerType: 'snaptrade',
-          createdAt: { $gte: tenMinutesAgo },
-        }).sort({ createdAt: -1 }); // Get most recent
-      }
-    }
-
-    // Last resort: find any recent inactive connection (within last 10 minutes)
-    if (!connection) {
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-      connection = await BrokerConnection.findOne({
-        isActive: false,
-        brokerType: 'snaptrade',
-        createdAt: { $gte: tenMinutesAgo },
-      }).sort({ createdAt: -1 });
-
-      if (connection) {
-        user = await User.findById(connection.userId);
-      }
-    }
-
-    if (!connection) {
-      console.error('Callback: No connection found', { connectionId, userId });
-      return NextResponse.redirect(new URL('/profile?error=connection_not_found', request.url));
-    }
-
+    // Find user
+    const user = await User.findOne({ whopUserId: stateData.userId || userId });
     if (!user) {
-      user = await User.findById(connection.userId);
-      if (!user) {
-        return NextResponse.redirect(new URL('/profile?error=user_not_found', request.url));
-      }
+      return NextResponse.redirect(new URL('/profile?error=user_not_found', request.url));
     }
 
     // Initialize SnapTrade client
@@ -85,72 +63,171 @@ export async function GET(request: NextRequest) {
     });
 
     // Decrypt user secret
-    const userSecret = decrypt(connection.snaptradeUserSecret);
+    const userSecret = decrypt(stateData.encryptedSecret);
 
-    // Get user's accounts
-    const accountsResponse = await snaptrade.accountInformation.listUserAccounts({
-      userId: connection.snaptradeUserId,
-      userSecret,
-    });
+    // Get user's accounts with retry logic (Webull accounts may need time to sync)
+    let accountsResponse;
+    let retries = 3;
+    let delay = 1000;
 
-    if (!accountsResponse.data || accountsResponse.data.length === 0) {
+    while (retries > 0) {
+      try {
+        accountsResponse = await snaptrade.accountInformation.listUserAccounts({
+          userId: stateData.snaptradeUserId,
+          userSecret,
+        });
+
+        if (accountsResponse.data && accountsResponse.data.length > 0) {
+          break; // Accounts found, exit retry loop
+        }
+
+        if (retries > 1) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2;
+        }
+        retries--;
+      } catch (error) {
+        if (retries === 1) {
+          throw error;
+        }
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2;
+        retries--;
+      }
+    }
+
+    if (!accountsResponse || !accountsResponse.data || accountsResponse.data.length === 0) {
       return NextResponse.redirect(new URL('/profile?error=no_accounts', request.url));
     }
 
     // Get authorizations to find broker info
-    const authorizationsResponse = await snaptrade.connections.listBrokerageAuthorizations({
-      userId: connection.snaptradeUserId,
-      userSecret,
+    let authorizationsResponse;
+    try {
+      authorizationsResponse = await snaptrade.connections.listBrokerageAuthorizations({
+        userId: stateData.snaptradeUserId,
+        userSecret,
+      });
+    } catch (error) {
+      console.warn('Failed to fetch authorizations, proceeding with account data only:', error);
+      authorizationsResponse = { data: [] };
+    }
+
+    // Find the account that's not already associated with an active connection
+    let firstAccount = accountsResponse.data[0];
+    const authorization = authorizationsResponse.data?.[0];
+    const authorizationId = authorization?.id || firstAccount.brokerage_authorization;
+
+    // Check for existing connections to prevent duplicates
+    const activeConnections = await BrokerConnection.find({
+      userId: user._id,
+      brokerType: 'snaptrade',
+      isActive: true,
+      accountId: { $exists: true, $ne: null },
     });
 
-    // Use first account (user can select different one later)
-    const firstAccount = accountsResponse.data[0];
-    const authorization = authorizationsResponse.data?.[0];
+    const activeAccountIds = new Set(activeConnections.map(c => c.accountId).filter(Boolean));
+    const activeAccountNumbers = new Set(activeConnections.map(c => c.accountNumber).filter(Boolean));
+    const activeAuthorizationIds = new Set(activeConnections.map(c => c.authorizationId).filter(Boolean));
+
+    // Extract account number from the account data
+    const accountNumber = firstAccount.number || firstAccount.id;
+
+    // If we have multiple accounts, prefer the one that's not already connected
+    if (accountsResponse.data.length > 1) {
+      const newAccount = accountsResponse.data.find(acc => {
+        const accNumber = acc.number || acc.id;
+        return !activeAccountIds.has(acc.id) && !activeAccountNumbers.has(accNumber);
+      });
+      if (newAccount) {
+        firstAccount = newAccount;
+      }
+    }
 
     if (!firstAccount || !firstAccount.id) {
       console.error('Callback: Invalid account data', { accounts: accountsResponse.data });
       return NextResponse.redirect(new URL('/profile?error=invalid_account_data', request.url));
     }
 
-    // Update connection with account info
-    connection.accountId = firstAccount.id;
-    connection.authorizationId = authorization?.id || firstAccount.brokerage_authorization;
-    connection.isActive = true;
-    // Use institution_name from Account or brokerage name from authorization
-    connection.brokerName = authorization?.brokerage?.name || firstAccount.institution_name || 'Unknown';
-    connection.accountName = firstAccount.name || firstAccount.number || 'Unknown';
-    connection.accountNumber = firstAccount.number || firstAccount.id; // Fallback to account ID if no number
-    connection.lastSyncedAt = new Date();
+    // CRITICAL: Check if this account number is already connected (most reliable identifier)
+    if (activeAccountNumbers.has(accountNumber)) {
+      console.warn('Callback: Account number already connected', { accountNumber, accountId: firstAccount.id });
+      return NextResponse.redirect(new URL('/profile?error=account_already_connected', request.url));
+    }
+
+    // CRITICAL: Check if this exact account ID is already connected (backup check)
+    if (activeAccountIds.has(firstAccount.id)) {
+      console.warn('Callback: Account ID already connected', { accountId: firstAccount.id, accountNumber });
+      return NextResponse.redirect(new URL('/profile?error=account_already_connected', request.url));
+    }
+
+    // CRITICAL: Check if this authorization is already connected (prevent duplicate broker connections)
+    // Note: We allow multiple accounts from the same broker, but not the same account
+    if (authorizationId && activeAuthorizationIds.has(authorizationId)) {
+      // Double-check: make sure this isn't a different account with the same authorization
+      const existingWithAuth = activeConnections.find(c => c.authorizationId === authorizationId);
+      if (existingWithAuth && (existingWithAuth.accountId === firstAccount.id || existingWithAuth.accountNumber === accountNumber)) {
+        console.warn('Callback: Authorization already connected with same account', { authorizationId, accountId: firstAccount.id, accountNumber });
+        return NextResponse.redirect(new URL('/profile?error=broker_already_connected', request.url));
+      }
+    }
+
+    // FINAL CHECK: Double-check right before creating to prevent race conditions
+    const finalCheck = await BrokerConnection.findOne({
+      userId: user._id,
+      brokerType: 'snaptrade',
+      isActive: true,
+      $or: [
+        { accountId: firstAccount.id },
+        { accountNumber: accountNumber }
+      ],
+    });
+
+    if (finalCheck) {
+      console.warn('Callback: Account already connected (race condition prevented)', { accountId: firstAccount.id, accountNumber });
+      return NextResponse.redirect(new URL('/profile?error=account_already_connected', request.url));
+    }
+
+    // CREATE the connection record now that OAuth succeeded
+    const connection = await BrokerConnection.create({
+      userId: user._id,
+      whopUserId: user.whopUserId,
+      brokerType: 'snaptrade',
+      snaptradeUserId: stateData.snaptradeUserId,
+      snaptradeUserSecret: stateData.encryptedSecret,
+      accountId: firstAccount.id,
+      authorizationId: authorizationId,
+      isActive: true,
+      brokerName: authorization?.brokerage?.name || firstAccount.institution_name || 'Unknown',
+      accountName: firstAccount.name || firstAccount.number || 'Unknown',
+      accountNumber: accountNumber,
+      connectedAt: new Date(),
+      lastSyncedAt: new Date(),
+    });
 
     // Get buying power
     try {
       const balanceResponse = await snaptrade.accountInformation.getUserAccountBalance({
-        userId: connection.snaptradeUserId,
+        userId: stateData.snaptradeUserId,
         userSecret,
         accountId: firstAccount.id,
       });
 
-      // balanceResponse.data is an array of Balance objects
       const balances = balanceResponse.data || [];
       const balance = balances.find(b => b.currency?.code === 'USD') || balances[0];
       if (balance) {
         connection.buyingPower = balance.buying_power || balance.cash || undefined;
+        await connection.save();
       }
     } catch (error) {
       console.warn('Failed to fetch buying power:', error);
     }
 
-    const savedConnection = await connection.save();
+    // Clear the state cookie
+    cookieStore.delete('snaptrade_connect_state');
 
-    // Verify it was saved by querying again
-    const verifyConnection = await BrokerConnection.findById(savedConnection._id);
-    if (!verifyConnection || !verifyConnection.isActive) {
-      console.error('Callback: Connection verification failed!', {
-        found: !!verifyConnection,
-        isActive: verifyConnection?.isActive,
-        accountId: verifyConnection?.accountId,
-      });
-    }
+    // Invalidate broker cache
+    const { invalidateBrokerCache } = await import('@/lib/cache/brokerCache');
+    invalidateBrokerCache(user.whopUserId, String(user._id));
 
     // Redirect to profile with success and userId for the frontend to reload
     const redirectUrl = new URL('/profile', request.url);
@@ -160,6 +237,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   } catch (error) {
     console.error('SnapTrade callback error:', error);
+    
+    // Clean up cookie on error
+    try {
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      cookieStore.delete('snaptrade_connect_state');
+    } catch {
+      // Ignore cookie cleanup errors
+    }
+    
     // Don't expose internal error details to user
     return NextResponse.redirect(
       new URL('/profile?error=connection_failed', request.url)
