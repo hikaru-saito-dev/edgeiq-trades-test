@@ -131,14 +131,38 @@ export default function FollowingPage() {
 
   // Realtime updates (Pusher): when a creator posts/settles a trade, refresh feed without reload.
   useEffect(() => {
-    if (!isAuthorized || accessLoading) return;
-    if (!userId || !companyId) return;
+    console.log('[Pusher Debug Following] Effect running', {
+      isAuthorized,
+      accessLoading,
+      userId,
+      companyId,
+      hasKey: !!process.env.NEXT_PUBLIC_PUSHER_KEY,
+      hasCluster: !!process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
+    });
+
+    if (!isAuthorized || accessLoading) {
+      console.log('[Pusher Debug Following] Early return: auth/loading check failed');
+      return;
+    }
+    if (!userId || !companyId) {
+      console.log('[Pusher Debug Following] Early return: missing userId/companyId', { userId, companyId });
+      return;
+    }
 
     const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
     const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
-    if (!key || !cluster) return;
+    console.log('[Pusher Debug Following] Env vars check', { 
+      key: key ? `${key.substring(0, 5)}...` : 'MISSING',
+      cluster: cluster || 'MISSING',
+    });
+    
+    if (!key || !cluster) {
+      console.log('[Pusher Debug Following] Early return: missing env vars');
+      return;
+    }
 
     const channelName = `private-user-${userId}`;
+    console.log('[Pusher Debug Following] Creating Pusher instance for channel:', channelName);
 
     const pusher = new Pusher(key, {
       cluster,
@@ -153,6 +177,26 @@ export default function FollowingPage() {
     });
 
     const channel = pusher.subscribe(channelName);
+    console.log('[Pusher Debug Following] Subscribed to channel:', channelName);
+    
+    // Debug Pusher connection events
+    pusher.connection.bind('connected', () => {
+      console.log('[Pusher Debug Following] Connected to Pusher');
+    });
+    pusher.connection.bind('error', (err: unknown) => {
+      console.error('[Pusher Debug Following] Connection error:', err);
+    });
+    pusher.connection.bind('disconnected', () => {
+      console.log('[Pusher Debug Following] Disconnected from Pusher');
+    });
+    
+    channel.bind('pusher:subscription_error', (status: number) => {
+      console.error('[Pusher Debug Following] Subscription error:', status);
+    });
+    channel.bind('pusher:subscription_succeeded', () => {
+      console.log('[Pusher Debug Following] Subscription succeeded for channel:', channelName);
+    });
+    
     const onUpdate = () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = setTimeout(() => {

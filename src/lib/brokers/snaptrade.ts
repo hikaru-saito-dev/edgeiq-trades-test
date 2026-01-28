@@ -556,7 +556,10 @@ export class SnapTradeBroker implements IBroker {
             const fullErrorMessage = errorDetails.length > 0
               ? `${errorMessage}\n\nDebug Info:\n${errorDetails.join('\n')}`
               : errorMessage;
-            throw new Error(fullErrorMessage);
+
+            // Log detailed debug info on the server, but only surface a concise message to the user
+            console.error('[SnapTrade] LIMIT order failed:', fullErrorMessage);
+            throw new Error(errorMessage);
           }
         }
       }
@@ -565,7 +568,9 @@ export class SnapTradeBroker implements IBroker {
       const fullErrorMessage = errorDetails.length > 0
         ? `${errorMessage}\n\nDebug Info:\n${errorDetails.join('\n')}`
         : errorMessage;
-      throw new Error(fullErrorMessage);
+      // Log detailed debug info on the server, but only surface a concise message to the user
+      console.error('[SnapTrade] Order placement failed:', fullErrorMessage);
+      throw new Error(errorMessage);
     }
   }
 
