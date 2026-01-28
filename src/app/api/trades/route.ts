@@ -20,6 +20,7 @@ import {
   invalidatePersonalStatsCache,
 } from '@/lib/cache/statsCache';
 import { FollowPurchase } from '@/models/FollowPurchase';
+import { triggerUserEvent } from '@/lib/realtime/pusherServer';
 
 export const runtime = 'nodejs';
 
@@ -526,6 +527,41 @@ export async function POST(request: NextRequest) {
       }).catch((err) => {
         console.error('Error importing notifyFollowers:', err);
       });
+
+      // Realtime: push updates to UIs (Pusher, Vercel-safe).
+      // - Creator's "My Trades" page should refresh immediately
+      // - Followers' "Following" page should refresh immediately
+      // Do not block response; failures are logged inside trigger helper.
+      (async () => {
+        try {
+          // Creator refresh
+          await triggerUserEvent(user.whopUserId, 'trade.created', {
+            tradeId: String(tradeResult._id),
+            whopUserId: user.whopUserId,
+            createdAt: tradeResult.createdAt,
+          });
+
+          // Followers refresh (include completed follows too, so feed stays live)
+          const follows = await FollowPurchase.find({
+            capperWhopUserId: user.whopUserId,
+            status: { $in: ['active', 'completed'] },
+          }).select('followerWhopUserId').lean();
+
+          const followerWhopUserIds = [...new Set((follows || []).map(f => f.followerWhopUserId).filter(Boolean))];
+          await Promise.allSettled(
+            followerWhopUserIds.map((fid) =>
+              triggerUserEvent(fid, 'feed.updated', {
+                type: 'trade.created',
+                creatorWhopUserId: user.whopUserId,
+                tradeId: String(tradeResult._id),
+                createdAt: tradeResult.createdAt,
+              })
+            )
+          );
+        } catch (e) {
+          console.error('[Pusher] failed to broadcast trade.created', e);
+        }
+      })();
 
       // Auto-trade for followers with AutoIQ enabled (outside transaction - fire and forget)
       import('@/lib/autoiq').then(({ autoTradeForFollowers }) => {

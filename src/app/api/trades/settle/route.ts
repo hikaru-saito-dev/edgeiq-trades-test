@@ -10,6 +10,7 @@ import { formatExpiryDateForAPI, getContractByTicker, getOptionContractSnapshot,
 import { notifyTradeSettled } from '@/lib/tradeNotifications';
 // Broker sync handled via broker abstraction layer
 import { z } from 'zod';
+import { triggerUserEvent } from '@/lib/realtime/pusherServer';
 
 export const runtime = 'nodejs';
 
@@ -355,6 +356,41 @@ export async function POST(request: NextRequest) {
       notifyTradeSettled(updatedTrade, validated.contracts, finalFillPrice, user).catch((err) => {
         console.error('Error sending settlement notification:', err);
       });
+
+      // Realtime: refresh creator + follower UIs (do not block response)
+      (async () => {
+        try {
+          if (user?.whopUserId) {
+            await triggerUserEvent(user.whopUserId, 'trade.updated', {
+              type: 'trade.settled',
+              tradeId: String(updatedTrade._id),
+              status: updatedTrade.status,
+              updatedAt: updatedTrade.updatedAt,
+            });
+
+            const { FollowPurchase } = await import('@/models/FollowPurchase');
+            const follows = await FollowPurchase.find({
+              capperWhopUserId: user.whopUserId,
+              status: { $in: ['active', 'completed'] },
+            }).select('followerWhopUserId').lean();
+
+            const followerWhopUserIds = [...new Set((follows || []).map(f => f.followerWhopUserId).filter(Boolean))];
+            await Promise.allSettled(
+              followerWhopUserIds.map((fid) =>
+                triggerUserEvent(fid, 'feed.updated', {
+                  type: 'trade.settled',
+                  creatorWhopUserId: user.whopUserId,
+                  tradeId: String(updatedTrade._id),
+                  status: updatedTrade.status,
+                  updatedAt: updatedTrade.updatedAt,
+                })
+              )
+            );
+          }
+        } catch (e) {
+          console.error('[Pusher] failed to broadcast trade.settled', e);
+        }
+      })();
 
       // Auto-settle for followers with AutoIQ enabled (outside transaction - fire and forget)
       import('@/lib/autoiq').then(({ autoSettleForFollowers }) => {

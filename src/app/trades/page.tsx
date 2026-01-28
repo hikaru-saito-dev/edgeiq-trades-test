@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -33,6 +33,7 @@ import { useAccess } from '@/components/AccessProvider';
 import { useBranding } from '@/components/BrandingProvider';
 import { apiRequest } from '@/lib/apiClient';
 import { isMarketOpen, getMarketStatusMessage, getMarketCountdown } from '@/utils/marketHours';
+import Pusher from 'pusher-js';
 
 interface Trade {
   _id: string;
@@ -81,6 +82,8 @@ export default function TradesPage() {
   const isDark = theme.palette.mode === 'dark';
   const controlBg = alpha(theme.palette.background.paper, isDark ? 0.6 : 0.98);
   const controlBorder = alpha(theme.palette.primary.main, isDark ? 0.45 : 0.25);
+  const refreshRef = useRef<(() => void) | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const controlStyles = {
     '& .MuiOutlinedInput-root': {
       color: 'var(--app-text)',
@@ -171,6 +174,60 @@ export default function TradesPage() {
       setLoading(false);
     }
   };
+
+  // Keep a stable ref to the refresh function for realtime handlers.
+  useEffect(() => {
+    refreshRef.current = () => {
+      fetchTrades();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, selectedStatus, search, isAuthorized, accessLoading, userId, companyId]);
+
+  // Realtime updates (Pusher): refresh "My Trades" without reload.
+  useEffect(() => {
+    if (!isAuthorized || accessLoading) return;
+    if (!userId || !companyId) return;
+
+    const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
+    const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
+    if (!key || !cluster) return;
+
+    const channelName = `private-user-${userId}`;
+
+    const pusher = new Pusher(key, {
+      cluster,
+      forceTLS: true,
+      authEndpoint: '/api/realtime/pusher/auth',
+      auth: {
+        headers: {
+          'x-user-id': userId,
+          'x-company-id': companyId,
+        },
+      },
+    });
+
+    const channel = pusher.subscribe(channelName);
+    const onUpdate = () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        refreshRef.current?.();
+      }, 300);
+    };
+
+    channel.bind('trade.created', onUpdate);
+    channel.bind('trade.updated', onUpdate);
+
+    return () => {
+      try {
+        channel.unbind('trade.created', onUpdate);
+        channel.unbind('trade.updated', onUpdate);
+        pusher.unsubscribe(channelName);
+        pusher.disconnect();
+      } catch {
+        // ignore
+      }
+    };
+  }, [isAuthorized, accessLoading, userId, companyId]);
 
   if (accessLoading) {
     return (

@@ -11,6 +11,7 @@ import { Types } from 'mongoose';
 import { createBroker } from '@/lib/brokers/factory';
 import { Snaptrade } from 'snaptrade-typescript-sdk';
 import { decrypt } from '@/lib/encryption';
+import { triggerUserEvent } from '@/lib/realtime/pusherServer';
 // Removed Massive.com API - using broker execution prices directly
 
 type SnapTradeOrderDetail = {
@@ -321,6 +322,16 @@ async function autoTradeForSingleFollower(
     const followerTrade = new Trade(followerTradeData);
     await followerTrade.save();
 
+    // Realtime: refresh follower's "My Trades" immediately
+    // (Do not block or fail AutoIQ if realtime fails)
+    void triggerUserEvent(follower.whopUserId, 'trade.created', {
+        type: 'autoiq.trade.created',
+        tradeId: String(followerTrade._id),
+        originalTradeId: String(creatorTrade._id),
+        creatorWhopUserId: creatorUser.whopUserId,
+        createdAt: followerTrade.createdAt,
+    });
+
     // Create the FollowedTradeAction record to link follower trade to creator trade
     const followedTradeAction = new FollowedTradeAction({
         followerUserId: follower._id,
@@ -561,6 +572,12 @@ async function autoSettleForSingleFollower(
 
         // Commit transaction
         await session.commitTransaction();
+
+        // Realtime: refresh follower's "My Trades" after settlement
+        void triggerUserEvent(follower.whopUserId, 'trade.updated', {
+            type: 'autoiq.trade.settled',
+            tradeId: String(followerTrade._id),
+        });
     } catch (error) {
         // Rollback transaction on error
         await session.abortTransaction();

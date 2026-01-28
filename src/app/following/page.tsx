@@ -28,6 +28,7 @@ import { useAccess } from '@/components/AccessProvider';
 import { useBranding } from '@/components/BrandingProvider';
 import { apiRequest } from '@/lib/apiClient';
 import { alpha, useTheme } from '@mui/material/styles';
+import Pusher from 'pusher-js';
 
 interface Trade {
   _id: string;
@@ -94,6 +95,8 @@ export default function FollowingPage() {
   const [selectedFollowId, setSelectedFollowId] = useState<string>('all');
   const [showFollows, setShowFollows] = useState(false);
   const [search, setSearch] = useState('');
+  const refreshRef = useRef<(() => void) | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchFollowingFeed = async () => {
     if (!isAuthorized || accessLoading) return;
@@ -126,8 +129,60 @@ export default function FollowingPage() {
     }
   };
 
+  // Realtime updates (Pusher): when a creator posts/settles a trade, refresh feed without reload.
+  useEffect(() => {
+    if (!isAuthorized || accessLoading) return;
+    if (!userId || !companyId) return;
+
+    const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
+    const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
+    if (!key || !cluster) return;
+
+    const channelName = `private-user-${userId}`;
+
+    const pusher = new Pusher(key, {
+      cluster,
+      forceTLS: true,
+      authEndpoint: '/api/realtime/pusher/auth',
+      auth: {
+        headers: {
+          'x-user-id': userId,
+          'x-company-id': companyId,
+        },
+      },
+    });
+
+    const channel = pusher.subscribe(channelName);
+    const onUpdate = () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        refreshRef.current?.();
+      }, 300);
+    };
+
+    channel.bind('feed.updated', onUpdate);
+
+    return () => {
+      try {
+        channel.unbind('feed.updated', onUpdate);
+        pusher.unsubscribe(channelName);
+        pusher.disconnect();
+      } catch {
+        // ignore
+      }
+    };
+  }, [isAuthorized, accessLoading, userId, companyId]);
+
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const previousSearchRef = useRef(search);
+
+  // Keep a stable ref to the refresh function for realtime handlers.
+  useEffect(() => {
+    refreshRef.current = () => {
+      fetchFollowingFeed();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, debouncedSearch, isAuthorized, accessLoading, userId, companyId]);
 
   useEffect(() => {
     if (!isAuthorized || accessLoading) {
