@@ -110,6 +110,18 @@ export async function GET(request: NextRequest) {
       createdAt: Date;
       capperWhopUserId: string;
     }>();
+    // One follow row per creator for UI + trade metadata:
+    // - If an active follow exists for a creator, show ONLY that (hide completed history).
+    // - Otherwise, show exactly one completed follow (the most recent) so users can see completion.
+    const selectedFollowByCapper = new Map<string, IFollowPurchase>();
+    const selectedFollowMetaByCapper = new Map<string, {
+      followPurchaseId: string;
+      totalPlaysPurchased: number;
+      remainingPlays: number;
+      createdAt: Date;
+      capperWhopUserId: string;
+      status: 'active' | 'completed';
+    }>();
 
     for (const follow of allFollows) {
       if (!follow.capperWhopUserId) continue;
@@ -118,13 +130,41 @@ export async function GET(request: NextRequest) {
       const followId = String(follow._id);
       const remainingPlays = Math.max(0, follow.numPlaysPurchased - follow.numPlaysConsumed);
 
-      followMetadataByFollowId.set(followId, {
+      const meta = {
         followPurchaseId: followId,
         totalPlaysPurchased: follow.numPlaysPurchased,
         remainingPlays,
         createdAt: follow.createdAt,
         capperWhopUserId: follow.capperWhopUserId,
-      });
+      };
+      followMetadataByFollowId.set(followId, meta);
+
+      // Select the single follow record to represent this creator in the UI:
+      // prefer active over completed; among completed, prefer most recent.
+      if (follow.status === 'active' || follow.status === 'completed') {
+        const existing = selectedFollowMetaByCapper.get(follow.capperWhopUserId);
+        if (!existing) {
+          selectedFollowByCapper.set(follow.capperWhopUserId, follow);
+          selectedFollowMetaByCapper.set(follow.capperWhopUserId, { ...meta, status: follow.status });
+        } else if (existing.status === 'active') {
+          // If we somehow have multiple actives (shouldn't), keep the most recent.
+          if (follow.status === 'active' && follow.createdAt > existing.createdAt) {
+            selectedFollowByCapper.set(follow.capperWhopUserId, follow);
+            selectedFollowMetaByCapper.set(follow.capperWhopUserId, { ...meta, status: follow.status });
+          }
+        } else {
+          // existing is completed
+          if (follow.status === 'active') {
+            // Active overrides completed (hide completed history)
+            selectedFollowByCapper.set(follow.capperWhopUserId, follow);
+            selectedFollowMetaByCapper.set(follow.capperWhopUserId, { ...meta, status: follow.status });
+          } else if (follow.createdAt > existing.createdAt) {
+            // More recent completed replaces older completed
+            selectedFollowByCapper.set(follow.capperWhopUserId, follow);
+            selectedFollowMetaByCapper.set(follow.capperWhopUserId, { ...meta, status: follow.status });
+          }
+        }
+      }
 
       // Sum total plays per capper
       capperTotalPlays.set(
@@ -413,10 +453,15 @@ export async function GET(request: NextRequest) {
       capperWhopUserId: string;
     }>();
 
-    for (const metadata of followMetadataByFollowId.values()) {
-      if (!capperToFollowMap.has(metadata.capperWhopUserId)) {
-        capperToFollowMap.set(metadata.capperWhopUserId, metadata);
-      }
+    // Use the selected follow per capper so trade metadata matches the UI (no duplicates).
+    for (const meta of selectedFollowMetaByCapper.values()) {
+      capperToFollowMap.set(meta.capperWhopUserId, {
+        followPurchaseId: meta.followPurchaseId,
+        totalPlaysPurchased: meta.totalPlaysPurchased,
+        remainingPlays: meta.remainingPlays,
+        createdAt: meta.createdAt,
+        capperWhopUserId: meta.capperWhopUserId,
+      });
     }
 
     // Step 8: Format trades with follow info and action status
@@ -448,7 +493,18 @@ export async function GET(request: NextRequest) {
     logPerformance('Trade formatting', formattingStart);
 
     // Step 9: Format follow info
-    const follows = allFollows.map((follow) => {
+    // Return one row per creator:
+    // - active follow if present
+    // - else one completed follow (most recent)
+    const follows = Array.from(selectedFollowByCapper.values())
+      .sort((a, b) => {
+        // Active first, then completed; within same status, newest first
+        if (a.status !== b.status) {
+          return a.status === 'active' ? -1 : 1;
+        }
+        return (b.createdAt?.getTime?.() ?? 0) - (a.createdAt?.getTime?.() ?? 0);
+      })
+      .map((follow) => {
       const capperInfo = capperInfoMap.get(follow.capperWhopUserId || '') || {};
       const remainingPlays = Math.max(0, follow.numPlaysPurchased - follow.numPlaysConsumed);
 

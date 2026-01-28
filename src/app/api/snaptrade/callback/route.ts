@@ -115,7 +115,6 @@ export async function GET(request: NextRequest) {
     // Find the account that's not already associated with an active connection
     let firstAccount = accountsResponse.data[0];
     const authorization = authorizationsResponse.data?.[0];
-    const authorizationId = authorization?.id || firstAccount.brokerage_authorization;
 
     // Check for existing connections to prevent duplicates
     const activeConnections = await BrokerConnection.find({
@@ -128,9 +127,6 @@ export async function GET(request: NextRequest) {
     const activeAccountIds = new Set(activeConnections.map(c => c.accountId).filter(Boolean));
     const activeAccountNumbers = new Set(activeConnections.map(c => c.accountNumber).filter(Boolean));
     const activeAuthorizationIds = new Set(activeConnections.map(c => c.authorizationId).filter(Boolean));
-
-    // Extract account number from the account data
-    const accountNumber = firstAccount.number || firstAccount.id;
 
     // If we have multiple accounts, prefer the one that's not already connected
     if (accountsResponse.data.length > 1) {
@@ -147,6 +143,11 @@ export async function GET(request: NextRequest) {
       console.error('Callback: Invalid account data', { accounts: accountsResponse.data });
       return NextResponse.redirect(new URL('/profile?error=invalid_account_data', request.url));
     }
+
+    // Extract identifiers AFTER selecting the final account
+    // Prefer account.brokerage_authorization since it is tied to the selected account.
+    const accountNumber = firstAccount.number || firstAccount.id;
+    const authorizationId = firstAccount.brokerage_authorization || authorization?.id;
 
     // CRITICAL: Check if this account number is already connected (most reliable identifier)
     if (activeAccountNumbers.has(accountNumber)) {

@@ -9,7 +9,84 @@ import { BrokerConnection } from '@/models/BrokerConnection';
 import { FollowPurchase } from '@/models/FollowPurchase';
 import { Types } from 'mongoose';
 import { createBroker } from '@/lib/brokers/factory';
+import { Snaptrade } from 'snaptrade-typescript-sdk';
+import { decrypt } from '@/lib/encryption';
 // Removed Massive.com API - using broker execution prices directly
+
+type SnapTradeOrderDetail = {
+    execution_price?: number | null;
+    time_placed?: string | null;
+    time_executed?: string | null;
+    status?: string | null;
+    orders?: Array<{
+        execution_price?: number | null;
+        time_placed?: string | null;
+        time_executed?: string | null;
+        status?: string | null;
+        [key: string]: unknown;
+    }>;
+    [key: string]: unknown;
+};
+
+async function waitForSnapTradeExecutionPrice(params: {
+    brokerConnection: IBrokerConnection;
+    brokerageOrderId: string;
+    maxWaitMs: number;
+}): Promise<{ executionPrice: number; executedAt?: Date } | null> {
+    const { brokerConnection, brokerageOrderId, maxWaitMs } = params;
+
+    const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY;
+    const clientId = process.env.SNAPTRADE_CLIENT_ID;
+    if (!consumerKey || !clientId) return null;
+    if (!brokerConnection.accountId) return null;
+
+    const snaptrade = new Snaptrade({ consumerKey, clientId });
+    const userSecret = decrypt(brokerConnection.snaptradeUserSecret);
+
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+        try {
+            const detailResp = await snaptrade.accountInformation.getUserAccountOrderDetail({
+                accountId: brokerConnection.accountId,
+                userId: brokerConnection.snaptradeUserId,
+                userSecret,
+                brokerage_order_id: brokerageOrderId,
+            });
+
+            const detail = detailResp.data as SnapTradeOrderDetail;
+            const order = Array.isArray(detail?.orders) && detail.orders.length > 0 ? detail.orders[0] : detail;
+
+            const exec = order?.execution_price;
+            if (exec !== null && exec !== undefined) {
+                const execNum = typeof exec === 'number' ? exec : Number(exec);
+                if (Number.isFinite(execNum) && execNum > 0) {
+                    const time = order?.time_executed || order?.time_placed || null;
+                    return {
+                        executionPrice: execNum,
+                        executedAt: time ? new Date(time) : undefined,
+                    };
+                }
+            }
+
+            // If broker reports a terminal status, stop waiting.
+            const status = (order?.status || '').toUpperCase();
+            if (status && status !== 'PENDING') {
+                // If FILLED/EXECUTED but no execution_price yet, keep waiting until timeout
+                // Otherwise stop for clearly terminal non-fill statuses.
+                if (!['FILLED', 'EXECUTED'].includes(status)) {
+                    return null;
+                }
+            }
+        } catch {
+            // Ignore and keep polling until timeout
+        }
+
+        // Poll at a conservative interval to avoid hammering the API
+        await new Promise((r) => setTimeout(r, 500));
+    }
+
+    return null;
+}
 
 /**
  * Automatically create and execute trades for followers with AutoIQ enabled
@@ -186,18 +263,44 @@ async function autoTradeForSingleFollower(
         brokerOrderDetails = result.orderDetails as Record<string, unknown>;
         brokerCostInfo = result.costInfo;
 
-        // Update fillPrice with broker execution price if available
-        if (result.executionPrice !== null && result.executionPrice !== undefined) {
-            followerTradeData.fillPrice = result.executionPrice;
-            followerTradeData.totalBuyNotional = followerTradeData.contracts! * result.executionPrice * 100;
+        // IMPORTANT: Match creator behavior — DO NOT persist until execution price is confirmed.
+        let executionPrice: number | null | undefined = result.executionPrice;
+        let executedAt: Date | undefined = result.executedAt || undefined;
+
+        // If the broker did not return execution price yet, wait longer and confirm via order detail.
+        if (executionPrice === null || executionPrice === undefined) {
+            const maxWaitMs = 90000; // 90s
+            if (brokerOrderId) {
+                const polled = await waitForSnapTradeExecutionPrice({
+                    brokerConnection,
+                    brokerageOrderId: brokerOrderId,
+                    maxWaitMs,
+                });
+                if (polled) {
+                    executionPrice = polled.executionPrice;
+                    executedAt = polled.executedAt || executedAt;
+                }
+            }
         }
+
+        // If still no confirmed execution price, do NOT create the follower trade.
+        if (executionPrice === null || executionPrice === undefined) {
+            return;
+        }
+        const executionPriceNum = typeof executionPrice === 'number' ? executionPrice : Number(executionPrice);
+        if (!Number.isFinite(executionPriceNum) || executionPriceNum <= 0) {
+            return;
+        }
+
+        followerTradeData.fillPrice = executionPriceNum;
+        followerTradeData.totalBuyNotional = followerTradeData.contracts! * executionPriceNum * 100;
 
         // Use creator's tradeExecutedAt if available (for accurate timestamp)
         // Otherwise use the follower's broker execution timestamp
         if (creatorTrade.tradeExecutedAt) {
             followerTradeData.tradeExecutedAt = creatorTrade.tradeExecutedAt;
-        } else if (result.executedAt) {
-            followerTradeData.tradeExecutedAt = result.executedAt;
+        } else if (executedAt) {
+            followerTradeData.tradeExecutedAt = executedAt;
         }
     } catch {
         // Broker execution failed - DO NOT create the trade
@@ -374,15 +477,35 @@ async function autoSettleForSingleFollower(
             return;
         }
 
-        // Use broker execution price if available (actual fill price for follower)
-        if (result.executionPrice !== null && result.executionPrice !== undefined) {
-            actualFillPrice = result.executionPrice;
+        // Match creator behavior — wait for confirmed execution price before persisting settlement.
+        let executionPrice: number | null | undefined = result.executionPrice;
+        let executedAt: Date | undefined = result.executedAt || undefined;
+
+        if (executionPrice === null || executionPrice === undefined) {
+            const maxWaitMs = parseInt(process.env.AUTOIQ_EXECUTION_PRICE_TIMEOUT_MS || '90000', 10);
+            if (result.orderId) {
+                const polled = await waitForSnapTradeExecutionPrice({
+                    brokerConnection,
+                    brokerageOrderId: result.orderId,
+                    maxWaitMs,
+                });
+                if (polled) {
+                    executionPrice = polled.executionPrice;
+                    executedAt = polled.executedAt || executedAt;
+                }
+            }
         }
 
-        // Store execution timestamp from broker
-        if (result.executedAt) {
-            fillExecutedAt = result.executedAt;
+        if (executionPrice === null || executionPrice === undefined) {
+            return;
         }
+        const executionPriceNum = typeof executionPrice === 'number' ? executionPrice : Number(executionPrice);
+        if (!Number.isFinite(executionPriceNum) || executionPriceNum <= 0) {
+            return;
+        }
+
+        actualFillPrice = executionPriceNum;
+        fillExecutedAt = executedAt;
     } catch {
         // Broker execution failed - DO NOT create the settlement record
         return;
