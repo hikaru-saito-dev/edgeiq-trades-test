@@ -101,7 +101,6 @@ export async function GET(request: NextRequest) {
     // Step 3: Build capper metadata maps (single pass, O(n))
     const metadataStart = Date.now();
     const allCapperWhopUserIds = new Set<string>();
-    const capperTotalPlays = new Map<string, number>();
     const capperEarliestDate = new Map<string, Date>();
     const followMetadataByFollowId = new Map<string, {
       followPurchaseId: string;
@@ -165,12 +164,6 @@ export async function GET(request: NextRequest) {
           }
         }
       }
-
-      // Sum total plays per capper
-      capperTotalPlays.set(
-        follow.capperWhopUserId,
-        (capperTotalPlays.get(follow.capperWhopUserId) || 0) + follow.numPlaysPurchased
-      );
 
       // Track earliest date per capper
       const existingDate = capperEarliestDate.get(follow.capperWhopUserId);
@@ -242,37 +235,32 @@ export async function GET(request: NextRequest) {
     }
     logPerformance('Capper info lookup', capperInfoStart);
 
-    // Step 5: Optimized trade fetching with MongoDB aggregation
-    // Use $setWindowFields for per-capper limiting (MongoDB 5.0+)
+    // Step 5: Trade fetching with MongoDB aggregation
+    // NOTE: We only use pagination here (page/pageSize). We do NOT hard-limit
+    // the number of trades per creator; all eligible trades are pageable.
     const tradesStart = Date.now();
     let allTradesRaw: TradeWithCapper[] = [];
     let totalTrades = 0;
 
     if (capperEarliestDate.size > 0) {
-      // Build $or conditions for match stage
+      // Build $or conditions for match stage (only trades after the follower purchased)
       const matchConditions = Array.from(capperEarliestDate.entries()).map(([whopUserId, createdAt]) => ({
         whopUserId,
         createdAt: { $gte: createdAt },
       }));
 
-      // Build base match conditions
+      // Base conditions: only BUY trades, not REJECTED, by followed cappers
       const baseMatchConditions: Record<string, unknown> = {
-        side: 'BUY', // Only show BUY trades, not SELL fills
-        status: { $in: ['OPEN', 'CLOSED'] }, // Exclude REJECTED
+        side: 'BUY',
+        status: { $in: ['OPEN', 'CLOSED'] },
         $or: matchConditions,
       };
 
-      // Build search match conditions
-      let searchMatchConditions = baseMatchConditions;
-
-      // Add search filter if provided
+      // Optional search filter
+      let searchMatchConditions: Record<string, unknown> = baseMatchConditions;
       if (search) {
         const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-        const searchConditions = [
-          { ticker: regex },
-        ];
-
-        // Combine capper conditions with search conditions using $and
+        const searchConditions = [{ ticker: regex }];
         searchMatchConditions = {
           ...baseMatchConditions,
           $and: [
@@ -280,77 +268,13 @@ export async function GET(request: NextRequest) {
             { $or: searchConditions },
           ],
         };
-        // Remove the top-level $or since we're using $and now
         delete searchMatchConditions.$or;
       }
 
-      // Create lookup map for per-capper limits (for $setWindowFields)
-      // MongoDB $switch has a limit of ~1000 branches, so use fallback if too many cappers
-      const limitMap: Record<string, number> = {};
-      for (const [whopUserId, limit] of capperTotalPlays.entries()) {
-        limitMap[whopUserId] = limit;
-      }
-
-      // Use advanced pipeline if reasonable number of cappers, otherwise use fallback
-      const useAdvancedPipeline = Object.keys(limitMap).length <= 500;
-
-      // Advanced aggregation pipeline with per-capper limiting
       const tradePipeline: PipelineStage[] = [
-        {
-          $match: searchMatchConditions,
-        },
-        {
-          $addFields: {
-            capperWhopUserId: '$whopUserId',
-            // Add limit for this capper (only if reasonable number of branches)
-            ...(useAdvancedPipeline ? {
-              capperLimit: {
-                $switch: {
-                  branches: Object.entries(limitMap).map(([whopUserId, limit]) => ({
-                    case: { $eq: ['$whopUserId', whopUserId] },
-                    then: limit,
-                  })),
-                  default: 0,
-                },
-              },
-            } : {}),
-          },
-        },
-        {
-          $sort: { capperWhopUserId: 1, createdAt: 1 }, // Sort for window function
-        },
-        // Use $setWindowFields to number trades per capper (only if using advanced pipeline)
-        ...(useAdvancedPipeline ? [
-          {
-            $setWindowFields: {
-              partitionBy: '$capperWhopUserId',
-              sortBy: { createdAt: 1 } as Record<string, 1 | -1>,
-              output: {
-                rowNumber: {
-                  $documentNumber: {},
-                },
-              },
-            },
-          } as PipelineStage,
-          // Filter to only trades within limit
-          {
-            $match: {
-              $expr: { $lte: ['$rowNumber', '$capperLimit'] },
-            },
-          },
-          // Remove window fields
-          {
-            $project: {
-              rowNumber: 0,
-              capperLimit: 0,
-            },
-          },
-        ] : []),
-        // Sort by creation date (newest first for feed)
-        {
-          $sort: { createdAt: -1 },
-        },
-        // Use $facet for pagination and total count in single query
+        { $match: searchMatchConditions },
+        { $addFields: { capperWhopUserId: '$whopUserId' } },
+        { $sort: { createdAt: -1 } }, // newest first for feed
         {
           $facet: {
             data: [
@@ -362,54 +286,10 @@ export async function GET(request: NextRequest) {
         },
       ];
 
-      try {
-        // Only use advanced pipeline if we have reasonable number of cappers
-        if (!useAdvancedPipeline) {
-          throw new Error('Too many cappers, using fallback');
-        }
-
-        const result = await Trade.aggregate(tradePipeline).allowDiskUse(true);
-        const facetResult = result[0] || { data: [], totalCount: [] };
-        allTradesRaw = facetResult.data || [];
-        totalTrades = facetResult.totalCount[0]?.count || 0;
-      } catch (aggError) {
-        // Fallback if $setWindowFields not supported (MongoDB < 5.0)
-        // Use simpler grouping approach
-        console.warn('$setWindowFields not supported, using fallback:', aggError);
-
-        const fallbackPipeline: PipelineStage[] = [
-          {
-            $match: searchMatchConditions,
-          },
-          {
-            $addFields: {
-              capperWhopUserId: '$whopUserId',
-            },
-          },
-          {
-            $sort: { createdAt: 1 },
-          },
-          {
-            $group: {
-              _id: '$capperWhopUserId',
-              trades: { $push: '$$ROOT' },
-            },
-          },
-        ];
-
-        const groupedResults = await Trade.aggregate(fallbackPipeline).allowDiskUse(true);
-
-        // Apply limits and flatten (O(follows) not O(trades))
-        const limitedTrades: TradeWithCapper[] = [];
-        for (const group of groupedResults) {
-          const limit = capperTotalPlays.get(group._id) || 0;
-          limitedTrades.push(...(group.trades || []).slice(0, limit));
-        }
-
-        limitedTrades.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        totalTrades = limitedTrades.length;
-        allTradesRaw = limitedTrades.slice((page - 1) * pageSize, page * pageSize);
-      }
+      const result = await Trade.aggregate(tradePipeline).allowDiskUse(true);
+      const facetResult = result[0] || { data: [], totalCount: [] };
+      allTradesRaw = facetResult.data || [];
+      totalTrades = facetResult.totalCount[0]?.count || 0;
     }
     logPerformance('Trades aggregation', tradesStart);
 
