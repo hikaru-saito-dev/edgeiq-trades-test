@@ -185,38 +185,16 @@ export default function TradesPage() {
 
   // Realtime updates (Pusher): refresh "My Trades" without reload.
   useEffect(() => {
-    console.log('[Pusher Debug] Effect running', {
-      isAuthorized,
-      accessLoading,
-      userId,
-      companyId,
-      hasKey: !!process.env.NEXT_PUBLIC_PUSHER_KEY,
-      hasCluster: !!process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
-    });
-
-    if (!isAuthorized || accessLoading) {
-      console.log('[Pusher Debug] Early return: auth/loading check failed');
-      return;
-    }
-    if (!userId || !companyId) {
-      console.log('[Pusher Debug] Early return: missing userId/companyId', { userId, companyId });
-      return;
-    }
+    if (!isAuthorized || accessLoading) return;
+    if (!userId || !companyId) return;
 
     const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
     const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
-    console.log('[Pusher Debug] Env vars check', { 
-      key: key ? `${key.substring(0, 5)}...` : 'MISSING',
-      cluster: cluster || 'MISSING',
-    });
-    
     if (!key || !cluster) {
-      console.log('[Pusher Debug] Early return: missing env vars');
       return;
     }
 
     const channelName = `private-user-${userId}`;
-    console.log('[Pusher Debug] Creating Pusher instance for channel:', channelName);
 
     const pusher = new Pusher(key, {
       cluster,
@@ -231,26 +209,7 @@ export default function TradesPage() {
     });
 
     const channel = pusher.subscribe(channelName);
-    console.log('[Pusher Debug] Subscribed to channel:', channelName);
-    
-    // Debug Pusher connection events
-    pusher.connection.bind('connected', () => {
-      console.log('[Pusher Debug] Connected to Pusher');
-    });
-    pusher.connection.bind('error', (err: unknown) => {
-      console.error('[Pusher Debug] Connection error:', err);
-    });
-    pusher.connection.bind('disconnected', () => {
-      console.log('[Pusher Debug] Disconnected from Pusher');
-    });
-    
-    channel.bind('pusher:subscription_error', (status: number) => {
-      console.error('[Pusher Debug] Subscription error:', status);
-    });
-    channel.bind('pusher:subscription_succeeded', () => {
-      console.log('[Pusher Debug] Subscription succeeded for channel:', channelName);
-    });
-    
+
     const onUpdate = () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = setTimeout(() => {

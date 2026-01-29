@@ -36,6 +36,31 @@ export function userChannel(whopUserId: string): string {
   return `private-user-${whopUserId}`;
 }
 
+async function triggerChannels(
+  channels: string[],
+  event: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const pusher = getPusherServer();
+  if (!pusher) return;
+  if (!channels.length) return;
+
+  // Pusher limits trigger to 100 channels per call.
+  const chunkSize = 100;
+  for (let i = 0; i < channels.length; i += chunkSize) {
+    const chunk = channels.slice(i, i + chunkSize);
+    try {
+      await pusher.trigger(chunk, event, payload);
+    } catch (err) {
+      console.error('[Pusher] triggerChannels failed', {
+        event,
+        channels: chunk.length,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+}
+
 export async function triggerUserEvent(
   whopUserId: string,
   event: string,
@@ -55,5 +80,15 @@ export async function triggerUserEvent(
       error: err instanceof Error ? err.message : String(err),
     });
   }
+}
+
+export async function triggerUsersEvent(
+  whopUserIds: string[],
+  event: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const unique = [...new Set(whopUserIds.filter(Boolean))];
+  const channels = unique.map(userChannel);
+  await triggerChannels(channels, event, payload);
 }
 
