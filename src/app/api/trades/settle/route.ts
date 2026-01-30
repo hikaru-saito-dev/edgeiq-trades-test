@@ -360,6 +360,7 @@ export async function POST(request: NextRequest) {
       // Realtime: refresh creator + follower UIs.
       // IMPORTANT: On Vercel/serverless, "fire-and-forget" after responding is unreliable.
       // We await the Pusher triggers here to guarantee delivery.
+      // Rule: feed.updated (follower's follow page) is sent ONLY after creator's trade is updated and stored (see commit above).
       try {
         if (user?.whopUserId) {
           await triggerUserEvent(user.whopUserId, 'trade.updated', {
@@ -369,6 +370,7 @@ export async function POST(request: NextRequest) {
             updatedAt: updatedTrade.updatedAt,
           });
 
+          // Followers refresh ("Following" page) — only after creator trade is updated and stored
           const { FollowPurchase } = await import('@/models/FollowPurchase');
           const follows = await FollowPurchase.find({
             capperWhopUserId: user.whopUserId,

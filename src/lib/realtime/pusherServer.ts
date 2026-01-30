@@ -42,7 +42,9 @@ async function triggerChannels(
   payload: Record<string, unknown>
 ): Promise<void> {
   const pusher = getPusherServer();
-  if (!pusher) return;
+  if (!pusher) {
+    return;
+  }
   if (!channels.length) return;
 
   // Pusher limits trigger to 100 channels per call.
@@ -51,6 +53,7 @@ async function triggerChannels(
     const chunk = channels.slice(i, i + chunkSize);
     try {
       await pusher.trigger(chunk, event, payload);
+      console.log('[Pusher] Batch event sent', { channels: chunk.length, event, firstChannel: chunk[0] });
     } catch (err) {
       console.error('[Pusher] triggerChannels failed', {
         event,
@@ -67,14 +70,18 @@ export async function triggerUserEvent(
   payload: Record<string, unknown>
 ): Promise<void> {
   const pusher = getPusherServer();
-  if (!pusher) return;
+  if (!pusher) {
+    return;
+  }
   if (!whopUserId) return;
 
+  const channel = userChannel(whopUserId);
   try {
-    await pusher.trigger(userChannel(whopUserId), event, payload);
+    await pusher.trigger(channel, event, payload);
   } catch (err) {
     // Never break core flows (trade creation/settlement) due to realtime failures.
     console.error('[Pusher] triggerUserEvent failed', {
+      channel,
       whopUserId,
       event,
       error: err instanceof Error ? err.message : String(err),

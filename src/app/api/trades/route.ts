@@ -21,6 +21,13 @@ import {
 } from '@/lib/cache/statsCache';
 import { FollowPurchase } from '@/models/FollowPurchase';
 import { triggerUserEvent, triggerUsersEvent } from '@/lib/realtime/pusherServer';
+import {
+  getEligibleAutoIQFollowersWithBrokers,
+  executeFollowerBrokerOrder,
+  persistFollowerTradesAndNotify,
+  type AutoIQOrderParams,
+  type FollowerBrokerResult,
+} from '@/lib/autoiq';
 
 export const runtime = 'nodejs';
 
@@ -289,134 +296,105 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Sync to broker BEFORE creating trade in database
-    // If broker sync fails, the trade will not be created
-    let brokerType: 'snaptrade' | undefined = 'snaptrade'; // All trades use SnapTrade
-    let brokerOrderId: string | undefined;
-    let brokerConnectionId: Types.ObjectId | undefined;
-    let brokerOrderDetails: Record<string, unknown> | undefined;
-    let tradeExecutedAt: Date | undefined;
-    let brokerExecutionPriceTimedOut = false;
-    let brokerCostInfo: {
-      grossCost: number;
-      commission: number;
-      estimatedFees: Record<string, number>;
-      totalCost: number;
-    } | undefined;
-    let brokerExecutionPrice: number | null | undefined;
-    let priceSource: 'broker' | 'market_data' = 'market_data';
-
-    try {
-      // Find active SnapTrade broker connection
-      // brokerConnectionId is required from the frontend
-      const { BrokerConnection } = await import('@/models/BrokerConnection');
-
-      // Check cache first for active broker connection
-      const { getActiveBrokerCacheByUserId, setActiveBrokerCacheByUserId } = await import('@/lib/cache/brokerCache');
-      const userIdStr = String(user._id);
-      let brokerConnection = getActiveBrokerCacheByUserId(userIdStr);
-
-      if (!brokerConnection) {
-        // Cache miss - query database
-        if (validated.brokerConnectionId) {
-          // Use specific broker connection from request
-          brokerConnection = await BrokerConnection.findOne({
-            _id: validated.brokerConnectionId,
-            userId: user._id as Types.ObjectId,
-            brokerType: 'snaptrade', // Only SnapTrade connections
-            isActive: true,
-          });
-        } else {
-          // Fallback: find first active SnapTrade connection
-          brokerConnection = await BrokerConnection.findOne({
-            userId: user._id as Types.ObjectId,
-            brokerType: 'snaptrade',
-            isActive: true,
-          });
-        }
-        // Cache result (even if null to prevent repeated queries)
-        setActiveBrokerCacheByUserId(userIdStr, brokerConnection ?? null);
+    // Find active SnapTrade broker connection for creator
+    const { BrokerConnection } = await import('@/models/BrokerConnection');
+    const { getActiveBrokerCacheByUserId, setActiveBrokerCacheByUserId } = await import('@/lib/cache/brokerCache');
+    const userIdStr = String(user._id);
+    let brokerConnection = getActiveBrokerCacheByUserId(userIdStr);
+    if (!brokerConnection) {
+      if (validated.brokerConnectionId) {
+        brokerConnection = await BrokerConnection.findOne({
+          _id: validated.brokerConnectionId,
+          userId: user._id as Types.ObjectId,
+          brokerType: 'snaptrade',
+          isActive: true,
+        });
+      } else {
+        brokerConnection = await BrokerConnection.findOne({
+          userId: user._id as Types.ObjectId,
+          brokerType: 'snaptrade',
+          isActive: true,
+        });
       }
-
-      if (!brokerConnection) {
-        return NextResponse.json({
-          error: 'No active broker connection found. Please connect a broker account first.',
-        }, { status: 400 });
-      }
-
-      if (brokerConnection) {
-        // Create a temporary trade object for broker sync
-        const tempTrade = {
-          ticker: validated.ticker,
-          strike: validated.strike,
-          optionType: validated.optionType,
-          expiryDate: expiryDate,
-          contracts: validated.contracts,
-          fillPrice: finalFillPrice,
-        } as ITrade;
-
-        const { createBroker } = await import('@/lib/brokers/factory');
-        const broker = createBroker(brokerConnection.brokerType, brokerConnection);
-        const result = await broker.placeOptionOrder(
-          tempTrade,
-          'BUY',
-          validated.contracts
-        );
-
-        if (!result.success) {
-          return NextResponse.json({
-            error: result.error || 'Failed to place order with broker',
-          }, { status: 400 });
-        }
-
-        brokerType = brokerConnection.brokerType;
-        brokerOrderId = result.orderId;
-        brokerConnectionId = brokerConnection._id as Types.ObjectId;
-
-        // Store detailed order information and cost breakdown
-        brokerOrderDetails = result.orderDetails;
-        brokerCostInfo = result.costInfo;
-
-        // Extract execution price and price source from broker response
-        brokerExecutionPrice = result.executionPrice;
-        priceSource = result.priceSource || 'broker';
-
-        // Extract execution timestamp from broker response
-        tradeExecutedAt = result.executedAt || undefined;
-        brokerExecutionPriceTimedOut = Boolean(result.executionPriceTimedOut);
-
-        // Require broker execution_price - if null/undefined, trade will be rejected
-        // Removed Massive.com API fallback - only broker execution_price is used
-        if (brokerExecutionPrice !== null && brokerExecutionPrice !== undefined) {
-          const executionPriceNum = typeof brokerExecutionPrice === 'number'
-            ? brokerExecutionPrice
-            : Number(brokerExecutionPrice);
-
-          if (Number.isFinite(executionPriceNum) && executionPriceNum > 0) {
-            finalFillPrice = executionPriceNum;
-            // Recalculate notional with broker execution price
-            notional = validated.contracts * finalFillPrice * 100;
-          } else {
-            // Invalid execution price - mark as timed out to reject trade
-            brokerExecutionPriceTimedOut = true;
-            brokerExecutionPrice = null;
-          }
-        } else {
-          // No execution price from broker - mark as timed out to reject trade
-          brokerExecutionPriceTimedOut = true;
-        }
-      }
-    } catch (brokerError) {
-      // The broker.placeOptionOrder already returns a detailed error message
-      // If it's a BrokerOrderResult with success: false, use that error
-      let errorMessage = 'Failed to place order with broker';
-      if (brokerError instanceof Error) {
-        errorMessage = brokerError.message;
-      }
+      setActiveBrokerCacheByUserId(userIdStr, brokerConnection ?? null);
+    }
+    if (!brokerConnection) {
       return NextResponse.json({
-        error: errorMessage,
+        error: 'No active broker connection found. Please connect a broker account first.',
       }, { status: 400 });
     }
+
+    // Creator only: run creator broker order (creator waits only for their own trade)
+    const creatorBrokerPromise = (async () => {
+      const tempTrade = {
+        ticker: validated.ticker,
+        strike: validated.strike,
+        optionType: validated.optionType,
+        expiryDate,
+        contracts: validated.contracts,
+        fillPrice: finalFillPrice,
+      } as ITrade;
+      const { createBroker } = await import('@/lib/brokers/factory');
+      const broker = createBroker(brokerConnection!.brokerType, brokerConnection!);
+      const result = await broker.placeOptionOrder(tempTrade, 'BUY', validated.contracts);
+      if (!result.success) {
+        return { success: false as const, error: result.error || 'Failed to place order with broker' };
+      }
+      let fillPrice = finalFillPrice;
+      let notionalVal = notional;
+      let executionPriceTimedOut = Boolean(result.executionPriceTimedOut);
+      let brokerExecutionPriceVal: number | null | undefined = result.executionPrice;
+      if (brokerExecutionPriceVal !== null && brokerExecutionPriceVal !== undefined) {
+        const num = typeof brokerExecutionPriceVal === 'number' ? brokerExecutionPriceVal : Number(brokerExecutionPriceVal);
+        if (Number.isFinite(num) && num > 0) {
+          fillPrice = num;
+          notionalVal = validated.contracts * fillPrice * 100;
+          executionPriceTimedOut = false;
+        } else {
+          executionPriceTimedOut = true;
+          brokerExecutionPriceVal = null;
+        }
+      } else {
+        executionPriceTimedOut = true;
+      }
+      return {
+        success: true as const,
+        brokerType: brokerConnection!.brokerType,
+        brokerOrderId: result.orderId!,
+        brokerConnectionId: brokerConnection!._id as Types.ObjectId,
+        brokerOrderDetails: result.orderDetails,
+        brokerCostInfo: result.costInfo,
+        brokerExecutionPrice: brokerExecutionPriceVal,
+        tradeExecutedAt: result.executedAt,
+        brokerExecutionPriceTimedOut: executionPriceTimedOut,
+        finalFillPrice: fillPrice,
+        notional: notionalVal,
+        priceSource: result.priceSource || 'broker',
+      };
+    })().catch((err) => ({
+      success: false as const,
+      error: err instanceof Error ? err.message : 'Failed to place order with broker',
+    }));
+
+    const creatorResult = await creatorBrokerPromise;
+
+    if (!creatorResult.success) {
+      return NextResponse.json({
+        error: creatorResult.error,
+      }, { status: 400 });
+    }
+
+    const brokerType = creatorResult.brokerType;
+    const brokerOrderId = creatorResult.brokerOrderId;
+    const brokerConnectionId = creatorResult.brokerConnectionId;
+    const brokerOrderDetails = creatorResult.brokerOrderDetails;
+    const brokerCostInfo = creatorResult.brokerCostInfo;
+    const brokerExecutionPrice = creatorResult.brokerExecutionPrice;
+    const tradeExecutedAt = creatorResult.tradeExecutedAt;
+    const brokerExecutionPriceTimedOut = creatorResult.brokerExecutionPriceTimedOut;
+    finalFillPrice = creatorResult.finalFillPrice;
+    notional = creatorResult.notional;
+    const priceSource = creatorResult.priceSource;
 
     // Start database session for transaction
     const session = await mongoose.startSession();
@@ -531,15 +509,17 @@ export async function POST(request: NextRequest) {
       // Realtime: push updates to UIs.
       // IMPORTANT: On Vercel/serverless, "fire-and-forget" after responding is unreliable.
       // We await the Pusher triggers here to guarantee delivery.
+      // Rule: feed.updated (follower's follow page) is sent ONLY after creator's trade is stored (see commit above).
+      // Rule: trade.created for each follower (follower's trade page) is sent in persistFollowerTradesAndNotify ONLY after that follower's trade is saved.
       try {
-        // Creator refresh ("My Trades")
+        // Creator refresh ("My Trades") — after creator trade is stored
         await triggerUserEvent(user.whopUserId, 'trade.created', {
           tradeId: String(tradeResult._id),
           whopUserId: user.whopUserId,
           createdAt: tradeResult.createdAt,
         });
 
-        // Followers refresh ("Following")
+        // Followers refresh ("Following" page) — only after creator trade is created and stored
         const follows = await FollowPurchase.find({
           capperWhopUserId: user.whopUserId,
           status: { $in: ['active', 'completed'] },
@@ -556,14 +536,33 @@ export async function POST(request: NextRequest) {
         console.error('[Pusher] failed to broadcast trade.created', e);
       }
 
-      // Auto-trade for followers with AutoIQ enabled (outside transaction - fire and forget)
-      import('@/lib/autoiq').then(({ autoTradeForFollowers }) => {
-        autoTradeForFollowers(tradeResult, user).catch((autoTradeError) => {
-          console.error('Error auto-trading for followers:', autoTradeError);
-        });
-      }).catch((err) => {
-        console.error('Error importing autoTradeForFollowers:', err);
-      });
+      // Follower trades run in background: each follower only waits for their own trade (via Pusher).
+      // Creator does not wait for follower broker orders or DB writes.
+      const orderParams: AutoIQOrderParams = {
+        ticker: validated.ticker,
+        strike: validated.strike,
+        optionType: validated.optionType,
+        expiryDate,
+        contracts: validated.contracts,
+        optionContract: optionContractTicker,
+        refPrice: referencePrice,
+        refTimestamp,
+      };
+      (async () => {
+        try {
+          const eligible = await getEligibleAutoIQFollowersWithBrokers(user);
+          if (eligible.length === 0) return;
+          const results = await Promise.all(
+            eligible.map(({ follower, brokerConnection: conn }) =>
+              executeFollowerBrokerOrder(orderParams, follower, conn)
+            )
+          );
+          const successful = results.filter((r): r is FollowerBrokerResult => r != null);
+          await persistFollowerTradesAndNotify(tradeResult, user, successful);
+        } catch (e) {
+          console.error('Error auto-trading for followers (background):', e);
+        }
+      })();
 
       invalidateLeaderboardCache();
       if (companyId) {

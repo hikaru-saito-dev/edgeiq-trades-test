@@ -26,6 +26,7 @@ function parseMessageToEmbed(message: string): {
   description?: string;
   fields?: Array<{ name: string; value: string; inline?: boolean }>;
   color?: number;
+  timestamp: string;
   footer?: { text: string };
 } | null {
   const lines = message.split('\n').filter(line => line.trim());
@@ -134,10 +135,12 @@ function parseMessageToEmbed(message: string): {
     description?: string;
     fields?: Array<{ name: string; value: string; inline?: boolean }>;
     color?: number;
+    timestamp: string;
     footer?: { text: string };
   } = {
     title,
     color,
+    timestamp: new Date().toISOString(),
   };
 
   if (fields.length === 0) {

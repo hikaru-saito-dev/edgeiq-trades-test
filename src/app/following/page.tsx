@@ -129,6 +129,17 @@ export default function FollowingPage() {
     }
   };
 
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const previousSearchRef = useRef(search);
+
+  // Keep a stable ref to the refresh function for realtime handlers.
+  useEffect(() => {
+    refreshRef.current = () => {
+      fetchFollowingFeed();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, debouncedSearch, isAuthorized, accessLoading, userId, companyId]);
+
   // Realtime updates (Pusher): when a creator posts/settles a trade, refresh feed without reload.
   useEffect(() => {
     if (!isAuthorized || accessLoading) return;
@@ -163,11 +174,15 @@ export default function FollowingPage() {
       }, 300);
     };
 
-    channel.bind('feed.updated', onUpdate);
+    // Wait for subscription to succeed before binding events
+    channel.bind('pusher:subscription_succeeded', () => {
+      channel.bind('feed.updated', onUpdate);
+    });
 
     return () => {
       try {
         channel.unbind('feed.updated', onUpdate);
+        channel.unbind('pusher:subscription_succeeded');
         pusher.unsubscribe(channelName);
         pusher.disconnect();
       } catch {
@@ -175,17 +190,6 @@ export default function FollowingPage() {
       }
     };
   }, [isAuthorized, accessLoading, userId, companyId]);
-
-  const [debouncedSearch, setDebouncedSearch] = useState(search);
-  const previousSearchRef = useRef(search);
-
-  // Keep a stable ref to the refresh function for realtime handlers.
-  useEffect(() => {
-    refreshRef.current = () => {
-      fetchFollowingFeed();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, debouncedSearch, isAuthorized, accessLoading, userId, companyId]);
 
   useEffect(() => {
     if (!isAuthorized || accessLoading) {

@@ -217,13 +217,17 @@ export default function TradesPage() {
       }, 300);
     };
 
-    channel.bind('trade.created', onUpdate);
-    channel.bind('trade.updated', onUpdate);
+    // Wait for subscription to succeed before binding events
+    channel.bind('pusher:subscription_succeeded', () => {
+      channel.bind('trade.created', onUpdate);
+      channel.bind('trade.updated', onUpdate);
+    });
 
     return () => {
       try {
         channel.unbind('trade.created', onUpdate);
         channel.unbind('trade.updated', onUpdate);
+        channel.unbind('pusher:subscription_succeeded');
         pusher.unsubscribe(channelName);
         pusher.disconnect();
       } catch {
