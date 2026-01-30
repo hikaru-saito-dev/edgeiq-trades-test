@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
                 from: followedTradeActionCollection,
                 let: { tradeId: '$_id' },
                 pipeline: [
-                  { $match: { $expr: { $eq: ['$followedTradeId', '$$tradeId'] } } },
+                  { $match: { $expr: { $eq: [{ $toString: '$followedTradeId' }, { $toString: '$$tradeId' }] } } },
                   { $limit: 1 },
                 ],
                 as: 'followedTradeAction',
