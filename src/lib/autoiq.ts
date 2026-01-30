@@ -614,7 +614,7 @@ export async function autoSettleForFollowers(
             }
         }
 
-        // Process each follower's auto-settlement (fire and forget)
+        // Process each follower's auto-settlement in parallel; await so caller (settle route) completes before response.
         const autoSettlePromises = followerTrades.map(async (followerTrade) => {
             try {
                 const follower = followerMap.get(followerTrade.whopUserId);
@@ -628,10 +628,10 @@ export async function autoSettleForFollowers(
             }
         });
 
-        // Execute all auto-settlements in parallel (fire and forget)
-        Promise.allSettled(autoSettlePromises);
-    } catch {
-        // Silent fail - don't break creator's trade settlement
+        await Promise.allSettled(autoSettlePromises);
+    } catch (e) {
+        // Don't break creator's settlement; log for debugging.
+        console.error('[AutoIQ] autoSettleForFollowers error:', e);
     }
 }
 
@@ -787,10 +787,14 @@ async function autoSettleForSingleFollower(
         await session.commitTransaction();
 
         // Follower's trade page: push only after this follower's trade is updated and stored (see commit above).
-        void triggerUserEvent(follower.whopUserId, 'trade.updated', {
-            type: 'autoiq.trade.settled',
-            tradeId: String(followerTrade._id),
-        });
+        try {
+            await triggerUserEvent(follower.whopUserId, 'trade.updated', {
+                type: 'autoiq.trade.settled',
+                tradeId: String(followerTrade._id),
+            });
+        } catch {
+            // Don't fail settlement if Pusher fails
+        }
     } catch (error) {
         // Rollback transaction on error
         await session.abortTransaction();

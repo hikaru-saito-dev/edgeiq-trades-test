@@ -390,10 +390,15 @@ export async function POST(request: NextRequest) {
         console.error('[Pusher] failed to broadcast trade.settled', e);
       }
 
-      // Auto-settle for followers with AutoIQ enabled (outside transaction - fire and forget)
-      import('@/lib/autoiq').then(({ autoSettleForFollowers }) => {
-        autoSettleForFollowers(updatedTrade, validated.contracts, finalFillPrice);
-      });
+      // Auto-settle for followers with AutoIQ enabled.
+      // Must be awaited: on serverless, fire-and-forget is terminated before completion, so follower sells would never run.
+      try {
+        const { autoSettleForFollowers } = await import('@/lib/autoiq');
+        await autoSettleForFollowers(updatedTrade, validated.contracts, finalFillPrice);
+      } catch (e) {
+        // Log but do not fail the request: creator settlement already succeeded.
+        console.error('[Settle] Auto-settle for followers failed:', e);
+      }
 
       // Format message
       const expiryFormatted = `${String(updatedTrade.expiryDate.getMonth() + 1)}/${String(updatedTrade.expiryDate.getDate())}/${updatedTrade.expiryDate.getFullYear()}`;
