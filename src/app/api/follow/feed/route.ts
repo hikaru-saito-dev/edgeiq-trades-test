@@ -79,7 +79,8 @@ export async function GET(request: NextRequest) {
         followerWhopUserId: user.whopUserId,
         status: { $in: ['active', 'completed'] },
       })
-        .select('capperWhopUserId capperUserId companyId numPlaysPurchased numPlaysConsumed status createdAt')
+        // We need createdAt (follow start) + updatedAt (completion time when status flips to completed)
+        .select('capperWhopUserId capperUserId companyId numPlaysPurchased numPlaysConsumed status createdAt updatedAt')
         .lean();
       allFollows = follows as unknown as IFollowPurchase[];
       // Cache result
@@ -102,6 +103,10 @@ export async function GET(request: NextRequest) {
     const metadataStart = Date.now();
     const allCapperWhopUserIds = new Set<string>();
     const capperEarliestDate = new Map<string, Date>();
+    // Follow windows per creator: [follow.createdAt, followEnd] where followEnd is:
+    // - now if follow is active
+    // - follow.updatedAt if completed (status is flipped to completed when plays are exhausted)
+    const followWindowsByCapper = new Map<string, Array<{ start: Date; end: Date }>>();
     const followMetadataByFollowId = new Map<string, {
       followPurchaseId: string;
       totalPlaysPurchased: number;
@@ -141,6 +146,17 @@ export async function GET(request: NextRequest) {
       // Select the single follow record to represent this creator in the UI:
       // prefer active over completed; among completed, prefer most recent.
       if (follow.status === 'active' || follow.status === 'completed') {
+        // Track follow window for this creator (used to filter trades by duration of follow)
+        const start = follow.createdAt;
+        const end = follow.status === 'completed'
+          ? (follow.updatedAt ?? follow.createdAt)
+          : new Date();
+        if (end >= start) {
+          const windows = followWindowsByCapper.get(follow.capperWhopUserId) ?? [];
+          windows.push({ start, end });
+          followWindowsByCapper.set(follow.capperWhopUserId, windows);
+        }
+
         const existing = selectedFollowMetaByCapper.get(follow.capperWhopUserId);
         if (!existing) {
           selectedFollowByCapper.set(follow.capperWhopUserId, follow);
@@ -242,54 +258,79 @@ export async function GET(request: NextRequest) {
     let allTradesRaw: TradeWithCapper[] = [];
     let totalTrades = 0;
 
-    if (capperEarliestDate.size > 0) {
-      // Build $or conditions for match stage (only trades after the follower purchased)
-      const matchConditions = Array.from(capperEarliestDate.entries()).map(([whopUserId, createdAt]) => ({
-        whopUserId,
-        createdAt: { $gte: createdAt },
-      }));
+    if (followWindowsByCapper.size > 0) {
+      // Build $or conditions for match stage using FOLLOW WINDOWS:
+      // include trades only when the follow was active, i.e.
+      // trade.createdAt ∈ [follow.createdAt, followEnd] where followEnd is:
+      // - now (if active)
+      // - follow.updatedAt (if completed)
+      //
+      // If the user renewed follows, we may have multiple windows per creator;
+      // merge overlapping windows to keep the $or compact.
+      const matchConditions: Array<Record<string, unknown>> = [];
 
-      // Base conditions: only BUY trades, not REJECTED, by followed cappers
-      const baseMatchConditions: Record<string, unknown> = {
-        side: 'BUY',
-        status: { $in: ['OPEN', 'CLOSED'] },
-        $or: matchConditions,
-      };
+      for (const [capperWhopUserId, windows] of followWindowsByCapper.entries()) {
+        if (!windows || windows.length === 0) continue;
+        const sorted = [...windows].sort((a, b) => a.start.getTime() - b.start.getTime());
+        const merged: Array<{ start: Date; end: Date }> = [];
 
-      // Optional search filter
-      let searchMatchConditions: Record<string, unknown> = baseMatchConditions;
-      if (search) {
-        const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-        const searchConditions = [{ ticker: regex }];
-        searchMatchConditions = {
-          ...baseMatchConditions,
-          $and: [
-            { $or: matchConditions },
-            { $or: searchConditions },
-          ],
-        };
-        delete searchMatchConditions.$or;
+        for (const w of sorted) {
+          const last = merged[merged.length - 1];
+          if (!last) {
+            merged.push({ start: w.start, end: w.end });
+            continue;
+          }
+          if (w.start.getTime() <= last.end.getTime()) {
+            // overlap → extend end
+            if (w.end.getTime() > last.end.getTime()) last.end = w.end;
+          } else {
+            merged.push({ start: w.start, end: w.end });
+          }
+        }
+
+        for (const w of merged) {
+          matchConditions.push({
+            whopUserId: capperWhopUserId,
+            createdAt: { $gte: w.start, $lte: w.end },
+          });
+        }
       }
 
-      const tradePipeline: PipelineStage[] = [
-        { $match: searchMatchConditions },
-        { $addFields: { capperWhopUserId: '$whopUserId' } },
-        { $sort: { createdAt: -1 } }, // newest first for feed
-        {
-          $facet: {
-            data: [
-              { $skip: (page - 1) * pageSize },
-              { $limit: pageSize },
-            ],
-            totalCount: [{ $count: 'count' }],
-          },
-        },
-      ];
+      if (matchConditions.length > 0) {
+        const baseMatchConditions: Record<string, unknown> = {
+          side: 'BUY',
+          status: { $in: ['OPEN', 'CLOSED'] },
+          $or: matchConditions,
+        };
 
-      const result = await Trade.aggregate(tradePipeline).allowDiskUse(true);
-      const facetResult = result[0] || { data: [], totalCount: [] };
-      allTradesRaw = facetResult.data || [];
-      totalTrades = facetResult.totalCount[0]?.count || 0;
+        if (search) {
+          const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          baseMatchConditions.ticker = regex;
+        }
+
+        const tradePipeline: PipelineStage[] = [
+          { $match: baseMatchConditions },
+          { $addFields: { capperWhopUserId: '$whopUserId' } },
+          { $sort: { createdAt: -1 } }, // newest first for feed
+          {
+            $facet: {
+              data: [
+                { $skip: (page - 1) * pageSize },
+                { $limit: pageSize },
+              ],
+              totalCount: [{ $count: 'count' }],
+            },
+          },
+        ];
+
+        const result = await Trade.aggregate(tradePipeline).allowDiskUse(true);
+        const facetResult = result[0] || { data: [], totalCount: [] };
+        allTradesRaw = facetResult.data || [];
+        totalTrades = facetResult.totalCount[0]?.count || 0;
+      } else {
+        allTradesRaw = [];
+        totalTrades = 0;
+      }
     }
     logPerformance('Trades aggregation', tradesStart);
 
@@ -385,28 +426,28 @@ export async function GET(request: NextRequest) {
         return (b.createdAt?.getTime?.() ?? 0) - (a.createdAt?.getTime?.() ?? 0);
       })
       .map((follow) => {
-      const capperInfo = capperInfoMap.get(follow.capperWhopUserId || '') || {};
-      const remainingPlays = Math.max(0, follow.numPlaysPurchased - follow.numPlaysConsumed);
+        const capperInfo = capperInfoMap.get(follow.capperWhopUserId || '') || {};
+        const remainingPlays = Math.max(0, follow.numPlaysPurchased - follow.numPlaysConsumed);
 
-      // Get company colors using companyId from FollowPurchase
-      const companyColors = follow.companyId ? companyColorMap.get(follow.companyId) : undefined;
+        // Get company colors using companyId from FollowPurchase
+        const companyColors = follow.companyId ? companyColorMap.get(follow.companyId) : undefined;
 
-      return {
-        followPurchaseId: String(follow._id),
-        capper: {
-          userId: String(follow.capperUserId),
-          alias: capperInfo.alias || capperInfo.whopDisplayName || capperInfo.whopUsername || 'Unknown',
-          avatarUrl: capperInfo.whopAvatarUrl,
-          primaryColor: companyColors?.primaryColor || null,
-          secondaryColor: companyColors?.secondaryColor || null,
-        },
-        numPlaysPurchased: follow.numPlaysPurchased,
-        numPlaysConsumed: follow.numPlaysConsumed,
-        remainingPlays,
-        status: follow.status,
-        createdAt: follow.createdAt,
-      };
-    });
+        return {
+          followPurchaseId: String(follow._id),
+          capper: {
+            userId: String(follow.capperUserId),
+            alias: capperInfo.alias || capperInfo.whopDisplayName || capperInfo.whopUsername || 'Unknown',
+            avatarUrl: capperInfo.whopAvatarUrl,
+            primaryColor: companyColors?.primaryColor || null,
+            secondaryColor: companyColors?.secondaryColor || null,
+          },
+          numPlaysPurchased: follow.numPlaysPurchased,
+          numPlaysConsumed: follow.numPlaysConsumed,
+          remainingPlays,
+          status: follow.status,
+          createdAt: follow.createdAt,
+        };
+      });
 
     logPerformance('Total request', overallStart);
 
