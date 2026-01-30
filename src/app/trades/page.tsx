@@ -51,6 +51,7 @@ interface Trade {
   totalSellNotional?: number;
   priceVerified: boolean;
   createdAt: string;
+  isFollowedTrade?: boolean;
   fills?: Array<{
     _id: string;
     contracts: number;
