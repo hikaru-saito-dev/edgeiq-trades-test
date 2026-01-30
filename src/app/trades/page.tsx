@@ -51,6 +51,8 @@ interface Trade {
   totalSellNotional?: number;
   priceVerified: boolean;
   createdAt: string;
+  /** Broker execution time (when order was placed/filled on broker); preferred for display over createdAt. */
+  tradeExecutedAt?: string | null;
   isFollowedTrade?: boolean;
   fills?: Array<{
     _id: string;

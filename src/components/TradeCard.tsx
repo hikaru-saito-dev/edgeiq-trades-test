@@ -61,7 +61,7 @@ interface TradeCardProps {
     totalSellNotional?: number;
     priceVerified: boolean;
     createdAt: string;
-    tradeExecutedAt?: string; // Timestamp when order was placed with broker
+    tradeExecutedAt?: string | null; // Timestamp when order was placed/filled on broker
     fills?: TradeFill[];
     actionStatus?: {
       action: 'follow' | 'fade';
@@ -311,12 +311,13 @@ export default function TradeCard({ trade, onUpdate, disableDelete, onAction }: 
                 <EventIcon fontSize="small" color="primary" />
                 <Typography
                   variant="body2"
+                  title={trade.tradeExecutedAt ? 'Executed at (broker)' : ''}
                   sx={{
                     color: 'text.secondary',
                     fontSize: { xs: '0.75rem', sm: '0.875rem' },
                   }}
                 >
-                  {new Date(trade.tradeExecutedAt || trade.createdAt).toLocaleString()}
+                  {new Date((trade.tradeExecutedAt) as string).toLocaleString()}
                 </Typography>
                 {!trade.priceVerified && (
                   <Chip
