@@ -107,6 +107,8 @@ export type FollowerBrokerResult = {
     brokerConnection: IBrokerConnection;
     executionPrice: number;
     executedAt?: Date;
+    /** True when execution price came from broker; false when we used creator fallback (fast path). */
+    priceFromBroker: boolean;
     brokerOrderId: string;
     brokerOrderDetails: Record<string, unknown>;
     brokerCostInfo: {
@@ -169,12 +171,14 @@ export async function getEligibleAutoIQFollowersWithBrokers(
 
 /**
  * Execute follower's broker order only (no DB write). Used for parallel execution with creator.
- * Returns result if successful and execution price confirmed; null otherwise.
+ * Uses a SHORT wait for execution price (default 10s) so follower trade appears in ~5–10 sec like settle.
+ * If broker doesn't return price in time, uses creatorFillPrice so we can persist and notify immediately.
  */
 export async function executeFollowerBrokerOrder(
     orderParams: AutoIQOrderParams,
     follower: IUser,
-    brokerConnection: IBrokerConnection
+    brokerConnection: IBrokerConnection,
+    creatorFillPrice: number
 ): Promise<FollowerBrokerResult | null> {
     const tempTrade = {
         userId: follower._id,
@@ -185,7 +189,7 @@ export async function executeFollowerBrokerOrder(
         strike: orderParams.strike,
         optionType: orderParams.optionType,
         expiryDate: orderParams.expiryDate,
-        fillPrice: 0, // market; broker returns execution price
+        fillPrice: 0,
         optionContract: orderParams.optionContract,
         refPrice: orderParams.refPrice,
         refTimestamp: orderParams.refTimestamp,
@@ -196,22 +200,31 @@ export async function executeFollowerBrokerOrder(
         const result = await broker.placeOptionOrder(tempTrade, 'BUY', orderParams.contracts);
         if (!result.success || !result.orderId) return null;
 
+        const creatorPrice = Number.isFinite(creatorFillPrice) && creatorFillPrice > 0 ? creatorFillPrice : 0;
         let executionPrice: number | null | undefined = result.executionPrice;
         let executedAt: Date | undefined = result.executedAt ?? undefined;
 
+        // Short wait only (e.g. 10s) so follower sees trade in seconds; fallback to creator price.
+        const maxWaitMs = Math.min(
+            90000,
+            Math.max(3000, parseInt(process.env.AUTOIQ_EXECUTION_PRICE_WAIT_MS || '10000', 10) || 10000)
+        );
         if (executionPrice === null || executionPrice === undefined) {
             const polled = await waitForSnapTradeExecutionPrice({
                 brokerConnection,
                 brokerageOrderId: result.orderId,
-                maxWaitMs: 90000,
+                maxWaitMs,
             });
             if (polled) {
                 executionPrice = polled.executionPrice;
                 executedAt = polled.executedAt ?? executedAt;
             }
         }
-        if (executionPrice === null || executionPrice === undefined) return null;
-        const num = typeof executionPrice === 'number' ? executionPrice : Number(executionPrice);
+
+        const priceFromBroker = executionPrice !== null && executionPrice !== undefined;
+        const num = priceFromBroker
+            ? (typeof executionPrice === 'number' ? executionPrice : Number(executionPrice))
+            : creatorPrice;
         if (!Number.isFinite(num) || num <= 0) return null;
 
         return {
@@ -219,6 +232,7 @@ export async function executeFollowerBrokerOrder(
             brokerConnection,
             executionPrice: num,
             executedAt,
+            priceFromBroker: !!priceFromBroker,
             brokerOrderId: result.orderId,
             brokerOrderDetails: (result.orderDetails as Record<string, unknown>) || {},
             brokerCostInfo: result.costInfo ?? {
@@ -242,63 +256,107 @@ export async function persistFollowerTradesAndNotify(
     creatorUser: IUser,
     results: FollowerBrokerResult[]
 ): Promise<void> {
-    for (const r of results) {
-        const existing = await FollowedTradeAction.findOne({
-            followerWhopUserId: r.follower.whopUserId,
-            originalTradeId: creatorTrade._id,
-            action: 'follow',
-        });
-        if (existing) continue;
+    if (!results.length) return;
 
-        const followerTradeData: Partial<ITrade> = {
-            userId: r.follower._id as Types.ObjectId,
-            whopUserId: r.follower.whopUserId,
-            side: 'BUY',
-            contracts: creatorTrade.contracts,
-            ticker: creatorTrade.ticker,
-            strike: creatorTrade.strike,
-            optionType: creatorTrade.optionType,
-            expiryDate: creatorTrade.expiryDate,
-            fillPrice: r.executionPrice,
-            status: 'OPEN',
-            priceVerified: true,
-            optionContract: creatorTrade.optionContract,
-            refPrice: creatorTrade.refPrice,
-            refTimestamp: creatorTrade.refTimestamp,
-            remainingOpenContracts: creatorTrade.contracts,
-            totalBuyNotional: creatorTrade.contracts * r.executionPrice * 100,
-            isMarketOrder: true,
-            brokerConnectionId: r.brokerConnection._id as Types.ObjectId,
-            brokerOrderId: r.brokerOrderId,
-            brokerOrderDetails: r.brokerOrderDetails,
-            brokerCostInfo: r.brokerCostInfo,
-            tradeExecutedAt: r.executedAt,
-        };
+    // Concurrency matters: sequential DB + Pusher per follower can easily add up to minutes.
+    const concurrency = Math.max(1, Math.min(10, parseInt(process.env.AUTOIQ_FOLLOWER_PERSIST_CONCURRENCY || '5', 10) || 5));
+    let idx = 0;
 
-        const followerTrade = new Trade(followerTradeData);
-        await followerTrade.save();
+    const workers = Array.from({ length: Math.min(concurrency, results.length) }, async () => {
+        while (true) {
+            const cur = idx++;
+            const r = results[cur];
+            if (!r) break;
 
-        // Follower's trade page: push only after this follower's trade is created and stored (see save() above).
-        try {
-            await triggerUserEvent(r.follower.whopUserId, 'trade.created', {
-                type: 'autoiq.trade.created',
-                tradeId: String(followerTrade._id),
-                originalTradeId: String(creatorTrade._id),
-                creatorWhopUserId: creatorUser.whopUserId,
-                createdAt: followerTrade.createdAt,
-            });
-        } catch {
-            // ignore
+            try {
+                // Fast skip if already linked (prevents duplicate trades)
+                const existing = await FollowedTradeAction.findOne({
+                    followerWhopUserId: r.follower.whopUserId,
+                    originalTradeId: creatorTrade._id,
+                }).select('_id').lean();
+                if (existing) continue;
+
+                const followerTradeData: Partial<ITrade> = {
+                    userId: r.follower._id as Types.ObjectId,
+                    whopUserId: r.follower.whopUserId,
+                    side: 'BUY',
+                    contracts: creatorTrade.contracts,
+                    ticker: creatorTrade.ticker,
+                    strike: creatorTrade.strike,
+                    optionType: creatorTrade.optionType,
+                    expiryDate: creatorTrade.expiryDate,
+                    fillPrice: r.executionPrice,
+                    status: 'OPEN',
+                    priceVerified: r.priceFromBroker,
+                    optionContract: creatorTrade.optionContract,
+                    refPrice: creatorTrade.refPrice,
+                    refTimestamp: creatorTrade.refTimestamp,
+                    remainingOpenContracts: creatorTrade.contracts,
+                    totalBuyNotional: creatorTrade.contracts * r.executionPrice * 100,
+                    isMarketOrder: true,
+                    brokerConnectionId: r.brokerConnection._id as Types.ObjectId,
+                    brokerOrderId: r.brokerOrderId,
+                    brokerOrderDetails: r.brokerOrderDetails,
+                    brokerCostInfo: r.brokerCostInfo,
+                    tradeExecutedAt: r.executedAt,
+                };
+
+                const followerTrade = new Trade(followerTradeData);
+                await followerTrade.save();
+
+                // Create the FollowedTradeAction FIRST so that a refetch triggered by Pusher
+                // immediately returns `isFollowedTrade: true` and doesn't flash Settle/Delete.
+                const upsertRes = await FollowedTradeAction.updateOne(
+                    {
+                        followerWhopUserId: r.follower.whopUserId,
+                        originalTradeId: creatorTrade._id,
+                    },
+                    {
+                        $setOnInsert: {
+                            followerUserId: r.follower._id,
+                            followerWhopUserId: r.follower.whopUserId,
+                            originalTradeId: creatorTrade._id,
+                            action: 'follow',
+                            followedTradeId: followerTrade._id,
+                        },
+                    },
+                    { upsert: true }
+                );
+
+                // If it already existed (race/duplicate), delete the new trade and skip notifying.
+                // upsertedCount is available in modern drivers; fall back to checking upsertedId shape.
+                const inserted = (upsertRes as unknown as { upsertedCount?: number; upsertedId?: unknown }).upsertedCount
+                    ? (upsertRes as unknown as { upsertedCount: number }).upsertedCount > 0
+                    : Boolean((upsertRes as unknown as { upsertedId?: unknown }).upsertedId);
+
+                if (!inserted) {
+                    await Trade.deleteOne({ _id: followerTrade._id }).catch(() => undefined);
+                    continue;
+                }
+
+                // Follower's trade page: push only after trade + link are stored.
+                try {
+                    await triggerUserEvent(r.follower.whopUserId, 'trade.created', {
+                        type: 'autoiq.trade.created',
+                        tradeId: String(followerTrade._id),
+                        originalTradeId: String(creatorTrade._id),
+                        creatorWhopUserId: creatorUser.whopUserId,
+                        createdAt: followerTrade.createdAt,
+                    });
+                } catch {
+                    // ignore
+                }
+            } catch (e) {
+                console.error('[AutoIQ] persistFollowerTradesAndNotify failed', {
+                    followerWhopUserId: r.follower?.whopUserId,
+                    originalTradeId: String(creatorTrade._id),
+                    error: e instanceof Error ? e.message : String(e),
+                });
+            }
         }
+    });
 
-        await FollowedTradeAction.create({
-            followerUserId: r.follower._id,
-            followerWhopUserId: r.follower.whopUserId,
-            originalTradeId: creatorTrade._id,
-            action: 'follow',
-            followedTradeId: followerTrade._id,
-        });
-    }
+    await Promise.all(workers);
 }
 
 /**

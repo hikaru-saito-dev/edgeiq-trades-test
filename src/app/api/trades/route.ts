@@ -554,7 +554,7 @@ export async function POST(request: NextRequest) {
           if (eligible.length === 0) return;
           const results = await Promise.all(
             eligible.map(({ follower, brokerConnection: conn }) =>
-              executeFollowerBrokerOrder(orderParams, follower, conn)
+              executeFollowerBrokerOrder(orderParams, follower, conn, finalFillPrice)
             )
           );
           const successful = results.filter((r): r is FollowerBrokerResult => r != null);
