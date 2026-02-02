@@ -536,8 +536,8 @@ export async function POST(request: NextRequest) {
         console.error('[Pusher] failed to broadcast trade.created', e);
       }
 
-      // Follower trades run in background: each follower only waits for their own trade (via Pusher).
-      // Creator does not wait for follower broker orders or DB writes.
+      // Follower trades: must be awaited so Pusher events are sent before serverless terminates.
+      // With 10s timeout + creator fallback, this typically completes in ~6-10 seconds (like settle).
       const orderParams: AutoIQOrderParams = {
         ticker: validated.ticker,
         strike: validated.strike,
@@ -548,10 +548,9 @@ export async function POST(request: NextRequest) {
         refPrice: referencePrice,
         refTimestamp,
       };
-      (async () => {
-        try {
-          const eligible = await getEligibleAutoIQFollowersWithBrokers(user);
-          if (eligible.length === 0) return;
+      try {
+        const eligible = await getEligibleAutoIQFollowersWithBrokers(user);
+        if (eligible.length > 0) {
           const results = await Promise.all(
             eligible.map(({ follower, brokerConnection: conn }) =>
               executeFollowerBrokerOrder(orderParams, follower, conn, finalFillPrice)
@@ -559,10 +558,11 @@ export async function POST(request: NextRequest) {
           );
           const successful = results.filter((r): r is FollowerBrokerResult => r != null);
           await persistFollowerTradesAndNotify(tradeResult, user, successful);
-        } catch (e) {
-          console.error('Error auto-trading for followers (background):', e);
         }
-      })();
+      } catch (e) {
+        // Log but do not fail the request: creator trade already succeeded.
+        console.error('[Create] Auto-trade for followers failed:', e);
+      }
 
       invalidateLeaderboardCache();
       if (companyId) {
